@@ -115,6 +115,7 @@ export interface InputProps extends TextInputProps {
 export interface CustomButtonProps extends TouchableOpacityProps {
   style?: ViewStyle;
   onPress?: () => void;
+  color? : string;
   loading?: boolean;
   children: React.ReactNode;
 }
