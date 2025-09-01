@@ -9,7 +9,7 @@ const Button = ({
   style,
   onPress,
   loading = false,
-  color = colors.blue,
+  color = colors.blue100,
   children
 }: CustomButtonProps) => {
 
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   button:{
     borderRadius:radius._15,
     borderCurve : 'continuous',
-    height : verticalScale(52),
+    height : verticalScale(60),
     justifyContent : 'center',
     alignItems : "center",
   }

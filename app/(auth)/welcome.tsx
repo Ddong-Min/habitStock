@@ -11,9 +11,6 @@ const Welcome = () => {
     <ScreenWrapper>
       <View style={styles.container}>
         <View>
-          <TouchableOpacity style={styles.loginButton}>
-            <Typo fontWeight={"500"}>Sign in</Typo>
-          </TouchableOpacity>
           <Image
             source={require("../../assets/images/habitStockLogo.png")}
             style={styles.welcomeImage}
@@ -22,11 +19,11 @@ const Welcome = () => {
         </View>
 
         <View style={styles.buttonContainer}>
-          <Button>
-            <Typo>Login</Typo>
+          <Button color={colors.blue75}>
+            <Typo size={22} fontWeight={"600"}>로그인</Typo>
           </Button>
-          <Button color="red">
-            <Typo>register</Typo>
+          <Button color={colors.red75}>
+            <Typo size={22} fontWeight={"600"}>회원가입</Typo>
           </Button>
         </View>
       </View>
@@ -44,17 +41,14 @@ const styles = StyleSheet.create({
   },
   welcomeImage: {
     width: "100%",
-    height: verticalScale(250),
+    height: verticalScale(280),
     alignSelf: "center",
-    marginTop: verticalScale(100),
+    marginTop: verticalScale(130),
   },
-  loginButton: {
-    alignSelf: "flex-end",
-    marginRight: spacingX._20,
-  },
-
   buttonContainer: {
     width: "100%",
     paddingHorizontal: spacingX._25,
+    gap: spacingY._15,
+    marginBottom: spacingY._70,
   },
 });
