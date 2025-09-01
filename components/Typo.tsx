@@ -16,6 +16,7 @@ const Typo = ({
     fontSize: size ? verticalScale(size) : verticalScale(16),
     color,
     fontWeight,
+    fontFamily : 'Outfit-ExtraBold'
   };
   return (
     <Text style={[textStyle, style]} {...textProps}>
