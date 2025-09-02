@@ -3,7 +3,7 @@ import React from "react";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import Typo from "@/components/Typo";
 import { colors, spacingX, spacingY } from "@/constants/theme";
-import { verticalScale } from "@/utils/styling";
+import { scale, verticalScale } from "@/utils/styling";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
 import { Link, router } from "expo-router";
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   },
   welcomeImage: {
     width: "100%",
-    height: verticalScale(260),
+    height: scale(260),
     alignSelf: "center",
     marginTop: verticalScale(130),
   },

@@ -14,7 +14,7 @@ export const colors = {
   blue75: "#0B6FF4BF", // 75%
   blue100: "#0B6FF4FF", // 100% (or just #0B6FF4)
   text: "#000",
-  textLight: "#737373",
+  textLight: "#a3a3a3",
   textLighter: "#d4d4d4",
   white: "#fff",
   black: "#000",
