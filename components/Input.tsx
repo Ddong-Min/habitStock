@@ -1,26 +1,19 @@
-import {
-  StyleSheet,
-  TextInput,
-  TextInputProps,
-  View,
-  TextStyle,
-  ViewStyle,
-} from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 import React from "react";
-import { colors } from "@/constants/theme";
+import { InputProps } from "@/types";
+import { colors, radius, spacingX } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
 
-interface InputProps extends TextInputProps {
-  containerStyle?: ViewStyle;
-  inputStyle?: TextStyle;
-}
-
-const Input = ({ containerStyle, inputStyle, ...props }: InputProps) => {
+const Input = (props: InputProps) => {
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View
+      style={[styles.container, props.containerStyle && props.containerStyle]}
+    >
+      {props.icon && props.icon}
       <TextInput
-        style={[styles.input, inputStyle]}
-        placeholderTextColor={colors.textLighter}
+        style={[styles.input, props.inputStyle]}
+        placeholderTextColor={colors.neutral400}
+        ref={props.inputRef && props.inputRef}
         {...props}
       />
     </View>
@@ -31,15 +24,19 @@ export default Input;
 
 const styles = StyleSheet.create({
   container: {
-    width: "100%",
+    flexDirection: "row",
+    height: verticalScale(54),
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.neutral300,
+    borderRadius: radius._17,
+    borderCurve: "continuous",
+    paddingHorizontal: spacingX._15,
+    gap: spacingX._10,
   },
   input: {
-    backgroundColor: colors.neutral100,
-    paddingVertical: verticalScale(15),
-    paddingHorizontal: verticalScale(20),
-    borderRadius: 12,
-    fontSize: verticalScale(16),
-    fontFamily: "Outfit-Regular",
-    color: colors.text,
+    flex: 1,
+    color: colors.black,
+    fontSize: verticalScale(14),
   },
 });

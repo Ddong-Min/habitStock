@@ -9,7 +9,7 @@ const Button = ({
   style,
   onPress,
   loading = false,
-  color = colors.blue100,
+  color = colors.blue75,
   children,
 }: CustomButtonProps) => {
   if (loading) {
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
   button: {
     borderRadius: radius._15,
     borderCurve: "continuous",
-    height: verticalScale(74),
+    height: verticalScale(68),
     justifyContent: "center",
     alignItems: "center",
   },

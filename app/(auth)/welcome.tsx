@@ -6,7 +6,7 @@ import { colors, spacingX, spacingY } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
 import Button from "@/components/Button";
 import Input from "@/components/Input";
-
+import { Link, router } from "expo-router";
 const Welcome = () => {
   return (
     <ScreenWrapper>
@@ -20,22 +20,22 @@ const Welcome = () => {
             />
           </View>
           <View style={styles.context}>
-            <Typo size={22} fontWeight={"600"}>
-              스스로를 상장하고{" "}
-            </Typo>
-            <Typo size={22} fontWeight={"600"}>
-              주가를 상승시켜 보세요.
+            <Typo size={18} fontWeight={"600"}>
+              스스로를 상장하고 주가를 상승시켜 보세요.
             </Typo>
           </View>
         </View>
         <View style={styles.buttonContainer}>
-          <Button color={colors.blue75}>
-            <Typo size={22} fontWeight={"600"}>
+          <Button
+            onPress={() => router.push("/(auth)/login")}
+            color={colors.blue75}
+          >
+            <Typo size={20} fontWeight={"600"}>
               이미 계정이 있습니다
             </Typo>
           </Button>
           <Button color={colors.red75}>
-            <Typo size={22} fontWeight={"600"}>
+            <Typo size={20} fontWeight={"600"}>
               처음입니다
             </Typo>
           </Button>
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   },
   welcomeImage: {
     width: "100%",
-    height: verticalScale(280),
+    height: verticalScale(260),
     alignSelf: "center",
     marginTop: verticalScale(130),
   },
