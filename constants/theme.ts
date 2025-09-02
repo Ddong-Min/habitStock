@@ -3,16 +3,16 @@ import { scale, verticalScale } from "@/utils/styling";
 export const colors = {
   sub: "#E5E5E5",
   main: "#3B91CB",
-  red25:  '#ED373840', // 25%
-  red50:  '#ED373880', // 50%
-  red75:  '#ED3738BF', // 75%
-  red100: '#ED3738FF', // 100% (or just #ED3738)
+  red25: "#ED373840", // 25%
+  red50: "#ED373880", // 50%
+  red75: "#ED3738BF", // 75%
+  red100: "#ED3738FF", // 100% (or just #ED3738)
 
   // Blue
-  blue25:  '#0B6FF440', // 25%
-  blue50:  '#0B6FF480', // 50%
-  blue75:  '#0B6FF4BF', // 75%
-  blue100: '#0B6FF4FF', // 100% (or just #0B6FF4)
+  blue25: "#0B6FF440", // 25%
+  blue50: "#0B6FF480", // 50%
+  blue75: "#0B6FF4BF", // 75%
+  blue100: "#0B6FF4FF", // 100% (or just #0B6FF4)
   text: "#000",
   textLight: "#737373",
   textLighter: "#d4d4d4",
@@ -60,6 +60,7 @@ export const spacingY = {
   _50: verticalScale(50),
   _60: verticalScale(60),
   _70: verticalScale(70),
+  _100: verticalScale(100),
 };
 
 export const radius = {
