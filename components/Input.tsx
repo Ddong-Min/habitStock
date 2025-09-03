@@ -25,7 +25,7 @@ export default Input;
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    height: verticalScale(60),
+    height: verticalScale(64),
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -38,6 +38,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: colors.black,
-    fontSize: verticalScale(16),
+    fontSize: verticalScale(20),
   },
 });

@@ -1,4 +1,4 @@
-import { StyleSheet, View, TouchableOpacity, Text, Alert } from "react-native";
+import { StyleSheet, View, TouchableOpacity, Text, Alert, Pressable } from "react-native";
 import React, { useState } from "react";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import Typo from "@/components/Typo";
@@ -71,13 +71,12 @@ const Register = () => {
           <Typo size={14} color={colors.textLight}>
             이미 계정이 있으신가요?{" "}
           </Typo>
-          <Link href="/login" asChild>
-            <TouchableOpacity>
-              <Typo size={14} fontWeight="600" color={colors.textLighter}>
-                로그인
-              </Typo>
-            </TouchableOpacity>
-          </Link>
+
+          <Pressable onPress={() => router.navigate("/(auth)/login")}>
+            <Typo size={14} fontWeight="600" color={colors.textLighter}>
+              로그인
+            </Typo>
+          </Pressable>
         </View>
       </View>
     </ScreenWrapper>

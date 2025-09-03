@@ -86,7 +86,7 @@ const Login = () => {
         </Button>
 
         <View style={styles.footer}>
-          <Pressable onPress={() => router.push("/(auth)/register")}>
+          <Pressable onPress={() => router.navigate("/(auth)/register")}>
             <Typo size={14} color={colors.textLight}>
               아직 계정이 없으신가요?{" "}
             </Typo>
