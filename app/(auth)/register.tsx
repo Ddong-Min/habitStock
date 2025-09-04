@@ -1,18 +1,28 @@
-import { StyleSheet, View, TouchableOpacity, Text, Alert, Pressable } from "react-native";
+import {
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  Text,
+  Alert,
+  Pressable,
+} from "react-native";
 import React, { useState } from "react";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import Typo from "@/components/Typo";
 import { colors } from "@/constants/theme";
-import { Link, router } from "expo-router";
+import { router } from "expo-router";
 import Input from "@/components/Input";
 import Button from "@/components/Button";
 import * as Icons from "phosphor-react-native";
+import { useAuth } from "@/contexts/authContext";
 
 const Register = () => {
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
+  const { register: registerUser } = useAuth();
   const handleRegister = () => {
     // 여기에 실제 회원가입 로직을 추가하세요 (e.g., Firebase, API 연동)
     if (!nickname || !email || !password) {
