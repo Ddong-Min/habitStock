@@ -5,7 +5,7 @@ import Button from "@/components/Button";
 import Typo from "@/components/Typo";
 import { signOut } from "firebase/auth";
 import { auth } from "@/config/firebase";
-import { useAuth } from "@/contexts/authContext";
+
 const Home = () => {
   const handleLogout = async () => {
     await signOut(auth);

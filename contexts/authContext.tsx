@@ -25,7 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           name: firebaseUser.displayName,
         });
         updateUserData(firebaseUser.uid);
-        
+
         router.replace("/(tabs)");
       } else {
         setUser(null);
@@ -74,10 +74,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const updateUserData = async (uid: string) => {
     try {
-      const docRef = doc(firestore, "users", uid);
-      const docSnap = await getDoc(docRef);
+      const docRef = doc(firestore, "users", uid); // users 컬렉션에서 uid 문서 참조 (즉, 주소를 받아오는거)
+      const docSnap = await getDoc(docRef); // 스냅샷 받아오기
       if (docSnap.exists()) {
-        const data = docSnap.data();
+        const data = docSnap.data(); // 스냅샷에서 데이터 꺼내기 (실제 데이터를 받아오는 부분)
         const userData: UserType = {
           uid: data?.uid,
           email: data?.email || null,
