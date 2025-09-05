@@ -15,6 +15,8 @@ import Input from "@/components/Input";
 import Button from "@/components/Button";
 import * as Icons from "phosphor-react-native";
 import { useAuth } from "@/contexts/authContext";
+import BackButton from "@/components/BackButton";
+import { verticalScale } from "@/utils/styling";
 
 const Register = () => {
   const [name, setName] = useState("");
@@ -44,6 +46,9 @@ const Register = () => {
 
   return (
     <ScreenWrapper>
+      <View style={{ position: "absolute", top: verticalScale(40), left: 20 }}>
+        <BackButton />
+      </View>
       <View style={styles.container}>
         <Typo size={32} fontWeight="700" style={styles.title}>
           회원가입

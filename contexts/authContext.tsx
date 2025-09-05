@@ -17,12 +17,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log("Auth State Changed: ", firebaseUser);
       if (firebaseUser) {
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           name: firebaseUser.displayName,
         });
+        updateUserData(firebaseUser.uid);
+        
         router.replace("/(tabs)");
       } else {
         setUser(null);
@@ -37,7 +40,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       await signInWithEmailAndPassword(auth, email, password);
       return { success: true };
     } catch (error: any) {
-      let msg = error.meesgage;
+      let msg = error.message;
+      if (msg.includes("(auth/invalid-credential)"))
+        msg = "이메일 또는 비밀번호가 올바르지 않습니다.";
+      else if (msg.includes("(auth/invalid-email)"))
+        msg = "이메일 형식이 올바르지 않습니다.";
+
       return { success: false, msg };
     }
   };
@@ -55,7 +63,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
       return { success: true };
     } catch (error: any) {
-      let msg = error.meesgage;
+      let msg = error.message;
+      if (msg.includes("(auth/email-already-in-use)"))
+        msg = "이미 사용 중인 이메일입니다.";
+      else if (msg.includes("(auth/invalid-email)"))
+        msg = "이메일 형식이 올바르지 않습니다.";
       return { success: false, msg };
     }
   };

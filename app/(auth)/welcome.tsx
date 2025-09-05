@@ -21,20 +21,23 @@ const Welcome = () => {
           </View>
           <View style={styles.context}>
             <Typo size={18} fontWeight={"600"}>
-              스스로를 상장하고 주가를 상승시켜 보세요.
+              자신을 상장하고 주가를 상승시켜 보세요.
             </Typo>
           </View>
         </View>
         <View style={styles.buttonContainer}>
           <Button
             onPress={() => router.push("/(auth)/login")}
-            color={colors.blue75}
+            color={colors.blue100}
           >
             <Typo size={20} fontWeight={"600"}>
               이미 계정이 있습니다
             </Typo>
           </Button>
-          <Button color={colors.red75}>
+          <Button
+            onPress={() => router.push("/(auth)/register")}
+            color={colors.red100}
+          >
             <Typo size={20} fontWeight={"600"}>
               처음입니다
             </Typo>

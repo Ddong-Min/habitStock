@@ -15,21 +15,25 @@ import { verticalScale } from "@/utils/styling";
 import BackButton from "@/components/BackButton";
 import * as Icons from "phosphor-react-native";
 import { router } from "expo-router";
+import { useAuth } from "@/contexts/authContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleLogin = () => {
-    // 여기에 실제 로그인 로직을 추가하세요 (e.g., Firebase, API 연동)
-    console.log("good to go");
+  const { login: loginUser } = useAuth();
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("입력 오류", "이메일과 비밀번호를 입력해주세요.");
       return;
     }
-    console.log("Logging in with:", { email, password });
-    // 로그인 성공 시 홈 화면으로 이동하는 로직 추가
+
+    setIsLoading(true);
+    const res = await loginUser(email, password);
+    setIsLoading(false);
+    if (!res.success) {
+      Alert.alert("로그인 실패", res.msg);
+    }
   };
 
   return (

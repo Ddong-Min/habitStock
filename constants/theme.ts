@@ -3,16 +3,23 @@ import { scale, verticalScale } from "@/utils/styling";
 export const colors = {
   sub: "#E5E5E5",
   main: "#3B91CB",
-  red25: "#ED373840", // 25%
-  red50: "#ED373880", // 50%
-  red75: "#ED3738BF", // 75%
-  red100: "#ED3738FF", // 100% (or just #ED3738)
-
+  //red25: "#ED373840", // 25%
+  //red50: "#ED373880", // 50%
+  //red75: "#ED3738BF", // 75%
+  //red100: "#ED3738FF", // 100% (or just #ED3738)
+  red25: "#d1706940",
+  red50: "#d1706980",
+  red75: "#d17069BF",
+  red100: "#d17069FF",
   // Blue
-  blue25: "#0B6FF440", // 25%
-  blue50: "#0B6FF480", // 50%
-  blue75: "#0B6FF4BF", // 75%
-  blue100: "#0B6FF4FF", // 100% (or just #0B6FF4)
+  //blue25: "#0B6FF440", // 25%
+  //blue50: "#0B6FF480", // 50%
+  //blue75: "#0B6FF4BF", // 75%
+  //blue100: "#0B6FF4FF", // 100% (or just #0B6FF4)
+  blue25: "#7693a540",
+  blue50: "#7693a580", // 50%
+  blue75: "#7693a5BF", // 75%
+  blue100: "#7693a5FF", // 100% (or just #0B6FF4)
   text: "#000",
   textLight: "#a3a3a3",
   textLighter: "#d4d4d4",
