@@ -17,21 +17,29 @@ import * as Icons from "phosphor-react-native";
 import { useAuth } from "@/contexts/authContext";
 
 const Register = () => {
-  const [nickname, setNickname] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const { register: registerUser } = useAuth();
-  const handleRegister = () => {
+  const handleRegister = async () => {
     // 여기에 실제 회원가입 로직을 추가하세요 (e.g., Firebase, API 연동)
-    if (!nickname || !email || !password) {
+    if (!name || !email || !password) {
       Alert.alert("입력 오류", "모든 필드를 입력해주세요.");
       return;
     }
-    console.log("Signing up with:", { nickname, email, password });
-    Alert.alert("회원가입 성공", "로그인 페이지로 이동합니다.");
-    router.replace("/login"); // 회원가입 성공 후 로그인 페이지로 이동
+    setIsLoading(true);
+    const res = await registerUser(email, password, name);
+    setIsLoading(false);
+    console.log("res", res);
+    if (!res.success) {
+      Alert.alert(
+        "회원가입 실패",
+        res.msg || "알 수 없는 오류가 발생했습니다."
+      );
+      return;
+    }
   };
 
   return (
@@ -44,8 +52,8 @@ const Register = () => {
         <View style={styles.formContainer}>
           <Input
             placeholder="이름"
-            value={nickname}
-            onChangeText={setNickname}
+            value={name}
+            onChangeText={setName}
             icon={
               <Icons.User size={26} color={colors.neutral300} weight="fill" />
             }
@@ -71,7 +79,7 @@ const Register = () => {
           />
         </View>
 
-        <Button onPress={handleRegister}>
+        <Button loading={isLoading} onPress={handleRegister}>
           <Typo size={20} fontWeight={"700"}>
             회원가입
           </Typo>
