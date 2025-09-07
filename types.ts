@@ -172,3 +172,17 @@ export type WalletType = {
   uid?: string;
   created?: Date;
 };
+
+export interface Task {
+  id: string;
+  text: string;
+  completed: boolean;
+  percentage: string;
+}
+
+export interface TasksState {
+  easy: Task[];
+  medium: Task[];
+  hard: Task[];
+  extreme: Task[];
+}
