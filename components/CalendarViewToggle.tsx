@@ -1,30 +1,33 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import Typo from './Typo';
-import { colors, spacingX, spacingY, radius } from '../constants/theme';
+import React from "react";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
+import Typo from "./Typo";
+import { colors, spacingX, spacingY, radius } from "../constants/theme";
 
-type ViewMode = 'week' | 'month';
+type ViewMode = "week" | "month";
 
 interface CalendarViewToggleProps {
   viewMode: ViewMode;
   onToggle: (mode: ViewMode) => void;
 }
 
-const CalendarViewToggle: React.FC<CalendarViewToggleProps> = ({ viewMode, onToggle }) => {
+const CalendarViewToggle: React.FC<CalendarViewToggleProps> = ({
+  viewMode,
+  onToggle,
+}) => {
   return (
     <View style={styles.container}>
       <View style={styles.toggleContainer}>
         <TouchableOpacity
           style={[
             styles.toggleButton,
-            viewMode === 'week' && styles.activeButton,
+            viewMode === "week" && styles.activeButton,
           ]}
-          onPress={() => onToggle('week')}
+          onPress={() => onToggle("week")}
         >
           <Typo
             size={14}
             fontWeight="600"
-            color={viewMode === 'week' ? colors.white : colors.textLight}
+            color={viewMode === "week" ? colors.white : colors.textLight}
           >
             주
           </Typo>
@@ -32,14 +35,14 @@ const CalendarViewToggle: React.FC<CalendarViewToggleProps> = ({ viewMode, onTog
         <TouchableOpacity
           style={[
             styles.toggleButton,
-            viewMode === 'month' && styles.activeButton,
+            viewMode === "month" && styles.activeButton,
           ]}
-          onPress={() => onToggle('month')}
+          onPress={() => onToggle("month")}
         >
           <Typo
             size={14}
             fontWeight="600"
-            color={viewMode === 'month' ? colors.white : colors.textLight}
+            color={viewMode === "month" ? colors.white : colors.textLight}
           >
             월
           </Typo>
@@ -51,20 +54,20 @@ const CalendarViewToggle: React.FC<CalendarViewToggleProps> = ({ viewMode, onTog
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
-    paddingVertical: spacingY._10,
+    alignItems: "center",
+
     backgroundColor: colors.white,
   },
   toggleContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: colors.neutral100,
-    borderRadius: radius._30,
+    borderRadius: radius._10,
     padding: spacingX._3,
   },
   toggleButton: {
-    paddingVertical: spacingY._7,
-    paddingHorizontal: spacingX._20,
-    borderRadius: radius._30,
+    paddingVertical: spacingY._5,
+    paddingHorizontal: spacingX._12,
+    borderRadius: radius._10,
   },
   activeButton: {
     backgroundColor: colors.main,

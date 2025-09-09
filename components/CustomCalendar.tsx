@@ -1,5 +1,3 @@
-// components/CustomCalendar.tsx
-
 import React, { useState, useRef, useEffect } from "react";
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { CalendarList, WeekCalendar } from "react-native-calendars";
@@ -7,12 +5,20 @@ import {
   format,
   addMonths,
   addWeeks,
-  getDate,
-  startOfMonth,
-  getDay,
+  getDate, //return day of month (ex. if date is 2024-10-05, return 5)
+  startOfMonth, //return first day of month (ex. if date is 2024-10-05, return 2024-10-01)
+  getDay, //return day of week (0 is Sunday, 1 is Monday, ..., 6 is Saturday)
 } from "date-fns";
 import CalendarViewToggle from "./CalendarViewToggle";
 
+import { CustomCalendarProps } from "@/types";
+import { colors, spacingX, spacingY } from "@/constants/theme";
+const today = format(new Date(), "yyyy-MM-dd");
+
+//calculate week of month
+//if date is 2024-10-05, return 1 (it means that day is in first week of month)
+//if date is 2024-10-15, return 3
+//if date is 2024-10-25, return 4
 const getWeekOfMonth = (date: Date) => {
   const firstDayOfMonth = startOfMonth(date);
   const firstDayOfWeek = getDay(firstDayOfMonth);
@@ -20,19 +26,14 @@ const getWeekOfMonth = (date: Date) => {
   return Math.ceil((dayOfMonth + firstDayOfWeek) / 7);
 };
 
-interface CustomCalendarProps {
-  selectedDate: string;
-  onDateSelect: (date: string) => void;
-}
-
 const CustomCalendar = ({
   selectedDate,
   onDateSelect,
 }: CustomCalendarProps) => {
-  const [isWeekView, setIsWeekView] = useState(false);
+  const [isWeekView, setIsWeekView] = useState(true);
   const calendarListRef = useRef<{ scrollToMonth: (date: string) => void }>(
     null
-  );
+  ); //if i git it a date string like "2024-10-05", it scrolls to that month
 
   const currentDate = new Date(selectedDate);
 
@@ -73,18 +74,18 @@ const CustomCalendar = ({
   }, [selectedDate, isWeekView]);
 
   const headerText = isWeekView
-    ? `${format(currentDate, "MM월")} ${getWeekOfMonth(currentDate)}주차`
+    ? `${format(currentDate, "yyyy년 MM월")} ${getWeekOfMonth(currentDate)}주차`
     : format(currentDate, "yyyy년 MM월");
 
   return (
     <View style={styles.container}>
       <View style={styles.customHeader}>
         <Text style={styles.monthText}>{headerText}</Text>
-        <CalendarViewToggle
-          viewMode={isWeekView ? "week" : "month"}
-          onToggle={handleViewToggle}
-        />
-        <View style={{ flexDirection: "row" }}>
+        <View style={styles.controlsContainer}>
+          <CalendarViewToggle
+            viewMode={isWeekView ? "week" : "month"}
+            onToggle={handleViewToggle}
+          />
           <TouchableOpacity onPress={handlePrevious} style={styles.arrow}>
             <Text style={styles.arrowText}>{"<"}</Text>
           </TouchableOpacity>
@@ -96,58 +97,107 @@ const CustomCalendar = ({
 
       {isWeekView ? (
         <WeekCalendar
-          key={selectedDate} // 주간 보기는 key로 제어 (유지)
+          key={selectedDate}
           current={selectedDate}
           onDayPress={(day) => onDateSelect(day.dateString)}
           markedDates={{
-            [selectedDate]: { selected: true, selectedColor: "#6a0dad" },
+            [today]: {
+              customStyles: {
+                text: {
+                  color: colors.main, // 오늘 날짜는 메인 색상
+                  fontWeight: "bold",
+                },
+              },
+            },
+            [selectedDate]: {
+              selected: true,
+              customStyles: {
+                container: {
+                  backgroundColor: colors.main,
+                  borderRadius: 20,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  width: 32,
+                  height: 32,
+                  alignSelf: "center",
+                },
+                text: {
+                  color: "white",
+                  fontWeight: "bold",
+                },
+              },
+            },
           }}
-          theme={calendarTheme}
+          markingType={"custom"}
         />
       ) : (
         <CalendarList
-          // ******** 월간 보기에서는 key를 제거하고 ref로만 제어 ********
           ref={calendarListRef}
-          current={selectedDate} // current prop 추가하여 초기 월 설정
+          calendarHeight={320}
+          current={selectedDate}
           onDayPress={(day) => onDateSelect(day.dateString)}
           markedDates={{
-            [selectedDate]: { selected: true, selectedColor: "#6a0dad" },
+            [today]: {
+              customStyles: {
+                text: {
+                  color: colors.main,
+                  fontWeight: "bold",
+                },
+              },
+            },
+            [selectedDate]: {
+              selected: true,
+              customStyles: {
+                container: {
+                  backgroundColor: colors.main,
+                  borderRadius: 20,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  width: 32,
+                  height: 32,
+                  alignSelf: "center",
+                },
+                text: {
+                  color: "white",
+                  fontWeight: "bold",
+                },
+              },
+            },
           }}
-          horizontal={true}
-          pagingEnabled={true}
+          markingType={"custom"}
+          horizontal
+          pagingEnabled
           renderHeader={() => null}
           onVisibleMonthsChange={onVisibleMonthsChange}
           pastScrollRange={12}
           futureScrollRange={12}
           showScrollIndicator={false}
-          theme={calendarTheme}
         />
       )}
     </View>
   );
 };
 
-// ... styles and theme ... (이전과 동일)
-const calendarTheme = {
-  selectedDayBackgroundColor: "#6a0dad",
-  arrowColor: "#6a0dad",
-  dotColor: "#6a0dad",
-  todayTextColor: "#6a0dad",
-};
-
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+  },
   customHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: spacingX._20,
+    paddingVertical: spacingY._5,
     backgroundColor: "white",
   },
   monthText: { fontSize: 18, fontWeight: "bold" },
-  arrow: { padding: 10 },
-  arrowText: { fontSize: 22, color: "#007aff" },
+  arrow: { padding: spacingX._5, marginTop: spacingY._5 },
+  arrowText: { fontSize: 22, color: colors.black },
+  controlsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacingX._10,
+  },
 });
 
 export default CustomCalendar;

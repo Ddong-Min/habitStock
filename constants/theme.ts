@@ -2,7 +2,7 @@ import { scale, verticalScale } from "@/utils/styling";
 
 export const colors = {
   sub: "#E5E5E5",
-  main: "#3B91CB",
+  main: "#5aa5d8ff",
   //red25: "#ED373840", // 25%
   //red50: "#ED373880", // 50%
   //red75: "#ED3738BF", // 75%
@@ -50,6 +50,7 @@ export const spacingX = {
   _30: scale(30),
   _35: scale(35),
   _40: scale(40),
+  _50: scale(50),
 };
 
 export const spacingY = {

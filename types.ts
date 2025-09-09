@@ -115,7 +115,7 @@ export interface InputProps extends TextInputProps {
 export interface CustomButtonProps extends TouchableOpacityProps {
   style?: ViewStyle;
   onPress?: () => void;
-  color? : string;
+  color?: string;
   loading?: boolean;
   children: React.ReactNode;
 }
@@ -185,4 +185,9 @@ export interface TasksState {
   medium: Task[];
   hard: Task[];
   extreme: Task[];
+}
+
+export interface CustomCalendarProps {
+  selectedDate: string;
+  onDateSelect: (date: string) => void;
 }
