@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
-import { CalendarList, WeekCalendar } from "react-native-calendars";
+import {
+  CalendarList,
+  CalendarProvider,
+  WeekCalendar,
+} from "react-native-calendars";
 import {
   format,
   addMonths,
@@ -96,40 +100,44 @@ const CustomCalendar = ({
       </View>
 
       {isWeekView ? (
-        <WeekCalendar
-          key={selectedDate}
-          current={selectedDate}
-          onDayPress={(day) => onDateSelect(day.dateString)}
-          markedDates={{
-            [today]: {
-              customStyles: {
-                text: {
-                  color: colors.main, // 오늘 날짜는 메인 색상
-                  fontWeight: "bold",
+        <CalendarProvider
+          date={selectedDate} // syncs selected date with provider
+          onDateChanged={onDateSelect} // update when user selects a new day
+        >
+          <WeekCalendar
+            current={selectedDate}
+            onDayPress={(day) => onDateSelect(day.dateString)}
+            markedDates={{
+              [today]: {
+                customStyles: {
+                  text: {
+                    color: colors.main,
+                    fontWeight: "bold",
+                  },
                 },
               },
-            },
-            [selectedDate]: {
-              selected: true,
-              customStyles: {
-                container: {
-                  backgroundColor: colors.main,
-                  borderRadius: 20,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  width: 32,
-                  height: 32,
-                  alignSelf: "center",
-                },
-                text: {
-                  color: "white",
-                  fontWeight: "bold",
+              [selectedDate]: {
+                selected: true,
+                customStyles: {
+                  container: {
+                    backgroundColor: colors.main,
+                    borderRadius: 20,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    width: 32,
+                    height: 32,
+                    alignSelf: "center",
+                  },
+                  text: {
+                    color: "white",
+                    fontWeight: "bold",
+                  },
                 },
               },
-            },
-          }}
-          markingType={"custom"}
-        />
+            }}
+            markingType="custom"
+          />
+        </CalendarProvider>
       ) : (
         <CalendarList
           ref={calendarListRef}
@@ -190,9 +198,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacingY._5,
     backgroundColor: "white",
   },
-  monthText: { fontSize: 18, fontWeight: "bold" },
-  arrow: { padding: spacingX._5, marginTop: spacingY._5 },
-  arrowText: { fontSize: 22, color: colors.black },
+  monthText: { fontSize: 22, fontWeight: "bold" },
+  arrow: { padding: spacingX._5 },
+  arrowText: { fontSize: 30, color: colors.black },
   controlsContainer: {
     flexDirection: "row",
     alignItems: "center",

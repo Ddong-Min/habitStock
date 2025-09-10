@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacingX._40,
     borderBottomWidth: 1,
     borderBottomColor: colors.sub,
+    backgroundColor: colors.white,
   },
   toggleButton: {
     paddingVertical: spacingY._15,
