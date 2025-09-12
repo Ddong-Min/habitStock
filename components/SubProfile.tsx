@@ -10,7 +10,7 @@ interface ProfileProps {
   changePercentage: number;
 }
 
-const Profile: React.FC<ProfileProps> = ({
+const SubProfile: React.FC<ProfileProps> = ({
   name,
   price,
   changeValue,
@@ -22,7 +22,7 @@ const Profile: React.FC<ProfileProps> = ({
   return (
     <View style={styles.container}>
       <Image
-        source={require("../assets/images/adaptive-icon.png")}
+        source={require("../assets/images/profile.png")}
         style={styles.avatar}
       />
       <View style={styles.userInfo}>
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     width: spacingX._50,
     height: spacingX._50,
     borderRadius: radius._30,
-    marginRight: spacingX._15,
+    marginRight: spacingX._20,
   },
   userInfo: {
     flex: 1,
@@ -66,4 +66,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Profile;
+export default SubProfile;

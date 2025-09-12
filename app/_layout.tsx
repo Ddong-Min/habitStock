@@ -1,25 +1,33 @@
-import { StyleSheet, Text, View } from 'react-native'
-import React from 'react'
-import { Stack } from 'expo-router'
-import { AuthProvider } from '@/contexts/authContext'
-// 1. GestureHandlerRootView를 import 합니다.
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { StyleSheet } from "react-native";
+import React from "react";
+import { Stack } from "expo-router";
+import { AuthProvider } from "@/contexts/authContext";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import ScreenWrapper from "@/components/ScreenWrapper";
 
 const StackLayout = () => {
   return (
-    <Stack screenOptions = {{headerShown : false}}></Stack>
-  )
-}
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        // 모든 스크린을 ScreenWrapper로 감싸줌
+        contentStyle: { flex: 1 },
+      }}
+    />
+  );
+};
 
 export default function RootLayout() {
-  return(
-    // 2. AuthProvider 바깥을 GestureHandlerRootView로 감싸줍니다.
+  return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <StackLayout />
+        {/* ScreenWrapper가 Stack 전체를 감싸게 */}
+        <ScreenWrapper>
+          <StackLayout />
+        </ScreenWrapper>
       </AuthProvider>
     </GestureHandlerRootView>
-  )
+  );
 }
 
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({});

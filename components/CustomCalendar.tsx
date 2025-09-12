@@ -9,26 +9,45 @@ import {
   format,
   addMonths,
   addWeeks,
-  getDate, //return day of month (ex. if date is 2024-10-05, return 5)
-  startOfMonth, //return first day of month (ex. if date is 2024-10-05, return 2024-10-01)
-  getDay, //return day of week (0 is Sunday, 1 is Monday, ..., 6 is Saturday)
+  getDate,
+  startOfMonth,
+  getDay,
 } from "date-fns";
 import CalendarViewToggle from "./CalendarViewToggle";
-
 import { CustomCalendarProps } from "@/types";
 import { colors, spacingX, spacingY } from "@/constants/theme";
+
 const today = format(new Date(), "yyyy-MM-dd");
 
-//calculate week of month
-//if date is 2024-10-05, return 1 (it means that day is in first week of month)
-//if date is 2024-10-15, return 3
-//if date is 2024-10-25, return 4
+// Utility: get week number of month
 const getWeekOfMonth = (date: Date) => {
-  const firstDayOfMonth = startOfMonth(date);
-  const firstDayOfWeek = getDay(firstDayOfMonth);
-  const dayOfMonth = getDate(date);
-  return Math.ceil((dayOfMonth + firstDayOfWeek) / 7);
+  const firstDay = startOfMonth(date);
+  return Math.ceil((getDate(date) + getDay(firstDay)) / 7);
 };
+
+// Utility: create marked dates
+const getMarkedDates = (selectedDate: string) => ({
+  [today]: {
+    customStyles: {
+      text: { color: colors.main, fontWeight: "600" },
+    },
+  },
+  [selectedDate]: {
+    selected: true,
+    customStyles: {
+      container: {
+        backgroundColor: colors.main,
+        borderRadius: 20,
+        justifyContent: "center",
+        alignItems: "center",
+        width: 32,
+        height: 32,
+        alignSelf: "center",
+      },
+      text: { color: "white", fontWeight: "bold" as const},
+    },
+  },
+});
 
 const CustomCalendar = ({
   selectedDate,
@@ -37,149 +56,89 @@ const CustomCalendar = ({
   const [isWeekView, setIsWeekView] = useState(true);
   const calendarListRef = useRef<{ scrollToMonth: (date: string) => void }>(
     null
-  ); //if i git it a date string like "2024-10-05", it scrolls to that month
+  );
 
   const currentDate = new Date(selectedDate);
 
-  const handleNext = () => {
+  // Change date with direction (±1)
+  const handleChangeDate = (dir: number) => {
     const newDate = isWeekView
-      ? addWeeks(currentDate, 1)
-      : addMonths(currentDate, 1);
+      ? addWeeks(currentDate, dir)
+      : addMonths(currentDate, dir);
     onDateSelect(format(newDate, "yyyy-MM-dd"));
   };
 
-  const handlePrevious = () => {
-    const newDate = isWeekView
-      ? addWeeks(currentDate, -1)
-      : addMonths(currentDate, -1);
-    onDateSelect(format(newDate, "yyyy-MM-dd"));
-  };
-
-  const handleViewToggle = (mode: "week" | "month") => {
-    setIsWeekView(mode === "week");
-  };
-
-  const onVisibleMonthsChange = (months: any[]) => {
-    if (months.length > 0 && !isWeekView) {
-      const newCurrentDate = new Date(months[0].dateString);
-      if (
-        format(newCurrentDate, "yyyy-MM") !== format(currentDate, "yyyy-MM")
-      ) {
-        onDateSelect(format(newCurrentDate, "yyyy-MM-dd"));
-      }
-    }
-  };
-
+  // Scroll CalendarList when month view & date changes
   useEffect(() => {
-    // 월간 보기일 때, 그리고 ref가 연결되어 있을 때 스크롤 명령
     if (!isWeekView && calendarListRef.current) {
       calendarListRef.current.scrollToMonth(selectedDate);
     }
   }, [selectedDate, isWeekView]);
 
+  // Header text
   const headerText = isWeekView
     ? `${format(currentDate, "yyyy년 MM월")} ${getWeekOfMonth(currentDate)}주차`
     : format(currentDate, "yyyy년 MM월");
 
   return (
     <View style={styles.container}>
+      {/* Custom header */}
       <View style={styles.customHeader}>
         <Text style={styles.monthText}>{headerText}</Text>
         <View style={styles.controlsContainer}>
           <CalendarViewToggle
             viewMode={isWeekView ? "week" : "month"}
-            onToggle={handleViewToggle}
+            onToggle={(mode) => setIsWeekView(mode === "week")}
           />
-          <TouchableOpacity onPress={handlePrevious} style={styles.arrow}>
+          <TouchableOpacity
+            onPress={() => handleChangeDate(-1)}
+            style={styles.arrow}
+          >
             <Text style={styles.arrowText}>{"<"}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleNext} style={styles.arrow}>
+          <TouchableOpacity
+            onPress={() => handleChangeDate(1)}
+            style={styles.arrow}
+          >
             <Text style={styles.arrowText}>{">"}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* Calendar */}
       {isWeekView ? (
-        <CalendarProvider
-          date={selectedDate} // syncs selected date with provider
-          onDateChanged={onDateSelect} // update when user selects a new day
-        >
+        <CalendarProvider date={selectedDate} onDateChanged={onDateSelect}>
           <WeekCalendar
             current={selectedDate}
             onDayPress={(day) => onDateSelect(day.dateString)}
-            markedDates={{
-              [today]: {
-                customStyles: {
-                  text: {
-                    color: colors.main,
-                    fontWeight: "bold",
-                  },
-                },
-              },
-              [selectedDate]: {
-                selected: true,
-                customStyles: {
-                  container: {
-                    backgroundColor: colors.main,
-                    borderRadius: 20,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    width: 32,
-                    height: 32,
-                    alignSelf: "center",
-                  },
-                  text: {
-                    color: "white",
-                    fontWeight: "bold",
-                  },
-                },
-              },
-            }}
+            markedDates={getMarkedDates(selectedDate)}
             markingType="custom"
           />
         </CalendarProvider>
       ) : (
         <CalendarList
           ref={calendarListRef}
-          calendarHeight={320}
           current={selectedDate}
           onDayPress={(day) => onDateSelect(day.dateString)}
-          markedDates={{
-            [today]: {
-              customStyles: {
-                text: {
-                  color: colors.main,
-                  fontWeight: "bold",
-                },
-              },
-            },
-            [selectedDate]: {
-              selected: true,
-              customStyles: {
-                container: {
-                  backgroundColor: colors.main,
-                  borderRadius: 20,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  width: 32,
-                  height: 32,
-                  alignSelf: "center",
-                },
-                text: {
-                  color: "white",
-                  fontWeight: "bold",
-                },
-              },
-            },
-          }}
-          markingType={"custom"}
+          markedDates={getMarkedDates(selectedDate)}
+          markingType="custom"
+          calendarHeight={320}
           horizontal
           pagingEnabled
           renderHeader={() => null}
-          onVisibleMonthsChange={onVisibleMonthsChange}
           pastScrollRange={12}
           futureScrollRange={12}
           showScrollIndicator={false}
+          onVisibleMonthsChange={(months) => {
+            if (months.length > 0) {
+              const newMonth = new Date(months[0].dateString);
+              if (
+                format(newMonth, "yyyy-MM") !== format(currentDate, "yyyy-MM")
+              ) {
+                onDateSelect(format(newMonth, "yyyy-MM-dd"));
+              }
+            }
+          }}
         />
       )}
     </View>
@@ -187,9 +146,7 @@ const CustomCalendar = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   customHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -198,9 +155,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacingY._5,
     backgroundColor: "white",
   },
-  monthText: { fontSize: 22, fontWeight: "bold" },
+  monthText: { fontSize: spacingX._20, fontWeight: "bold" },
   arrow: { padding: spacingX._5 },
-  arrowText: { fontSize: 30, color: colors.black },
+  arrowText: { fontSize: spacingX._25, color: colors.black },
   controlsContainer: {
     flexDirection: "row",
     alignItems: "center",

@@ -55,7 +55,6 @@ const CalendarViewToggle: React.FC<CalendarViewToggleProps> = ({
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-
     backgroundColor: colors.white,
   },
   toggleContainer: {
@@ -65,7 +64,7 @@ const styles = StyleSheet.create({
     padding: spacingX._3,
   },
   toggleButton: {
-    paddingVertical: spacingY._5,
+    paddingVertical: spacingY._7,
     paddingHorizontal: spacingX._12,
     borderRadius: radius._10,
   },

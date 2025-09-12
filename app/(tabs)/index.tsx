@@ -1,13 +1,13 @@
 // app/(tabs)/index.tsx
 import React, { useState } from "react";
-import { SafeAreaView, StyleSheet, FlatList } from "react-native";
+import { StyleSheet, FlatList, View } from "react-native";
 import { colors } from "../../constants/theme";
-import Profile from "../../components/Profile";
 import CustomCalendar from "../../components/CustomCalendar";
 import TodoList from "../../components/TodoList";
 import { TasksState } from "../../types";
 import { format } from "date-fns";
 import Toggle from "@/components/Toggle";
+import SubProfile from "../../components/SubProfile";
 
 const initialTasks: TasksState = {
   easy: [
@@ -32,9 +32,9 @@ const TodoScreen = () => {
   const content = [{ key: "calendar" }, { key: "todo" }];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* 상단 고정 영역 */}
-      <Profile
+      <SubProfile
         name="Ddongmin (DMN)"
         price={1033}
         changeValue={-15}
@@ -45,7 +45,7 @@ const TodoScreen = () => {
       {/* 스크롤 영역 */}
       <FlatList
         data={content}
-        keyExtractor={(item) => item.key}
+        //keyExtractor={(item) => item.key} 이미 content에 key로 정의되어있어서 keyExtractor필요없음
         renderItem={({ item }) => {
           if (item.key === "calendar") {
             return (
@@ -62,7 +62,7 @@ const TodoScreen = () => {
         }}
         contentContainerStyle={styles.scrollContent}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
