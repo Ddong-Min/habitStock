@@ -22,7 +22,7 @@ const Profile: React.FC<ProfileProps> = ({
   return (
     <View style={styles.container}>
       <Image
-        source={require("../assets/images/adaptive-icon.png")}
+        source={require("../assets/images/tempProfile.png")}
         style={styles.avatar}
       />
       <View style={styles.userInfo}>
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: spacingY._30,
+    paddingTop: spacingY._20,
     paddingLeft: spacingX._20,
     backgroundColor: colors.white,
   },

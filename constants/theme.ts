@@ -1,4 +1,6 @@
+import { TasksState } from "@/types";
 import { scale, verticalScale } from "@/utils/styling";
+import { SimpleTask } from "react-native";
 
 export const colors = {
   sub: "#E5E5E5",
@@ -45,6 +47,7 @@ export const spacingX = {
   _10: scale(10),
   _12: scale(12),
   _15: scale(15),
+  _17: scale(17),
   _20: scale(20),
   _25: scale(25),
   _30: scale(30),
@@ -80,4 +83,12 @@ export const radius = {
   _17: verticalScale(17),
   _20: verticalScale(20),
   _30: verticalScale(30),
+};
+
+export const difficultyColors = (key: keyof TasksState) => {
+  if (key === "easy") return colors.blue100;
+  else if (key === "medium") return colors.blue75;
+  else if (key === "hard") return colors.red75;
+  else if (key === "extreme") return colors.red100;
+  return colors.sub;
 };

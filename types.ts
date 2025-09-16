@@ -191,3 +191,8 @@ export interface CustomCalendarProps {
   selectedDate: string;
   onDateSelect: (date: string) => void;
 }
+
+export interface TodoListProps {
+  tasks: TasksState;
+  onDragEnd: (tasks: TasksState) => void;
+}

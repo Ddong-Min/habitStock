@@ -1,7 +1,7 @@
 // app/(tabs)/index.tsx
 import React, { useState } from "react";
-import { SafeAreaView, StyleSheet, FlatList } from "react-native";
-import { colors } from "../../constants/theme";
+import { SafeAreaView, StyleSheet, FlatList, View } from "react-native";
+import { colors, spacingY } from "../../constants/theme";
 import Profile from "../../components/Profile";
 import CustomCalendar from "../../components/CustomCalendar";
 import TodoList from "../../components/TodoList";
@@ -56,7 +56,11 @@ const TodoScreen = () => {
             );
           }
           if (item.key === "todo") {
-            return <TodoList tasks={tasks} onDragEnd={setTasks} />;
+            return (
+              <View style={{ marginTop: spacingY._15 }}>
+                <TodoList tasks={tasks} onDragEnd={setTasks} />
+              </View>
+            );
           }
           return null;
         }}
