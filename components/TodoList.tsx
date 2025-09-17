@@ -6,7 +6,7 @@ import DraggableFlatList, {
 } from "react-native-draggable-flatlist";
 import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
-import { colors } from "@/constants/theme";
+import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { Task, TasksState, TodoListProps } from "@/types";
 import DifficultyHeader from "./DifficultyHeader";
 
@@ -17,7 +17,11 @@ type ListItem =
 
 const TodoList: React.FC<TodoListProps> = ({ tasks, onDragEnd }) => {
   // tasks 객체가 변경될 때만 데이터를 평탄화(flatten)합니다.
+  // useMemo를 사용하여 성능 최적화를 합니다.
+  // 서로 다른 type의 아이템들을 하나의 배열로 합칩니다.
+  /* flatData example : [{type: "header", difficulty : "easy"}, {id : 1, text : task1, type : "taks"}] */
   const flatData = useMemo(() => {
+    //as Array<keyof TasksState>를 사용하여 타입을 명시적으로 지정합니다.
     return (Object.keys(tasks) as Array<keyof TasksState>).flatMap(
       (difficulty) => [
         // 섹션 헤더 아이템 추가
@@ -31,6 +35,12 @@ const TodoList: React.FC<TodoListProps> = ({ tasks, onDragEnd }) => {
     );
   }, [tasks]);
 
+  /* 
+  renderItem 함수는 RenderItemParams<ListItem> 타입을 사용하여 각 아이템을 렌더링합니다.
+  item : 현재 렌더링할 아이템
+  drag : 드래그 시작 함수
+  isActive : 현재 아이템이 드래그 중인지 여부
+  */
   const renderItem = ({ item, drag, isActive }: RenderItemParams<ListItem>) => {
     // 아이템 타입에 따라 다른 컴포넌트를 렌더링합니다.
     if (item.type === "header") {
@@ -68,8 +78,8 @@ const TodoList: React.FC<TodoListProps> = ({ tasks, onDragEnd }) => {
                   : colors.blue100,
               }}
             >
-              {isPositive ? "▲" : "▼"}
-              {item.percentage}
+              {item.completed &&
+                `${isPositive ? "▲" : "▼"} ${item.percentage.substring(1)}`}
             </Typo>
           </View>
         </TouchableOpacity>
@@ -77,11 +87,15 @@ const TodoList: React.FC<TodoListProps> = ({ tasks, onDragEnd }) => {
     );
   };
 
+  /* DraggableFlatList의 data는 onDragEnd에서 drag and drop을 한 이후로 바뀐 순서를 복사해서 새로운 배열로써 보관합니다.
+    renderItem  : 각 아이템을 어떻게 그릴지에 대한 함수
+  */
   return (
     <View style={styles.container}>
       <DraggableFlatList
         data={flatData}
         onDragEnd={({ data }) => {
+          //data는 드래그가 끝난 후의 순서를 나타냅니다.
           // 드래그가 끝난 후, 평탄화된 배열을 다시 원래의 tasks 객체 구조로 변환합니다.
           const newTasks: TasksState = {
             easy: [],
@@ -106,7 +120,7 @@ const TodoList: React.FC<TodoListProps> = ({ tasks, onDragEnd }) => {
         keyExtractor={(item) =>
           item.type === "header" ? item.difficulty : item.id
         }
-        renderItem={renderItem}
+        renderItem={renderItem} // how to draw a single item, it says give me your item design here
       />
     </View>
   );
@@ -116,18 +130,16 @@ const styles = StyleSheet.create({
   // 전체 리스트를 감싸는 컨테이너 스타일 추가
   container: {
     flex: 1,
-    paddingHorizontal: 30,
+    paddingHorizontal: spacingX._30,
   },
 
   taskContainer: {
     backgroundColor: colors.white,
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 10,
+    padding: spacingY._15,
+    borderRadius: radius._10,
+    marginBottom: spacingY._10,
     borderWidth: 1,
     borderColor: colors.sub,
-    // 헤더와의 구분을 위해 좌우 마진을 추가할 수 있습니다.
-    // marginHorizontal: 10,
   },
   task: {
     flexDirection: "row",
@@ -139,12 +151,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   checkBox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: spacingX._20,
+    height: spacingX._20,
+    borderRadius: radius._15,
     borderWidth: 2,
     borderColor: colors.sub,
-    marginRight: 12,
+    marginRight: spacingX._10,
     justifyContent: "center",
     alignItems: "center",
   },

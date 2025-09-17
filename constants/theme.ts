@@ -83,6 +83,8 @@ export const radius = {
   _17: verticalScale(17),
   _20: verticalScale(20),
   _30: verticalScale(30),
+  _40: verticalScale(40),
+  _50: verticalScale(50),
 };
 
 export const difficultyColors = (key: keyof TasksState) => {

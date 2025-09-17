@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import {
   CalendarList,
@@ -14,9 +14,10 @@ import {
   getDay, //return day of week (0 is Sunday, 1 is Monday, ..., 6 is Saturday)
 } from "date-fns";
 import CalendarViewToggle from "./CalendarViewToggle";
-
+import { MarkedDates } from "react-native-calendars/src/types";
 import { CustomCalendarProps } from "@/types";
 import { colors, spacingX, spacingY } from "@/constants/theme";
+import CustomDay from "./CustomDay";
 const today = format(new Date(), "yyyy-MM-dd");
 
 //calculate week of month
@@ -107,35 +108,14 @@ const CustomCalendar = ({
           <WeekCalendar
             current={selectedDate}
             onDayPress={(day) => onDateSelect(day.dateString)}
-            markedDates={{
-              [today]: {
-                customStyles: {
-                  text: {
-                    color: colors.main,
-                    fontWeight: "bold",
-                  },
-                },
-              },
-              [selectedDate]: {
-                selected: true,
-                customStyles: {
-                  container: {
-                    backgroundColor: colors.main,
-                    borderRadius: 20,
-                    justifyContent: "center",
-                    alignItems: "center",
-                    width: 32,
-                    height: 32,
-                    alignSelf: "center",
-                  },
-                  text: {
-                    color: "white",
-                    fontWeight: "bold",
-                  },
-                },
-              },
-            }}
-            markingType="custom"
+            dayComponent={({ date }) => (
+              <CustomDay
+                date={date ? date : { dateString: "", day: 0 }}
+                today={today}
+                selectedDate={selectedDate}
+                onDateSelect={onDateSelect}
+              />
+            )}
           />
         </CalendarProvider>
       ) : (
@@ -144,35 +124,6 @@ const CustomCalendar = ({
           calendarHeight={320}
           current={selectedDate}
           onDayPress={(day) => onDateSelect(day.dateString)}
-          markedDates={{
-            [today]: {
-              customStyles: {
-                text: {
-                  color: colors.main,
-                  fontWeight: "bold",
-                },
-              },
-            },
-            [selectedDate]: {
-              selected: true,
-              customStyles: {
-                container: {
-                  backgroundColor: colors.main,
-                  borderRadius: 20,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  width: 32,
-                  height: 32,
-                  alignSelf: "center",
-                },
-                text: {
-                  color: "white",
-                  fontWeight: "bold",
-                },
-              },
-            },
-          }}
-          markingType={"custom"}
           horizontal
           pagingEnabled
           renderHeader={() => null}
@@ -180,6 +131,14 @@ const CustomCalendar = ({
           pastScrollRange={12}
           futureScrollRange={12}
           showScrollIndicator={false}
+          dayComponent={({ date }) => (
+            <CustomDay
+              date={date ? date : { dateString: "", day: 0 }}
+              today={today}
+              selectedDate={selectedDate}
+              onDateSelect={onDateSelect}
+            />
+          )}
         />
       )}
     </View>

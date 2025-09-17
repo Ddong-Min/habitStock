@@ -17,7 +17,7 @@ const initialTasks: TasksState = {
   ],
   medium: [{ id: "2", text: "Task 1", completed: true, percentage: "+0.44%" }],
   hard: [{ id: "3", text: "Task 1", completed: false, percentage: "-0.55%" }],
-  extreme: [{ id: "4", text: "뉴스 보내기", completed: false, percentage: "" }],
+  extreme: [],
 };
 
 const TodoScreen = () => {
