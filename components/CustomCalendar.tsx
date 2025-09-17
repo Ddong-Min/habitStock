@@ -116,6 +116,7 @@ const CustomCalendar = ({
                 onDateSelect={onDateSelect}
               />
             )}
+            calendarHeight={60}
           />
         </CalendarProvider>
       ) : (
