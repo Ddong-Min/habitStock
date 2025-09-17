@@ -1,7 +1,7 @@
 // components/CustomDay.tsx
 import React from "react";
 import { TouchableOpacity, Text, View, StyleSheet } from "react-native";
-import { colors, radius } from "@/constants/theme";
+import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import Typo from "./Typo";
 import { verticalScale } from "@/utils/styling";
 
@@ -40,16 +40,16 @@ const CustomDay: React.FC<CustomDayProps> = ({
         <Typo
           style={{
             color: isSelected ? "white" : isToday ? colors.main : "black",
-            fontWeight: isSelected || isToday ? "700" : "400",
-            fontSize: 15, // 날짜 폰트 크기를 약간 조절
           }}
+          size={verticalScale(24)}
+          fontWeight="bold"
         >
           {date.day}
         </Typo>
       </View>
 
       <Typo
-        size={verticalScale(12)}
+        size={verticalScale(15)}
         color={colors.blue100}
         style={styles.percentageText}
       >
@@ -66,16 +66,14 @@ const styles = StyleSheet.create({
   },
   circle: {
     // 월간 보기에 맞게 원 크기를 조절합니다.
-    width: 28,
-    height: 28,
-    borderRadius: 14, // width/height의 절반
+    width: spacingX._30,
+    height: spacingX._30,
+    borderRadius: radius._30, // width/height의 절반
     alignItems: "center",
     justifyContent: "center",
   },
   percentageText: {
-    // 폰트 크기와 마진을 줄여 전체 높이를 최소화합니다.
-    fontSize: 9,
-    marginTop: 2,
+    marginTop: spacingY._3,
   },
 });
 

@@ -18,6 +18,7 @@ import { MarkedDates } from "react-native-calendars/src/types";
 import { CustomCalendarProps } from "@/types";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import CustomDay from "./CustomDay";
+import { verticalScale } from "@/utils/styling";
 const today = format(new Date(), "yyyy-MM-dd");
 
 //calculate week of month
@@ -108,6 +109,7 @@ const CustomCalendar = ({
           <WeekCalendar
             current={selectedDate}
             onDayPress={(day) => onDateSelect(day.dateString)}
+            style={styles.weekCalendar}
             dayComponent={({ date }) => (
               <CustomDay
                 date={date ? date : { dateString: "", day: 0 }}
@@ -132,6 +134,7 @@ const CustomCalendar = ({
           pastScrollRange={12}
           futureScrollRange={12}
           showScrollIndicator={false}
+          style={styles.calendarList}
           dayComponent={({ date }) => (
             <CustomDay
               date={date ? date : { dateString: "", day: 0 }}
@@ -160,11 +163,34 @@ const styles = StyleSheet.create({
   },
   monthText: { fontSize: 22, fontWeight: "bold" },
   arrow: { padding: spacingX._5 },
-  arrowText: { fontSize: 30, color: colors.black },
+  arrowText: {
+    fontSize: verticalScale(30),
+    color: colors.black,
+    lineHeight: verticalScale(30),
+  },
   controlsContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacingX._10,
+  },
+  weekCalendar: {
+    // For iOS
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    // For Android
+    elevation: 0,
+  },
+  calendarList: {
+    // For iOS
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    // For Android
+    elevation: 3,
   },
 });
 
