@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   percentageText: {
-    marginTop: spacingY._3,
+    marginTop: spacingY._2,
   },
 });
 
