@@ -18,7 +18,10 @@ import {
 import { TasksState } from "@/types";
 import { verticalScale } from "@/utils/styling";
 
-const DifficultyHeader = ({ difficulty }: { difficulty: keyof TasksState }) => {
+const DifficultyHeader: React.FC<{
+  difficulty: keyof TasksState;
+  setNewTaskDifficulty: (difficulty: keyof TasksState) => void;
+}> = ({ difficulty, setNewTaskDifficulty }) => {
   return (
     <View style={styles.difficultyHeader}>
       <View
@@ -37,7 +40,10 @@ const DifficultyHeader = ({ difficulty }: { difficulty: keyof TasksState }) => {
             {difficulty}
           </Typo>
         </View>
-        <TouchableOpacity style={styles.plusButton}>
+        <TouchableOpacity
+          style={styles.plusButton}
+          onPress={() => setNewTaskDifficulty(difficulty)}
+        >
           <Feather name="plus" size={verticalScale(22)} color={colors.black} />
         </TouchableOpacity>
       </View>

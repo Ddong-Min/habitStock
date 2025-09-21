@@ -178,6 +178,8 @@ export interface Task {
   text: string;
   completed: boolean;
   percentage: string;
+  date: string;
+  difficulty: "easy" | "medium" | "hard" | "extreme";
 }
 
 export interface TasksState {
@@ -194,5 +196,5 @@ export interface CustomCalendarProps {
 
 export interface TodoListProps {
   tasks: TasksState;
-  onDragEnd: (tasks: TasksState) => void;
+  onToggleTask: (id: string) => void; // 이 부분을 추가 또는 수정합니다.
 }
