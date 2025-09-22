@@ -6,12 +6,14 @@ import {
   onSnapshot,
   addDoc,
   orderBy,
+  updateDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import { firestore } from "@/config/firebase";
 import { Task } from "@/types";
 import { doc, setDoc } from "firebase/firestore";
 
-export const addTodo = async (todo: Task, userId: string) => {
+export const addTodoFirebase = async (todo: Task, userId: string) => {
   try {
     // Use setDoc with doc() to set a document with a specific ID
     const docRef = doc(firestore, "users", userId, "todos", todo.id);
@@ -26,7 +28,7 @@ export const addTodo = async (todo: Task, userId: string) => {
   }
 };
 
-export const loadTodos = async (userId: string): Promise<Task[]> => {
+export const loadTodosFirebase = async (userId: string): Promise<Task[]> => {
   try {
     const todosCollection = collection(firestore, "users", userId, "todos");
 
@@ -48,5 +50,47 @@ export const loadTodos = async (userId: string): Promise<Task[]> => {
   } catch (error) {
     console.error("Error loading todos:", error);
     return [];
+  }
+};
+
+export const toggleTodoFirebase = async (
+  userId: string,
+  todoId: string,
+  completed: boolean
+) => {
+  try {
+    const taskRef = doc(firestore, "users", userId, "todos", todoId);
+
+    await updateDoc(taskRef, {
+      completed, // set the new completed value
+      updatedAt: new Date(), // optional: track last update
+    });
+
+    console.log("Task updated successfully in Firestore!");
+  } catch (error) {
+    console.error("Error updating task in Firestore:", error);
+  }
+};
+
+export const deleteTaskFirebase = async (userId: string, todoId: string) => {
+  try {
+    const docRef = doc(firestore, "users", userId, "todos", todoId);
+    await deleteDoc(docRef);
+    console.log("Task deleted successfully:", todoId);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete task:", error);
+    return { success: false, error };
+  }
+};
+
+export const updateTaskFirebase = async (task: Task, userId: string) => {
+  try {
+    const docRef = doc(firestore, "users", userId, "todos", task.id);
+    await updateDoc(docRef, { ...task });
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update task:", error);
+    return { success: false, error };
   }
 };

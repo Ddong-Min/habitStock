@@ -14,7 +14,7 @@ export const useCalenderHook = () => {
   const [selectedDate, setSelectedDate] = useState(
     format(new Date(), "yyyy-MM-dd")
   );
-  const [isWeekView, setIsWeekView] = useState(true);
+  const [isWeekView, setIsWeekView] = useState(false);
   const currentDate = new Date(selectedDate);
 
   //calculate week of month

@@ -10,7 +10,7 @@ import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import DifficultyHeader from "./DifficultyHeader";
-import { useTasks } from "@/hooks/useTaskHook";
+import { useTasks } from "@/contexts/taskContext";
 import { verticalScale } from "@/utils/styling";
 
 const TodoList: React.FC<{}> = () => {
@@ -18,11 +18,14 @@ const TodoList: React.FC<{}> = () => {
     tasks,
     newTaskText,
     newTaskDifficulty,
+    modifyIndex,
     handleToggleTask,
     addNewTask,
     loadTasks,
     makeNewTask,
     selectNewTaskDifficulty,
+    clickSubMenu,
+    saveEditedTask,
   } = useTasks();
 
   useEffect(() => {
@@ -63,10 +66,14 @@ const TodoList: React.FC<{}> = () => {
                     onChangeText={makeNewTask}
                     style={styles.newTaskInput}
                     autoFocus
-                    onSubmitEditing={() => addNewTask()}
+                    onSubmitEditing={() =>
+                      modifyIndex !== null ? saveEditedTask() : addNewTask()
+                    }
                   />
                   <TouchableOpacity
-                    onPress={() => addNewTask()}
+                    onPress={() =>
+                      modifyIndex != null ? saveEditedTask() : addNewTask()
+                    }
                     style={styles.addButton}
                   >
                     <Feather
@@ -97,14 +104,23 @@ const TodoList: React.FC<{}> = () => {
                 </TouchableOpacity>
                 <Typo>{item.text}</Typo>
               </View>
-              <Typo
-                style={{
-                  color: isPositive ? colors.red100 : colors.blue100,
-                }}
-              >
-                {item.completed &&
-                  `${isPositive ? "▲" : "▼"} ${item.percentage.substring(1)}`}
-              </Typo>
+              <View style={styles.taskRight}>
+                <Typo
+                  style={{
+                    color: isPositive ? colors.red100 : colors.blue100,
+                  }}
+                >
+                  {item.completed &&
+                    `${isPositive ? "▲" : "▼"} ${item.percentage.substring(1)}`}
+                </Typo>
+                <TouchableOpacity onPress={() => clickSubMenu(item.id)}>
+                  <Feather
+                    name="more-horizontal"
+                    size={22}
+                    color={colors.neutral300}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         );
@@ -136,6 +152,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  taskRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacingX._10,
+  },
+
   checkBox: {
     width: spacingX._20,
     height: spacingX._20,

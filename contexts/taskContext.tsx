@@ -1,0 +1,304 @@
+// contexts/TasksContext.tsx
+import React, { createContext, useContext, useState, ReactNode } from "react";
+import { Task, TasksState } from "../types";
+import { Gaussian } from "ts-gaussian";
+import {
+  addTodoFirebase,
+  deleteTaskFirebase,
+  loadTodosFirebase,
+  toggleTodoFirebase,
+  updateTaskFirebase,
+} from "@/api/todoApi";
+import { useAuth } from "@/contexts/authContext";
+
+const initialTasks: TasksState = {
+  easy: [],
+  medium: [],
+  hard: [],
+  extreme: [],
+};
+
+type TasksContextType = {
+  tasks: TasksState;
+  newTaskText: string;
+  newTaskDifficulty: keyof TasksState | null;
+  bottomSheetIndex: string | null;
+  modifyIndex: string | null;
+  modifyDifficulty: string | null;
+  handleToggleTask: (taskId: string) => void;
+  changeTasks: (difficulty: keyof TasksState, task: Task) => void;
+  addNewTask: () => Promise<void>;
+  loadTasks: () => Promise<void>;
+  makeNewTask: (text: string) => void;
+  selectNewTaskDifficulty: (difficulty: keyof TasksState) => void;
+  clickSubMenu: (index: string | null) => void;
+  deleteTask: (taskId: string) => Promise<void>;
+  saveEditedTask: () => Promise<void>;
+  startModify: (taskId: string | null) => void;
+  changeModifyDiffIndex: (taskId: string | null) => void;
+  changeDifficulty: (changedDiff: keyof TasksState) => Promise<void>;
+};
+
+const TasksContext = createContext<TasksContextType | undefined>(undefined);
+
+export const TasksProvider = ({ children }: { children: ReactNode }) => {
+  const [tasks, setTasks] = useState<TasksState>(initialTasks);
+  const [newTaskDifficulty, setNewTaskDifficulty] = useState<
+    keyof TasksState | null
+  >(null);
+  const [newTaskText, setNewTaskText] = useState("");
+  const [bottomSheetIndex, setbottomSheetIndex] = useState<string | null>(null);
+  const [modifyIndex, setModifyIndex] = useState<string | null>(null);
+  const [modifyDifficulty, setModifyDifficulty] = useState<string | null>(null);
+
+  const { user } = useAuth();
+
+  // ✅ toggle task
+  const handleToggleTask = (taskId: string) => {
+    setTasks((currentTasks) => {
+      const newTasks = JSON.parse(JSON.stringify(currentTasks));
+      for (const difficulty in newTasks) {
+        const taskList = newTasks[difficulty as keyof TasksState];
+        const taskIndex = taskList.findIndex(
+          (task: Task) => task.id === taskId
+        );
+
+        if (taskIndex !== -1) {
+          newTasks[difficulty][taskIndex].completed =
+            !newTasks[difficulty][taskIndex].completed;
+
+          toggleTodoFirebase(
+            user!.uid!,
+            taskId,
+            newTasks[difficulty][taskIndex].completed
+          );
+          break;
+        }
+      }
+      return newTasks;
+    });
+  };
+
+  // ✅ add a task to state
+  const changeTasks = (difficulty: keyof TasksState, task: Task) => {
+    setTasks((prevTasks) => ({
+      ...prevTasks,
+      [difficulty]: [...prevTasks[difficulty], task],
+    }));
+  };
+
+  // ✅ add new task
+  const addNewTask = async () => {
+    if (!newTaskText.trim()) return;
+
+    const randomWeight =
+      newTaskDifficulty === "extreme"
+        ? 4
+        : newTaskDifficulty === "hard"
+        ? 3
+        : newTaskDifficulty === "medium"
+        ? 2
+        : 1;
+    const gaussian = new Gaussian(randomWeight, 1);
+
+    const newTask: Task = {
+      id: Date.now().toString(),
+      text: newTaskText.trim(),
+      completed: false,
+      percentage: `+${gaussian.ppf(Math.random()).toFixed(3).toString()}%`,
+      date: new Date().toISOString().split("T")[0],
+      difficulty: newTaskDifficulty!,
+    };
+
+    await addTodoFirebase(newTask, user!.uid!).then((res) => {
+      if (res.success) {
+        changeTasks(newTaskDifficulty!, newTask);
+      } else {
+        console.error(res.msg);
+      }
+    });
+
+    setNewTaskText("");
+    setNewTaskDifficulty(null);
+  };
+
+  // ✅ load tasks from firestore
+  const loadTasks = async () => {
+    loadTodosFirebase(user?.uid!).then((loadedTasks) => {
+      const groupedTasks: TasksState = {
+        easy: [],
+        medium: [],
+        hard: [],
+        extreme: [],
+      };
+      loadedTasks.forEach((task) => {
+        groupedTasks[task.difficulty].push(task);
+      });
+      setTasks(groupedTasks);
+    });
+  };
+
+  // ✅ setters
+  const makeNewTask = (text: string) => setNewTaskText(text);
+  const selectNewTaskDifficulty = (difficulty: keyof TasksState) =>
+    setNewTaskDifficulty(difficulty);
+  const clickSubMenu = (index: string | null) => {
+    setbottomSheetIndex(index);
+  };
+
+  const deleteTask = async (taskId: string) => {
+    if (!user) return;
+
+    setTasks((currentTasks) => {
+      const newTasks = JSON.parse(JSON.stringify(currentTasks));
+
+      for (const difficulty in newTasks) {
+        const taskList = newTasks[difficulty as keyof TasksState];
+        const taskIndex = taskList.findIndex(
+          (task: Task) => task.id === taskId
+        );
+
+        if (taskIndex !== -1) {
+          // remove from local state
+          taskList.splice(taskIndex, 1);
+
+          // delete from Firestore
+          deleteTaskFirebase(user.uid!, taskId);
+          break;
+        }
+      }
+
+      return newTasks;
+    });
+  };
+
+  const startModify = (taskId: string | null) => {
+    for (const difficulty in tasks) {
+      const task = tasks[difficulty as keyof TasksState].find(
+        (t) => t.id === bottomSheetIndex
+      );
+      if (task) {
+        setModifyIndex(taskId);
+        setNewTaskText(task.text); // pre-fill input
+        setNewTaskDifficulty(task.difficulty); // open the correct header
+        break;
+      }
+    }
+  };
+
+  const saveEditedTask = async () => {
+    if (!modifyIndex || !user || !newTaskDifficulty) return;
+    const taskList = tasks[newTaskDifficulty];
+    const taskIndex = taskList.findIndex((t) => t.id === modifyIndex);
+
+    if (taskIndex === -1) return;
+
+    const updatedTask = {
+      ...taskList[taskIndex],
+      text: newTaskText,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Call API
+    const res = await updateTaskFirebase(updatedTask, user.uid!);
+    if (!res.success) {
+      console.error(res.error);
+      return;
+    }
+
+    // Update local state
+    setTasks((prev) => ({
+      ...prev,
+      [newTaskDifficulty]: prev[newTaskDifficulty].map((t) =>
+        t.id === modifyIndex ? updatedTask : t
+      ),
+    }));
+
+    setNewTaskText("");
+    setNewTaskDifficulty(null);
+    setModifyIndex(null);
+  };
+
+  const changeModifyDiffIndex = (taskId: string | null) => {
+    setModifyDifficulty(taskId);
+  };
+
+  const changeDifficulty = async (changedDiff: keyof TasksState) => {
+    if (!modifyDifficulty || !user) return;
+
+    let originalDiff: keyof TasksState | null = null;
+    let taskToMove: Task | null = null;
+
+    // 1️⃣ Find task in its original difficulty
+    for (const diff in tasks) {
+      const found = tasks[diff as keyof TasksState].find(
+        (t) => t.id === modifyDifficulty
+      );
+      if (found) {
+        originalDiff = diff as keyof TasksState;
+        taskToMove = found;
+        break;
+      }
+    }
+
+    if (!originalDiff || !taskToMove) return;
+
+    // 2️⃣ Update task with new difficulty
+    const updatedTask = {
+      ...taskToMove,
+      difficulty: changedDiff,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // 3️⃣ Update Firestore
+    const res = await updateTaskFirebase(updatedTask, user.uid!);
+    if (!res.success) {
+      console.error(res.error);
+      return;
+    }
+
+    // 4️⃣ Update local state
+    setTasks((prev) => ({
+      ...prev,
+      [originalDiff!]: prev[originalDiff!].filter(
+        (t) => t.id !== modifyDifficulty
+      ),
+      [changedDiff]: [...prev[changedDiff], updatedTask],
+    }));
+
+    // 5️⃣ Reset
+    setModifyDifficulty(null);
+  };
+  return (
+    <TasksContext.Provider
+      value={{
+        tasks,
+        newTaskText,
+        newTaskDifficulty,
+        bottomSheetIndex,
+        modifyIndex,
+        modifyDifficulty,
+        handleToggleTask,
+        changeTasks,
+        addNewTask,
+        loadTasks,
+        makeNewTask,
+        selectNewTaskDifficulty,
+        clickSubMenu,
+        deleteTask,
+        saveEditedTask,
+        startModify,
+        changeModifyDiffIndex,
+        changeDifficulty,
+      }}
+    >
+      {children}
+    </TasksContext.Provider>
+  );
+};
+
+export const useTasks = () => {
+  const context = useContext(TasksContext);
+  if (!context) throw new Error("useTasks must be used inside TasksProvider");
+  return context;
+};

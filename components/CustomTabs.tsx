@@ -1,12 +1,8 @@
 import { View, Platform, TouchableOpacity, StyleSheet } from "react-native";
-import { useLinkBuilder, useTheme } from "@react-navigation/native";
-import { Text, PlatformPressable } from "@react-navigation/elements";
-import {
-  BottomTabBarProps,
-  createBottomTabNavigator,
-} from "@react-navigation/bottom-tabs";
+import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
+import Typo from "./Typo";
 
 export function CustomTabs({
   state,
@@ -56,9 +52,9 @@ export function CustomTabs({
             onLongPress={onLongPress}
             style={styles.tabBarItem}
           >
-            <Text style={{ color: isFocused ? colors.black : colors.text }}>
+            <Typo style={{ color: isFocused ? colors.black : colors.text }}>
               {label}
-            </Text>
+            </Typo>
           </TouchableOpacity>
         );
       })}

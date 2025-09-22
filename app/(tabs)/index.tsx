@@ -1,18 +1,17 @@
 import React, { useState } from "react";
 import { SafeAreaView, StyleSheet, ScrollView, View } from "react-native";
-import { colors, spacingY } from "../../constants/theme";
+import { colors, radius, spacingX, spacingY } from "../../constants/theme";
 import Profile from "../../components/Profile";
 import CustomCalendar from "../../components/CustomCalendar";
 import TodoList from "../../components/TodoList";
-import { format } from "date-fns";
 import Toggle from "@/components/Toggle";
-import { useTasks } from "@/hooks/useTaskHook";
+import { useTasks } from "@/contexts/taskContext";
 
+import TaskBottomSheet from "@/components/taskBottomSheet";
+import DiffBottomSheet from "@/components/DiffBottomSheet";
 const TodoScreen = () => {
   const [activeTab, setActiveTab] = useState<"todo" | "bucket">("todo");
-  const [selectedDate, setSelectedDate] = useState(
-    format(new Date(), "yyyy-MM-dd")
-  );
+  const { bottomSheetIndex, modifyDifficulty } = useTasks();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -28,11 +27,14 @@ const TodoScreen = () => {
       {/* 스크롤 영역 */}
       <ScrollView showsVerticalScrollIndicator={false}>
         <CustomCalendar />
-
         <View style={{ marginTop: spacingY._15 }}>
           <TodoList />
         </View>
       </ScrollView>
+
+      {/* Bottom Sheets */}
+      {bottomSheetIndex != null && <TaskBottomSheet />}
+      {modifyDifficulty != null && <DiffBottomSheet />}
     </SafeAreaView>
   );
 };
