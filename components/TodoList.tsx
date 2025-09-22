@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   ScrollView,
@@ -10,16 +10,24 @@ import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import DifficultyHeader from "./DifficultyHeader";
-import { useTasks } from "@/hooks/useToggleTask";
+import { useTasks } from "@/hooks/useTaskHook";
 import { verticalScale } from "@/utils/styling";
-import { Gaussian } from "ts-gaussian";
 
 const TodoList: React.FC<{}> = () => {
-  const { tasks, handleToggleTask, changeTasks } = useTasks();
-  const [newTaskDifficulty, setNewTaskDifficulty] = useState<
-    keyof typeof tasks | null
-  >(null);
-  const [newTaskText, setNewTaskText] = useState("");
+  const {
+    tasks,
+    newTaskText,
+    newTaskDifficulty,
+    handleToggleTask,
+    addNewTask,
+    loadTasks,
+    makeNewTask,
+    selectNewTaskDifficulty,
+  } = useTasks();
+
+  useEffect(() => {
+    loadTasks(); // call the hook function to fetch tasks from Firestore
+  }, []); // empty dependency array -> run only once
 
   const flatData = useMemo(() => {
     return (Object.keys(tasks) as Array<keyof typeof tasks>).flatMap(
@@ -33,36 +41,6 @@ const TodoList: React.FC<{}> = () => {
     );
   }, [tasks]);
 
-  const handleAddNewTask = (difficulty: keyof typeof tasks) => {
-    if (!newTaskText.trim()) return; // remove the whitespaces both start and end
-    // call parent callback to add task
-
-    // Add new task , task collection에 새로운 할일 추가
-    // firestore에 연결하면, newTaskText만 넘기고, 잘 저장되면 결과를 받은 후에 이걸 changeTasks로 반영
-    const randomWeight =
-      difficulty === "extreme"
-        ? 4
-        : difficulty === "hard"
-        ? 3
-        : difficulty === "medium"
-        ? 2
-        : 1;
-    const gaussian = new Gaussian(randomWeight, 1);
-
-    changeTasks(difficulty, {
-      id: Date.now().toString(),
-      text: newTaskText.trim(),
-      completed: false,
-      percentage: `+${gaussian.pdf(1).toFixed(3).toString()}%`,
-      date: new Date().toISOString().split("T")[0], // today's date
-      difficulty,
-    });
-
-    // reset input
-    setNewTaskText("");
-    setNewTaskDifficulty(null);
-  };
-
   return (
     <ScrollView
       style={styles.container}
@@ -74,7 +52,7 @@ const TodoList: React.FC<{}> = () => {
             <View key={item.difficulty}>
               <DifficultyHeader
                 difficulty={item.difficulty}
-                setNewTaskDifficulty={setNewTaskDifficulty}
+                setNewTaskDifficulty={selectNewTaskDifficulty}
               />
               {/* Show input if this header is active */}
               {newTaskDifficulty === item.difficulty && (
@@ -82,13 +60,13 @@ const TodoList: React.FC<{}> = () => {
                   <TextInput
                     placeholder="새 할일을 입력해주세요."
                     value={newTaskText}
-                    onChangeText={setNewTaskText}
+                    onChangeText={makeNewTask}
                     style={styles.newTaskInput}
                     autoFocus
-                    onSubmitEditing={() => handleAddNewTask(item.difficulty)}
+                    onSubmitEditing={() => addNewTask()}
                   />
                   <TouchableOpacity
-                    onPress={() => handleAddNewTask(item.difficulty)}
+                    onPress={() => addNewTask()}
                     style={styles.addButton}
                   >
                     <Feather

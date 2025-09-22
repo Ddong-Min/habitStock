@@ -5826,6 +5826,11 @@ queue@6.0.2:
   dependencies:
     inherits "~2.0.3"
 
+random@^5.4.1:
+  version "5.4.1"
+  resolved "https://registry.npmjs.org/random/-/random-5.4.1.tgz"
+  integrity sha512-HtccRkYkAXCbj9bqsyGKGlicyeZ5AsQgs49fEuUO/BvrJ7WOQqXPjdg1CZrFjBkoT75ozrWlQXJ7TcXXLv2ISQ==
+
 randombytes@^2.1.0:
   version "2.1.0"
   resolved "https://registry.npmjs.org/randombytes/-/randombytes-2.1.0.tgz"

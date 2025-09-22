@@ -4,6 +4,8 @@ import {
   where,
   getDocs,
   onSnapshot,
+  addDoc,
+  orderBy,
 } from "firebase/firestore";
 import { firestore } from "@/config/firebase";
 import { Task } from "@/types";
@@ -11,47 +13,40 @@ import { doc, setDoc } from "firebase/firestore";
 
 export const addTodo = async (todo: Task, userId: string) => {
   try {
-    await setDoc(doc(firestore, "todos", userId), {
+    // Use setDoc with doc() to set a document with a specific ID
+    const docRef = doc(firestore, "users", userId, "todos", todo.id);
+    await setDoc(docRef, {
       ...todo,
     });
-    return { success: true };
+
+    return { success: true, todoId: todo.id };
   } catch (error) {
     console.error("Error adding todo: ", error);
     return { success: false, msg: "Failed to add todo." };
   }
 };
 
-// ✅ one-time fetch
-export const getTodosByDate = async (userId: string, date: string) => {
-  const q = query(
-    collection(firestore, "todos"),
-    where("userId", "==", userId),
-    where("date", "==", date) // todos are grouped by date
-  );
+export const loadTodos = async (userId: string): Promise<Task[]> => {
+  try {
+    const todosCollection = collection(firestore, "users", userId, "todos");
 
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-};
+    // Optional: order by date or creation time
+    const q = query(todosCollection, orderBy("id", "asc"));
 
-// ✅ real-time listener
-export const listenTodosByDate = (
-  userId: string,
-  date: string,
-  callback: (todos: any[]) => void
-) => {
-  const q = query(
-    collection(firestore, "todos"),
-    where("userId", "==", userId),
-    where("date", "==", date)
-  );
+    const querySnapshot = await getDocs(q);
 
-  const unsubscribe = onSnapshot(q, (querySnapshot) => {
-    const todos = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    callback(todos);
-  });
+    // Map documents to Task objects
+    const todos: Task[] = querySnapshot.docs.map((doc) => {
+      const data = doc.data() as Task;
+      return {
+        ...data,
+        id: doc.id, // overwrite stored id with Firestore's ID
+      };
+    });
 
-  return unsubscribe; // call this to stop listening
+    return todos;
+  } catch (error) {
+    console.error("Error loading todos:", error);
+    return [];
+  }
 };

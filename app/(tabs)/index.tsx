@@ -6,7 +6,7 @@ import CustomCalendar from "../../components/CustomCalendar";
 import TodoList from "../../components/TodoList";
 import { format } from "date-fns";
 import Toggle from "@/components/Toggle";
-import { useTasks } from "@/hooks/useToggleTask";
+import { useTasks } from "@/hooks/useTaskHook";
 
 const TodoScreen = () => {
   const [activeTab, setActiveTab] = useState<"todo" | "bucket">("todo");
