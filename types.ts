@@ -178,7 +178,7 @@ export interface Task {
   text: string;
   completed: boolean;
   percentage: string;
-  date: string;
+  dueDate: string;
   difficulty: "easy" | "medium" | "hard" | "extreme";
 }
 
@@ -187,6 +187,17 @@ export interface TasksState {
   medium: Task[];
   hard: Task[];
   extreme: Task[];
+}
+
+export interface TasksState {
+  easy: Task[];
+  medium: Task[];
+  hard: Task[];
+  extreme: Task[];
+}
+
+export interface TasksByDate {
+  [date: string]: TasksState; // "2025-09-22": { easy: [...], medium: [...], ... }
 }
 
 export interface CustomCalendarProps {

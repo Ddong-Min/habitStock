@@ -1,10 +1,4 @@
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  ImageBackground,
-} from "react-native";
+import { StyleSheet, View, TouchableOpacity, ViewStyle } from "react-native";
 import React from "react";
 import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
@@ -21,19 +15,28 @@ import { verticalScale } from "@/utils/styling";
 const DifficultyHeader: React.FC<{
   difficulty: keyof TasksState;
   setNewTaskDifficulty: (difficulty: keyof TasksState) => void;
-}> = ({ difficulty, setNewTaskDifficulty }) => {
+  style?: ViewStyle;
+  fontSize?: number;
+  isTodo: boolean;
+}> = ({ difficulty, setNewTaskDifficulty, style, fontSize, isTodo }) => {
   return (
     <View style={styles.difficultyHeader}>
       <View
         style={[
           styles.difficultyBadge,
+          style,
           { backgroundColor: difficultyColors(difficulty) },
         ]}
       >
-        <View style={{ marginRight: spacingX._10, marginLeft: -spacingX._5 }}>
+        <View
+          style={{
+            marginRight: spacingX._10,
+            marginLeft: isTodo ? -spacingX._5 : -spacingX._7,
+          }}
+        >
           <Typo
-            size={verticalScale(22)}
-            style={{ lineHeight: verticalScale(22) }} // 폰트 크기랑 동일하게
+            size={verticalScale(fontSize ? fontSize : 22)}
+            style={{ lineHeight: verticalScale(fontSize ? fontSize : 22) }} // 폰트 크기랑 동일하게
             color="white"
             fontWeight="bold"
           >
@@ -44,7 +47,11 @@ const DifficultyHeader: React.FC<{
           style={styles.plusButton}
           onPress={() => setNewTaskDifficulty(difficulty)}
         >
-          <Feather name="plus" size={verticalScale(22)} color={colors.black} />
+          <Feather
+            name="plus"
+            size={verticalScale(fontSize ? fontSize : 22)}
+            color={colors.black}
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -57,7 +64,7 @@ const styles = StyleSheet.create({
   difficultyHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacingY._15,
   },
   difficultyBadge: {
     flexDirection: "row",

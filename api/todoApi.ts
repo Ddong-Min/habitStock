@@ -28,12 +28,19 @@ export const addTodoFirebase = async (todo: Task, userId: string) => {
   }
 };
 
-export const loadTodosFirebase = async (userId: string): Promise<Task[]> => {
+export const loadTodosFirebase = async (
+  userId: string,
+  dueDate: string
+): Promise<Task[]> => {
   try {
     const todosCollection = collection(firestore, "users", userId, "todos");
 
     // Optional: order by date or creation time
-    const q = query(todosCollection, orderBy("id", "asc"));
+    const q = query(
+      todosCollection,
+      where("dueDate", "==", dueDate),
+      orderBy("id", "asc")
+    );
 
     const querySnapshot = await getDocs(q);
 

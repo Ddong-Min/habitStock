@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
+  ViewStyle,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
@@ -12,13 +13,21 @@ import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import DifficultyHeader from "./DifficultyHeader";
 import { useTasks } from "@/contexts/taskContext";
 import { verticalScale } from "@/utils/styling";
+import { useCalendar } from "@/contexts/calendarContext";
 
-const TodoList: React.FC<{}> = () => {
+const TaskList: React.FC<{
+  isTodo: boolean;
+  diffStyle?: ViewStyle;
+  taskStyle?: ViewStyle;
+  diffFontSize?: number;
+  taskFontSize?: number;
+}> = ({ isTodo, diffStyle, taskStyle, diffFontSize, taskFontSize }) => {
   const {
     tasks,
     newTaskText,
     newTaskDifficulty,
     modifyIndex,
+    taskByDate,
     handleToggleTask,
     addNewTask,
     loadTasks,
@@ -27,22 +36,23 @@ const TodoList: React.FC<{}> = () => {
     clickSubMenu,
     saveEditedTask,
   } = useTasks();
+  const { selectedDate } = useCalendar();
 
   useEffect(() => {
-    loadTasks(); // call the hook function to fetch tasks from Firestore
-  }, []); // empty dependency array -> run only once
+    loadTasks(selectedDate); // call the hook function to fetch tasks from Firestore
+  }, [selectedDate]); // empty dependency array -> run only once
 
   const flatData = useMemo(() => {
-    return (Object.keys(tasks) as Array<keyof typeof tasks>).flatMap(
-      (difficulty) => [
-        { type: "header" as const, difficulty },
-        ...tasks[difficulty].map((task) => ({
-          ...task,
-          type: "task" as const,
-        })),
-      ]
-    );
-  }, [tasks]);
+    return (
+      Object.keys(taskByDate[selectedDate]) as Array<keyof typeof tasks>
+    ).flatMap((difficulty) => [
+      { type: "header" as const, difficulty },
+      ...tasks[difficulty].map((task) => ({
+        ...task,
+        type: "task" as const,
+      })),
+    ]);
+  }, [selectedDate, taskByDate, tasks]);
 
   return (
     <ScrollView
@@ -56,6 +66,9 @@ const TodoList: React.FC<{}> = () => {
               <DifficultyHeader
                 difficulty={item.difficulty}
                 setNewTaskDifficulty={selectNewTaskDifficulty}
+                style={diffStyle}
+                fontSize={diffFontSize}
+                isTodo={isTodo}
               />
               {/* Show input if this header is active */}
               {newTaskDifficulty === item.difficulty && (
@@ -82,6 +95,12 @@ const TodoList: React.FC<{}> = () => {
                       color="white"
                     />
                   </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => selectNewTaskDifficulty(null)}
+                    style={styles.cancelButton}
+                  >
+                    <Feather name="x" size={verticalScale(20)} color="white" />
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -91,7 +110,7 @@ const TodoList: React.FC<{}> = () => {
         const isPositive = item.percentage.startsWith("+");
 
         return (
-          <View key={item.id} style={styles.taskContainer}>
+          <View key={item.id} style={[styles.taskContainer, taskStyle]}>
             <View style={styles.task}>
               <View style={styles.taskLeft}>
                 <TouchableOpacity
@@ -102,7 +121,17 @@ const TodoList: React.FC<{}> = () => {
                     <Feather name="check" size={16} color="white" />
                   )}
                 </TouchableOpacity>
-                <Typo>{item.text}</Typo>
+                <View>
+                  <Typo size={taskFontSize}>{item.text}</Typo>
+                  {!isTodo && (
+                    <Typo
+                      size={verticalScale(18)}
+                      style={{ color: colors.neutral300 }}
+                    >
+                      만료일 {item.dueDate}
+                    </Typo>
+                  )}
+                </View>
               </View>
               <View style={styles.taskRight}>
                 <Typo
@@ -116,7 +145,7 @@ const TodoList: React.FC<{}> = () => {
                 <TouchableOpacity onPress={() => clickSubMenu(item.id)}>
                   <Feather
                     name="more-horizontal"
-                    size={22}
+                    size={verticalScale(22)}
                     color={colors.neutral300}
                   />
                 </TouchableOpacity>
@@ -195,7 +224,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.main,
     padding: spacingX._10,
     borderRadius: radius._10,
+    marginRight: spacingX._3,
+  },
+  cancelButton: {
+    backgroundColor: colors.red100,
+    padding: spacingX._10,
+    borderRadius: radius._10,
   },
 });
 
-export default TodoList;
+export default TaskList;

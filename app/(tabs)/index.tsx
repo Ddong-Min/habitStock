@@ -3,11 +3,11 @@ import { SafeAreaView, StyleSheet, ScrollView, View } from "react-native";
 import { colors, radius, spacingX, spacingY } from "../../constants/theme";
 import Profile from "../../components/Profile";
 import CustomCalendar from "../../components/CustomCalendar";
-import TodoList from "../../components/TodoList";
+import TaskList from "../../components/TaskList";
 import Toggle from "@/components/Toggle";
 import { useTasks } from "@/contexts/taskContext";
 
-import TaskBottomSheet from "@/components/taskBottomSheet";
+import TaskBottomSheet from "@/components/TaskBottomSheet";
 import DiffBottomSheet from "@/components/DiffBottomSheet";
 const TodoScreen = () => {
   const [activeTab, setActiveTab] = useState<"todo" | "bucket">("todo");
@@ -24,15 +24,29 @@ const TodoScreen = () => {
       />
       <Toggle onToggle={setActiveTab} />
 
-      {/* 스크롤 영역 */}
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <CustomCalendar />
-        <View style={{ marginTop: spacingY._15 }}>
-          <TodoList />
-        </View>
-      </ScrollView>
+      {activeTab === "todo" && (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <CustomCalendar />
 
-      {/* Bottom Sheets */}
+          <View style={{ flex: 1, marginTop: spacingY._15 }}>
+            <TaskList isTodo={true} />
+          </View>
+        </ScrollView>
+      )}
+      {activeTab === "bucket" && (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={{ flex: 1, marginTop: spacingY._15 }}>
+            <TaskList
+              isTodo={false}
+              diffStyle={{
+                paddingVertical: spacingY._7,
+                paddingHorizontal: spacingX._20,
+              }}
+            />
+          </View>
+        </ScrollView>
+      )}
+      {/* 모달 영역 */}
       {bottomSheetIndex != null && <TaskBottomSheet />}
       {modifyDifficulty != null && <DiffBottomSheet />}
     </SafeAreaView>

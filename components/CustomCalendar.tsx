@@ -9,7 +9,7 @@ import CalendarViewToggle from "./CalendarViewToggle";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import CustomDay from "./CustomDay";
 import { verticalScale } from "@/utils/styling";
-import { useCalenderHook } from "@/hooks/useCalenderHook";
+import { useCalendar } from "@/contexts/calendarContext";
 
 const CustomCalendar = () => {
   const {
@@ -22,7 +22,7 @@ const CustomCalendar = () => {
     handleViewToggle,
     onVisibleMonthsChange,
     changeSelectedDate,
-  } = useCalenderHook();
+  } = useCalendar();
 
   const calendarListRef = useRef<{ scrollToMonth: (date: string) => void }>(
     null

@@ -6,6 +6,8 @@ import { AuthProvider } from "@/contexts/authContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { TasksProvider } from "@/contexts/taskContext";
+import { CalendarProvider } from "@/contexts/calendarContext";
+
 const StackLayout = () => {
   return <Stack screenOptions={{ headerShown: false }}></Stack>;
 };
@@ -16,9 +18,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ScreenWrapper>
         <AuthProvider>
-          <TasksProvider>
-            <StackLayout />
-          </TasksProvider>
+          <CalendarProvider>
+            <TasksProvider>
+              <StackLayout />
+            </TasksProvider>
+          </CalendarProvider>
         </AuthProvider>
       </ScreenWrapper>
     </GestureHandlerRootView>

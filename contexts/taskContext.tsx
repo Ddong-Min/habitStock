@@ -1,6 +1,6 @@
 // contexts/TasksContext.tsx
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { Task, TasksState } from "../types";
+import { Task, TasksByDate, TasksState } from "../types";
 import { Gaussian } from "ts-gaussian";
 import {
   addTodoFirebase,
@@ -25,12 +25,13 @@ type TasksContextType = {
   bottomSheetIndex: string | null;
   modifyIndex: string | null;
   modifyDifficulty: string | null;
+  taskByDate: TasksByDate;
   handleToggleTask: (taskId: string) => void;
   changeTasks: (difficulty: keyof TasksState, task: Task) => void;
   addNewTask: () => Promise<void>;
-  loadTasks: () => Promise<void>;
+  loadTasks: (dueDate: string) => Promise<void>;
   makeNewTask: (text: string) => void;
-  selectNewTaskDifficulty: (difficulty: keyof TasksState) => void;
+  selectNewTaskDifficulty: (difficulty: keyof TasksState | null) => void;
   clickSubMenu: (index: string | null) => void;
   deleteTask: (taskId: string) => Promise<void>;
   saveEditedTask: () => Promise<void>;
@@ -43,6 +44,8 @@ const TasksContext = createContext<TasksContextType | undefined>(undefined);
 
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<TasksState>(initialTasks);
+  const [taskByDate, setTaskByDate] = useState<TasksByDate>({});
+
   const [newTaskDifficulty, setNewTaskDifficulty] = useState<
     keyof TasksState | null
   >(null);
@@ -106,7 +109,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       text: newTaskText.trim(),
       completed: false,
       percentage: `+${gaussian.ppf(Math.random()).toFixed(3).toString()}%`,
-      date: new Date().toISOString().split("T")[0],
+      dueDate: new Date().toISOString().split("T")[0],
       difficulty: newTaskDifficulty!,
     };
 
@@ -123,8 +126,8 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // ✅ load tasks from firestore
-  const loadTasks = async () => {
-    loadTodosFirebase(user?.uid!).then((loadedTasks) => {
+  const loadTasks = async (dueDate: string) => {
+    await loadTodosFirebase(user?.uid!, dueDate).then((loadedTasks) => {
       const groupedTasks: TasksState = {
         easy: [],
         medium: [],
@@ -135,13 +138,16 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         groupedTasks[task.difficulty].push(task);
       });
       setTasks(groupedTasks);
+      setTaskByDate((prev) => ({ ...prev, [dueDate]: groupedTasks }));
     });
   };
 
   // ✅ setters
   const makeNewTask = (text: string) => setNewTaskText(text);
-  const selectNewTaskDifficulty = (difficulty: keyof TasksState) =>
+
+  const selectNewTaskDifficulty = (difficulty: keyof TasksState | null) =>
     setNewTaskDifficulty(difficulty);
+
   const clickSubMenu = (index: string | null) => {
     setbottomSheetIndex(index);
   };
@@ -278,6 +284,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         bottomSheetIndex,
         modifyIndex,
         modifyDifficulty,
+        taskByDate,
         handleToggleTask,
         changeTasks,
         addNewTask,
