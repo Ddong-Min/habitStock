@@ -26,9 +26,10 @@ type TasksContextType = {
   modifyIndex: string | null;
   modifyDifficulty: string | null;
   taskByDate: TasksByDate;
+  showDatePicker: boolean;
   handleToggleTask: (taskId: string) => void;
   changeTasks: (difficulty: keyof TasksState, task: Task) => void;
-  addNewTask: () => Promise<void>;
+  addNewTask: (dueDate: string) => Promise<void>;
   loadTasks: (dueDate: string) => Promise<void>;
   makeNewTask: (text: string) => void;
   selectNewTaskDifficulty: (difficulty: keyof TasksState | null) => void;
@@ -38,6 +39,9 @@ type TasksContextType = {
   startModify: (taskId: string | null) => void;
   changeModifyDiffIndex: (taskId: string | null) => void;
   changeDifficulty: (changedDiff: keyof TasksState) => Promise<void>;
+  changeShowDatePicker: () => void;
+  changeModifyIndex: (taskId: string | null) => void;
+  changeDueDate: (newDate: string) => void;
 };
 
 const TasksContext = createContext<TasksContextType | undefined>(undefined);
@@ -53,32 +57,42 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [bottomSheetIndex, setbottomSheetIndex] = useState<string | null>(null);
   const [modifyIndex, setModifyIndex] = useState<string | null>(null);
   const [modifyDifficulty, setModifyDifficulty] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const { user } = useAuth();
 
   // ✅ toggle task
   const handleToggleTask = (taskId: string) => {
-    setTasks((currentTasks) => {
-      const newTasks = JSON.parse(JSON.stringify(currentTasks));
-      for (const difficulty in newTasks) {
-        const taskList = newTasks[difficulty as keyof TasksState];
-        const taskIndex = taskList.findIndex(
-          (task: Task) => task.id === taskId
-        );
+    setTaskByDate((currentTaskByDate) => {
+      const newTaskByDate = JSON.parse(JSON.stringify(currentTaskByDate));
 
-        if (taskIndex !== -1) {
-          newTasks[difficulty][taskIndex].completed =
-            !newTasks[difficulty][taskIndex].completed;
+      for (const date in newTaskByDate) {
+        const dayTasks = newTaskByDate[date];
 
-          toggleTodoFirebase(
-            user!.uid!,
-            taskId,
-            newTasks[difficulty][taskIndex].completed
+        for (const difficulty in dayTasks) {
+          const taskList = dayTasks[difficulty as keyof TasksState];
+          const taskIndex = taskList.findIndex(
+            (task: Task) => task.id === taskId
           );
-          break;
+
+          if (taskIndex !== -1) {
+            const updatedTask = {
+              ...taskList[taskIndex],
+              completed: !taskList[taskIndex].completed,
+            };
+
+            // update state
+            taskList[taskIndex] = updatedTask;
+
+            // update firestore
+            toggleTodoFirebase(user!.uid!, taskId, updatedTask.completed);
+
+            return newTaskByDate; // stop searching
+          }
         }
       }
-      return newTasks;
+
+      return newTaskByDate;
     });
   };
 
@@ -91,7 +105,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // ✅ add new task
-  const addNewTask = async () => {
+  const addNewTask = async (dueDate: string) => {
     if (!newTaskText.trim()) return;
 
     const randomWeight =
@@ -109,7 +123,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       text: newTaskText.trim(),
       completed: false,
       percentage: `+${gaussian.ppf(Math.random()).toFixed(3).toString()}%`,
-      dueDate: new Date().toISOString().split("T")[0],
+      dueDate: dueDate,
       difficulty: newTaskDifficulty!,
     };
 
@@ -127,6 +141,9 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 
   // ✅ load tasks from firestore
   const loadTasks = async (dueDate: string) => {
+    if (taskByDate[dueDate]) {
+      return; // 이미 로드된 경우, 다시 로드하지 않음
+    }
     await loadTodosFirebase(user?.uid!, dueDate).then((loadedTasks) => {
       const groupedTasks: TasksState = {
         easy: [],
@@ -275,6 +292,63 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     // 5️⃣ Reset
     setModifyDifficulty(null);
   };
+
+  const changeShowDatePicker = () => {
+    setShowDatePicker((prev) => !prev);
+  };
+
+  const changeModifyIndex = (taskId: string | null) => {
+    setModifyIndex(taskId);
+  };
+
+  const changeDueDate = (newDate: string) => {
+    if (!newDate || !user || !modifyIndex) return;
+    setTaskByDate((prev) => {
+      // clone prev state
+      const newTaskByDate: TasksByDate = JSON.parse(JSON.stringify(prev));
+
+      // find the old date and task
+      let oldDate: string | null = null;
+      let foundTask: Task | null = null;
+
+      for (const date in newTaskByDate) {
+        for (const difficulty in newTaskByDate[date]) {
+          const taskList = newTaskByDate[date][difficulty as keyof TasksState];
+          const taskIndex = taskList.findIndex((t) => t.id === modifyIndex);
+          if (taskIndex !== -1) {
+            // found the task
+            foundTask = taskList[taskIndex];
+            oldDate = date;
+
+            // remove from old date
+            taskList.splice(taskIndex, 1);
+            break;
+          }
+        }
+        if (foundTask) break;
+      }
+
+      if (foundTask) {
+        // update dueDate
+        foundTask.dueDate = newDate;
+
+        // ensure newDate group exists
+        if (!newTaskByDate[newDate]) {
+          newTaskByDate[newDate] = {
+            easy: [],
+            medium: [],
+            hard: [],
+            extreme: [],
+          };
+        }
+        newTaskByDate[newDate][foundTask.difficulty].push(foundTask);
+        updateTaskFirebase(foundTask, user.uid!);
+      }
+
+      return newTaskByDate;
+    });
+  };
+
   return (
     <TasksContext.Provider
       value={{
@@ -285,6 +359,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         modifyIndex,
         modifyDifficulty,
         taskByDate,
+        showDatePicker,
         handleToggleTask,
         changeTasks,
         addNewTask,
@@ -297,6 +372,9 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         startModify,
         changeModifyDiffIndex,
         changeDifficulty,
+        changeShowDatePicker,
+        changeModifyIndex,
+        changeDueDate,
       }}
     >
       {children}

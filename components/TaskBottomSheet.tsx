@@ -7,6 +7,7 @@ import { useTasks } from "@/contexts/taskContext";
 import Typo from "./Typo";
 import { verticalScale } from "@/utils/styling";
 import { Alert } from "react-native";
+import CustomDatePicker from "./CustomDatePicker";
 
 const TaskBottomSheet = () => {
   const bottomSheetRef = React.useRef<BottomSheet>(null);
@@ -16,6 +17,8 @@ const TaskBottomSheet = () => {
     deleteTask,
     changeModifyDiffIndex,
     startModify,
+    changeShowDatePicker,
+    changeModifyIndex,
   } = useTasks();
 
   const buttonActions = [
@@ -49,12 +52,19 @@ const TaskBottomSheet = () => {
         changeModifyDiffIndex(bottomSheetIndex);
       },
     },
+    {
+      label: "날짜 변경하기",
+      onPress: () => {
+        changeModifyIndex(bottomSheetIndex);
+        changeShowDatePicker(); // show date picker
+      },
+    },
   ];
   return (
     <BottomSheet
       ref={bottomSheetRef}
-      index={1} // snapPoints에 맞춰 0으로 설정
-      snapPoints={["30%"]} // 높이 40% 정도 (예시)
+      index={0} // snapPoints에 맞춰 0으로 설정
+      snapPoints={["30%", "40%"]} // 높이 40% 정도 (예시)
       enablePanDownToClose
       onClose={() => clickSubMenu(null)}
       style={{

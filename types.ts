@@ -209,3 +209,12 @@ export interface TodoListProps {
   tasks: TasksState;
   onToggleTask: (id: string) => void; // 이 부분을 추가 또는 수정합니다.
 }
+
+export interface CustomDatePickerProps {
+  onConfirm?: (selectedDate: {
+    year: number;
+    month: number;
+    day: number;
+  }) => void;
+  onCancel?: () => void;
+}

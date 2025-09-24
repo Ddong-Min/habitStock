@@ -43,16 +43,18 @@ const TaskList: React.FC<{
   }, [selectedDate]); // empty dependency array -> run only once
 
   const flatData = useMemo(() => {
+    const tasksForSelectedDate = taskByDate[selectedDate] || []; //처음에 selectedDate에 해당하는 값이 없을 수 있으니 빈 배열로 초기화
+
     return (
-      Object.keys(taskByDate[selectedDate]) as Array<keyof typeof tasks>
+      Object.keys(tasksForSelectedDate) as Array<keyof typeof tasks>
     ).flatMap((difficulty) => [
       { type: "header" as const, difficulty },
-      ...tasks[difficulty].map((task) => ({
+      ...tasksForSelectedDate[difficulty].map((task) => ({
         ...task,
         type: "task" as const,
       })),
     ]);
-  }, [selectedDate, taskByDate, tasks]);
+  }, [selectedDate, taskByDate]);
 
   return (
     <ScrollView
@@ -80,12 +82,16 @@ const TaskList: React.FC<{
                     style={styles.newTaskInput}
                     autoFocus
                     onSubmitEditing={() =>
-                      modifyIndex !== null ? saveEditedTask() : addNewTask()
+                      modifyIndex !== null
+                        ? saveEditedTask()
+                        : addNewTask(selectedDate)
                     }
                   />
                   <TouchableOpacity
                     onPress={() =>
-                      modifyIndex != null ? saveEditedTask() : addNewTask()
+                      modifyIndex != null
+                        ? saveEditedTask()
+                        : addNewTask(selectedDate)
                     }
                     style={styles.addButton}
                   >
