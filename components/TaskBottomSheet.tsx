@@ -7,25 +7,23 @@ import { useTasks } from "@/contexts/taskContext";
 import Typo from "./Typo";
 import { verticalScale } from "@/utils/styling";
 import { Alert } from "react-native";
-import CustomDatePicker from "./CustomDatePicker";
 
 const TaskBottomSheet = () => {
   const bottomSheetRef = React.useRef<BottomSheet>(null);
   const {
-    bottomSheetIndex,
-    clickSubMenu,
+    changeEditTextState,
     deleteTask,
-    changeModifyDiffIndex,
-    startModify,
+    changeDifficultySheetState,
     changeShowDatePicker,
-    changeModifyIndex,
+    changeBottomSheetState,
+    finishModify,
   } = useTasks();
 
   const buttonActions = [
     {
       label: "내용 수정하기",
       onPress: () => {
-        startModify(bottomSheetIndex);
+        changeEditTextState();
       },
     },
     {
@@ -38,9 +36,7 @@ const TaskBottomSheet = () => {
             text: "삭제",
             style: "destructive",
             onPress: () => {
-              if (bottomSheetIndex) {
-                deleteTask(bottomSheetIndex);
-              }
+              deleteTask();
             },
           },
         ]);
@@ -49,14 +45,13 @@ const TaskBottomSheet = () => {
     {
       label: "난이도 변경하기",
       onPress: () => {
-        changeModifyDiffIndex(bottomSheetIndex);
+        changeDifficultySheetState();
       },
     },
     {
       label: "날짜 변경하기",
       onPress: () => {
-        changeModifyIndex(bottomSheetIndex);
-        changeShowDatePicker(); // show date picker
+        changeShowDatePicker();
       },
     },
   ];
@@ -66,7 +61,9 @@ const TaskBottomSheet = () => {
       index={0} // snapPoints에 맞춰 0으로 설정
       snapPoints={["30%", "40%"]} // 높이 40% 정도 (예시)
       enablePanDownToClose
-      onClose={() => clickSubMenu(null)}
+      onClose={() => {
+        finishModify(), changeBottomSheetState();
+      }}
       style={{
         width: "90%",
         marginLeft: "5%", // X축 중앙
@@ -97,7 +94,7 @@ const TaskBottomSheet = () => {
               key={index}
               onPress={() => {
                 btn.onPress();
-                clickSubMenu(null); // BottomSheet 닫기
+                changeBottomSheetState(); // BottomSheet 닫기
               }}
               style={{
                 flex: 1,

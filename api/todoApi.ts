@@ -60,25 +60,6 @@ export const loadTodosFirebase = async (
   }
 };
 
-export const toggleTodoFirebase = async (
-  userId: string,
-  todoId: string,
-  completed: boolean
-) => {
-  try {
-    const taskRef = doc(firestore, "users", userId, "todos", todoId);
-
-    await updateDoc(taskRef, {
-      completed, // set the new completed value
-      updatedAt: new Date(), // optional: track last update
-    });
-
-    console.log("Task updated successfully in Firestore!");
-  } catch (error) {
-    console.error("Error updating task in Firestore:", error);
-  }
-};
-
 export const deleteTaskFirebase = async (userId: string, todoId: string) => {
   try {
     const docRef = doc(firestore, "users", userId, "todos", todoId);

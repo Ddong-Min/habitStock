@@ -39,7 +39,7 @@ const CalendarContext = createContext<CalendarContextType | undefined>(
 // This component will wrap your app or a part of it, providing the calendar state
 // and logic to all children components.
 export const CalendarProvider = ({ children }: { children: ReactNode }) => {
-  const [isWeekView, setIsWeekView] = useState(false);
+  const [isWeekView, setIsWeekView] = useState(true);
 
   // All the logic from your original hook is moved inside the provider.
   const today = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);

@@ -14,6 +14,8 @@ import DifficultyHeader from "./DifficultyHeader";
 import { useTasks } from "@/contexts/taskContext";
 import { verticalScale } from "@/utils/styling";
 import { useCalendar } from "@/contexts/calendarContext";
+import { TasksState } from "@/types";
+import NewTask from "./NewTask";
 
 const TaskList: React.FC<{
   isTodo: boolean;
@@ -23,18 +25,21 @@ const TaskList: React.FC<{
   taskFontSize?: number;
 }> = ({ isTodo, diffStyle, taskStyle, diffFontSize, taskFontSize }) => {
   const {
-    tasks,
-    newTaskText,
-    newTaskDifficulty,
-    modifyIndex,
     taskByDate,
-    handleToggleTask,
-    addNewTask,
+    newTaskText,
+    selectedDifficulty,
+    isAddTask,
+    isEditText,
+    selectedTaskId,
+    chooseDifficulty,
+
     loadTasks,
-    makeNewTask,
-    selectNewTaskDifficulty,
-    clickSubMenu,
-    saveEditedTask,
+    changeAddTaskState,
+    editTask,
+    startModify,
+    changeEditTextState,
+    changeBottomSheetState,
+    chooseDueDate,
   } = useTasks();
   const { selectedDate } = useCalendar();
 
@@ -44,9 +49,8 @@ const TaskList: React.FC<{
 
   const flatData = useMemo(() => {
     const tasksForSelectedDate = taskByDate[selectedDate] || []; //처음에 selectedDate에 해당하는 값이 없을 수 있으니 빈 배열로 초기화
-
     return (
-      Object.keys(tasksForSelectedDate) as Array<keyof typeof tasks>
+      Object.keys(tasksForSelectedDate) as Array<keyof TasksState>
     ).flatMap((difficulty) => [
       { type: "header" as const, difficulty },
       ...tasksForSelectedDate[difficulty].map((task) => ({
@@ -67,47 +71,15 @@ const TaskList: React.FC<{
             <View key={item.difficulty}>
               <DifficultyHeader
                 difficulty={item.difficulty}
-                setNewTaskDifficulty={selectNewTaskDifficulty}
+                setNewTaskDifficulty={chooseDifficulty}
+                isAddMode={changeAddTaskState}
                 style={diffStyle}
                 fontSize={diffFontSize}
                 isTodo={isTodo}
               />
               {/* Show input if this header is active */}
-              {newTaskDifficulty === item.difficulty && (
-                <View style={styles.newTaskContainer}>
-                  <TextInput
-                    placeholder="새 할일을 입력해주세요."
-                    value={newTaskText}
-                    onChangeText={makeNewTask}
-                    style={styles.newTaskInput}
-                    autoFocus
-                    onSubmitEditing={() =>
-                      modifyIndex !== null
-                        ? saveEditedTask()
-                        : addNewTask(selectedDate)
-                    }
-                  />
-                  <TouchableOpacity
-                    onPress={() =>
-                      modifyIndex != null
-                        ? saveEditedTask()
-                        : addNewTask(selectedDate)
-                    }
-                    style={styles.addButton}
-                  >
-                    <Feather
-                      name="check"
-                      size={verticalScale(20)}
-                      color="white"
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => selectNewTaskDifficulty(null)}
-                    style={styles.cancelButton}
-                  >
-                    <Feather name="x" size={verticalScale(20)} color="white" />
-                  </TouchableOpacity>
-                </View>
+              {selectedDifficulty === item.difficulty && isAddTask && (
+                <NewTask />
               )}
             </View>
           );
@@ -117,46 +89,63 @@ const TaskList: React.FC<{
 
         return (
           <View key={item.id} style={[styles.taskContainer, taskStyle]}>
-            <View style={styles.task}>
-              <View style={styles.taskLeft}>
-                <TouchableOpacity
-                  onPress={() => handleToggleTask(item.id)}
-                  style={[styles.checkBox, item.completed && styles.checkedBox]}
-                >
-                  {item.completed && (
-                    <Feather name="check" size={16} color="white" />
-                  )}
-                </TouchableOpacity>
-                <View>
-                  <Typo size={taskFontSize}>{item.text}</Typo>
-                  {!isTodo && (
-                    <Typo
-                      size={verticalScale(18)}
-                      style={{ color: colors.neutral300 }}
-                    >
-                      만료일 {item.dueDate}
-                    </Typo>
-                  )}
+            {isEditText && selectedTaskId === item.id ? (
+              <NewTask />
+            ) : (
+              <View style={styles.task}>
+                <View style={styles.taskLeft}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      startModify(item.id, item.dueDate, item.difficulty),
+                        editTask("completed", "");
+                    }}
+                    style={[
+                      styles.checkBox,
+                      item.completed && styles.checkedBox,
+                    ]}
+                  >
+                    {item.completed && (
+                      <Feather name="check" size={16} color="white" />
+                    )}
+                  </TouchableOpacity>
+                  <View>
+                    <Typo size={taskFontSize}>{item.text}</Typo>
+                    {!isTodo && (
+                      <Typo
+                        size={verticalScale(18)}
+                        style={{ color: colors.neutral300 }}
+                      >
+                        만료일 {item.dueDate}
+                      </Typo>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.taskRight}>
+                  <Typo
+                    style={{
+                      color: isPositive ? colors.red100 : colors.blue100,
+                    }}
+                  >
+                    {item.completed &&
+                      `${isPositive ? "▲" : "▼"} ${item.percentage.substring(
+                        1
+                      )}`}
+                  </Typo>
+                  <TouchableOpacity
+                    onPress={() => {
+                      startModify(item.id, item.dueDate, item.difficulty),
+                        changeBottomSheetState();
+                    }}
+                  >
+                    <Feather
+                      name="more-horizontal"
+                      size={verticalScale(22)}
+                      color={colors.neutral300}
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
-              <View style={styles.taskRight}>
-                <Typo
-                  style={{
-                    color: isPositive ? colors.red100 : colors.blue100,
-                  }}
-                >
-                  {item.completed &&
-                    `${isPositive ? "▲" : "▼"} ${item.percentage.substring(1)}`}
-                </Typo>
-                <TouchableOpacity onPress={() => clickSubMenu(item.id)}>
-                  <Feather
-                    name="more-horizontal"
-                    size={verticalScale(22)}
-                    color={colors.neutral300}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
+            )}
           </View>
         );
       })}
@@ -211,31 +200,6 @@ const styles = StyleSheet.create({
     padding: spacingX._5,
     alignSelf: "flex-start",
     marginBottom: spacingY._5,
-  },
-  newTaskContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacingY._10,
-  },
-  newTaskInput: {
-    flex: 1,
-    padding: spacingY._12,
-    borderWidth: 1,
-    borderColor: colors.sub,
-    borderRadius: radius._10,
-    marginRight: spacingX._10,
-    backgroundColor: colors.white,
-  },
-  addButton: {
-    backgroundColor: colors.main,
-    padding: spacingX._10,
-    borderRadius: radius._10,
-    marginRight: spacingX._3,
-  },
-  cancelButton: {
-    backgroundColor: colors.red100,
-    padding: spacingX._10,
-    borderRadius: radius._10,
   },
 });
 

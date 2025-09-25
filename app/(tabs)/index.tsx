@@ -12,11 +12,11 @@ import CustomDatePicker from "@/components/CustomDatePicker";
 const TodoScreen = () => {
   const [activeTab, setActiveTab] = useState<"todo" | "bucket">("todo");
   const {
-    bottomSheetIndex,
-    modifyDifficulty,
+    isBottomSheetOpen,
+    isModifyDifficultySheet,
     showDatePicker,
     changeShowDatePicker,
-    changeDueDate,
+    editTask,
   } = useTasks();
 
   return (
@@ -53,15 +53,15 @@ const TodoScreen = () => {
         </ScrollView>
       )}
       {/* 모달 영역 */}
-      {bottomSheetIndex != null && <TaskBottomSheet />}
-      {modifyDifficulty != null && <DiffBottomSheet />}
+      {isBottomSheetOpen && <TaskBottomSheet />}
+      {isModifyDifficultySheet && <DiffBottomSheet />}
       {showDatePicker && (
         <View style={styles.datePickerOverlay}>
           {showDatePicker && (
             <CustomDatePicker
               onConfirm={(date) => {
-                console.log("Selected date:", date);
-                changeDueDate(
+                editTask(
+                  "dueDate",
                   `${date.year}-${String(date.month).padStart(2, "0")}-${String(
                     date.day
                   ).padStart(2, "0")}`

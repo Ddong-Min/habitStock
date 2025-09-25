@@ -15,10 +15,18 @@ import { verticalScale } from "@/utils/styling";
 const DifficultyHeader: React.FC<{
   difficulty: keyof TasksState;
   setNewTaskDifficulty: (difficulty: keyof TasksState) => void;
+  isAddMode: () => void;
   style?: ViewStyle;
   fontSize?: number;
   isTodo: boolean;
-}> = ({ difficulty, setNewTaskDifficulty, style, fontSize, isTodo }) => {
+}> = ({
+  difficulty,
+  setNewTaskDifficulty,
+  isAddMode,
+  style,
+  fontSize,
+  isTodo,
+}) => {
   return (
     <View style={styles.difficultyHeader}>
       <View
@@ -45,7 +53,10 @@ const DifficultyHeader: React.FC<{
         </View>
         <TouchableOpacity
           style={styles.plusButton}
-          onPress={() => setNewTaskDifficulty(difficulty)}
+          onPress={() => {
+            setNewTaskDifficulty(difficulty);
+            isAddMode();
+          }}
         >
           <Feather
             name="plus"
