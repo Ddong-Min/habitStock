@@ -212,71 +212,55 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     const [newTaskByDate, taskIndex] = findIndex();
     if (taskIndex === -1) return;
 
-    let updatedTask: any;
     let taskList = newTaskByDate[selectedDate][selectedDifficulty];
+    let updatedTask = { ...taskList[taskIndex] };
+
     if (mode === "task") {
-      updatedTask = {
-        ...taskList[taskIndex],
-        text: edit,
-        updatedAt: new Date().toISOString(),
-      };
+      updatedTask.text = edit;
+      updatedTask.updatedAt = new Date().toISOString();
       changeEditTextState();
+      taskList[taskIndex] = updatedTask;
     } else if (mode === "difficulty") {
-      updatedTask = {
-        ...taskList[taskIndex],
-        difficulty: edit as keyof TasksState,
-        updatedAt: new Date().toISOString(),
-      };
+      const oldDifficulty = updatedTask.difficulty;
+      updatedTask.difficulty = edit as keyof TasksState;
+      updatedTask.updatedAt = new Date().toISOString();
+
+      // remove from old list
+      taskList.splice(taskIndex, 1);
+
+      // add to new difficulty list
+      if (!newTaskByDate[selectedDate][updatedTask.difficulty]) {
+        newTaskByDate[selectedDate][updatedTask.difficulty] = [];
+      }
+      newTaskByDate[selectedDate][updatedTask.difficulty].push(updatedTask);
     } else if (mode === "dueDate") {
       const oldDate = selectedDate;
       const newDate = edit;
-      taskList = newTaskByDate[oldDate][selectedDifficulty];
-      console.log("oldDate", oldDate, "newDate", newDate);
-      updatedTask = {
-        ...taskList[taskIndex],
-        dueDate: newDate,
-        updatedAt: new Date().toISOString(),
-      };
-      console.log("updated task", updatedTask);
-      const oldTaskList = [...taskByDate[oldDate][selectedDifficulty!]];
-      oldTaskList.splice(taskIndex, 1);
+      updatedTask.dueDate = newDate;
+      updatedTask.updatedAt = new Date().toISOString();
 
-      setTaskByDate((prev) => ({
-        ...prev,
-        [oldDate]: {
-          ...prev[oldDate],
-          [selectedDifficulty!]: oldTaskList,
-        },
-      }));
+      // remove from old date list
+      taskList.splice(taskIndex, 1);
+
+      // create new date if missing
       if (!newTaskByDate[newDate]) {
         newTaskByDate[newDate] = { ...initialTasksState };
       }
 
-      taskList = newTaskByDate[newDate][selectedDifficulty];
-      taskList.push(updatedTask);
-      console.log("here", taskList);
+      // push task to new date
+      newTaskByDate[newDate][updatedTask.difficulty].push(updatedTask);
       setSelectedDate(newDate);
     } else if (mode === "completed") {
-      updatedTask = {
-        ...taskList[taskIndex],
-        complete: !taskList[taskIndex].completed,
-        updatedAt: new Date().toISOString(),
-      };
+      updatedTask.completed = !updatedTask.completed;
+      updatedTask.updatedAt = new Date().toISOString();
+      taskList[taskIndex] = updatedTask;
     }
-    taskList[taskIndex] = updatedTask;
+
     // Call API
-    const res = await updateTaskFirebase(updatedTask, user.uid!);
-    if (!res.success) {
-      console.error(res.error);
-      return;
-    }
-    setTaskByDate((prev) => ({
-      ...prev,
-      [selectedDate]: {
-        ...prev[selectedDate],
-        [selectedDifficulty]: taskList,
-      },
-    }));
+    await updateTaskFirebase(updatedTask, user.uid!);
+
+    // Update state
+    setTaskByDate(newTaskByDate);
     setNewTaskText("");
     finishModify();
   };
