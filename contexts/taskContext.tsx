@@ -1,7 +1,6 @@
 // contexts/TasksContext.tsx
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { Task, TasksByDate, TasksState } from "../types";
-import { Gaussian } from "ts-gaussian";
 import {
   addTodoFirebase,
   deleteTaskFirebase,
@@ -9,6 +8,7 @@ import {
   updateTaskFirebase,
 } from "@/api/todoApi";
 import { useAuth } from "@/contexts/authContext";
+import randomPriceGenerator from "@/handler/randomPriceGenerator";
 type TasksContextType = {
   taskByDate: TasksByDate;
   newTaskText: string;
@@ -136,22 +136,13 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   //add new task to firestore and localState
   const addNewTask = async (dueDate: string) => {
     if (!newTaskText.trim() || !user) return;
-    const randomWeight =
-      selectedDifficulty === "extreme"
-        ? 4
-        : selectedDifficulty === "hard"
-        ? 3
-        : selectedDifficulty === "medium"
-        ? 2
-        : 1;
-
-    const gaussian = new Gaussian(randomWeight, 1);
+    const randomPrice = randomPriceGenerator(selectedDifficulty!);
 
     const newTask: Task = {
       id: Date.now().toString(),
       text: newTaskText.trim(),
       completed: false,
-      percentage: `+${gaussian.ppf(Math.random()).toFixed(3)}%`,
+      percentage: `+${randomPrice.toFixed(2)}%`,
       dueDate: dueDate,
       difficulty: selectedDifficulty!,
     };

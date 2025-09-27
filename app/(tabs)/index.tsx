@@ -18,7 +18,6 @@ const TodoScreen = () => {
     changeShowDatePicker,
     editTask,
   } = useTasks();
-
   return (
     <SafeAreaView style={styles.container}>
       {/* 상단 고정 영역 */}

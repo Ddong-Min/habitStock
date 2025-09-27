@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { TasksProvider } from "@/contexts/taskContext";
 import { CalendarProvider } from "@/contexts/calendarContext";
+import "react-native-url-polyfill/auto";
 
 const StackLayout = () => {
   return <Stack screenOptions={{ headerShown: false }}></Stack>;

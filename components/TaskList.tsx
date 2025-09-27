@@ -26,20 +26,16 @@ const TaskList: React.FC<{
 }> = ({ isTodo, diffStyle, taskStyle, diffFontSize, taskFontSize }) => {
   const {
     taskByDate,
-    newTaskText,
     selectedDifficulty,
     isAddTask,
     isEditText,
     selectedTaskId,
     chooseDifficulty,
-
     loadTasks,
     changeAddTaskState,
     editTask,
     startModify,
-    changeEditTextState,
     changeBottomSheetState,
-    chooseDueDate,
   } = useTasks();
   const { selectedDate } = useCalendar();
 

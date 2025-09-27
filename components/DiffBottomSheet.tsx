@@ -10,15 +10,14 @@ import { verticalScale } from "@/utils/styling";
 
 const DiffBottomSheet = () => {
   const bottomSheetRef = React.useRef<BottomSheet>(null);
-  const { changeDifficulty, clickSubMenu, bottomSheetIndex } = useTasks();
-
+  const { editTask, changeDifficultySheetState } = useTasks();
   return (
     <BottomSheet
       ref={bottomSheetRef}
       index={1} // snapPoints에 맞춰 0으로 설정
       snapPoints={["30%"]} // 높이 40% 정도 (예시)
       enablePanDownToClose
-      onClose={() => clickSubMenu(null)}
+      onClose={() => changeDifficultySheetState()}
       style={{
         width: "90%",
         marginLeft: "5%", // X축 중앙
@@ -49,7 +48,8 @@ const DiffBottomSheet = () => {
             <TouchableOpacity
               key={index}
               onPress={() => {
-                changeDifficulty(label as keyof TasksState);
+                editTask("difficulty", label as keyof TasksState);
+                changeDifficultySheetState();
               }}
               style={{
                 flex: 1,
