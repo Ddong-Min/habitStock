@@ -12,7 +12,7 @@ export const colors = {
   red25: "#d1706940",
   red50: "#d1706980",
   red75: "#d17069BF",
-  red100: "#d17069FF",
+  red100: "#d17069",
   // Blue
   //blue25: "#0B6FF440", // 25%
   //blue50: "#0B6FF480", // 50%
@@ -21,7 +21,7 @@ export const colors = {
   blue25: "#7693a540",
   blue50: "#7693a580", // 50%
   blue75: "#7693a5BF", // 75%
-  blue100: "#7693a5FF", // 100% (or just #0B6FF4)
+  blue100: "#7693a5", // 100% (or just #0B6FF4)
   text: "#000",
   textLight: "#a3a3a3",
   textLighter: "#d4d4d4",

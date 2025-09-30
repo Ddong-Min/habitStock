@@ -218,3 +218,33 @@ export interface CustomDatePickerProps {
   }) => void;
   onCancel?: () => void;
 }
+
+//chart types
+export interface Props {
+  date: string[];
+  open: number[];
+  close: number[];
+  high: number[];
+  low: number[];
+  volume: number[];
+}
+export type CandleStickProps = {
+  width?: number | undefined;
+  height?: number | undefined;
+  date: string[];
+  open: number[];
+  close: number[];
+  high: number[];
+  low: number[];
+  volume?: number[];
+  name: string[];
+  clo5?: number[];
+  clo20?: number[];
+  clo60?: number[];
+  bollinger?: number[][];
+};
+
+export type VolumeProps = {
+  date: string[];
+  volume: number[];
+};
