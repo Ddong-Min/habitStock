@@ -7,10 +7,17 @@ import { useTasks } from "@/contexts/taskContext";
 import Typo from "./Typo";
 import { verticalScale } from "@/utils/styling";
 import { Alert } from "react-native";
+import {
+  TrashSimpleIcon,
+  ScissorsIcon,
+  SwapIcon,
+  CalendarIcon,
+} from "phosphor-react-native";
 
 const TaskBottomSheet = () => {
   const bottomSheetRef = React.useRef<BottomSheet>(null);
   const {
+    selectedText,
     changeEditTextState,
     deleteTask,
     changeDifficultySheetState,
@@ -22,12 +29,14 @@ const TaskBottomSheet = () => {
   const buttonActions = [
     {
       label: "내용 수정하기",
+      icon: <ScissorsIcon size={24} color="gray" />,
       onPress: () => {
         changeEditTextState();
       },
     },
     {
       label: "할일 삭제하기",
+      icon: <TrashSimpleIcon size={24} color="gray" />,
       onPress: () => {
         // code for deleting todo
         Alert.alert("삭제 확인", "정말로 이 할일을 삭제하시겠습니까?", [
@@ -44,12 +53,14 @@ const TaskBottomSheet = () => {
     },
     {
       label: "난이도 변경하기",
+      icon: <SwapIcon size={24} color="gray" />,
       onPress: () => {
         changeDifficultySheetState();
       },
     },
     {
       label: "날짜 변경하기",
+      icon: <CalendarIcon size={24} color="gray" />,
       onPress: () => {
         changeShowDatePicker();
       },
@@ -70,8 +81,8 @@ const TaskBottomSheet = () => {
       }}
       backgroundStyle={{
         borderRadius: 12,
-        backgroundColor: colors.white + "4D",
-        borderColor: colors.neutral300,
+        backgroundColor: colors.white,
+        borderColor: colors.blue50,
         borderWidth: 2,
       }}
     >
@@ -83,9 +94,19 @@ const TaskBottomSheet = () => {
           alignItems: "center",
         }}
       >
+        <Typo
+          size={verticalScale(30)}
+          fontWeight={700}
+          style={{
+            lineHeight: verticalScale(30),
+            marginBottom: spacingY._10,
+          }}
+        >
+          "{selectedText}"
+        </Typo>
         <View
           style={{
-            width: "100%",
+            width: "90%",
             height: "90%", // BottomSheet 높이의 80%
           }}
         >
@@ -98,16 +119,25 @@ const TaskBottomSheet = () => {
               }}
               style={{
                 flex: 1,
-                marginHorizontal: spacingX._10, // 버튼 간격
+                flexDirection: "row",
+                marginHorizontal: spacingX._5, // 버튼 간격
                 marginVertical: spacingY._5,
-                backgroundColor: colors.sub,
+                backgroundColor: colors.neutral50,
                 borderRadius: radius._10,
-                justifyContent: "center",
                 paddingLeft: spacingX._20,
+                alignItems: "center",
+                gap: spacingX._15,
+                borderWidth: 1,
+                borderColor: colors.blue25,
               }}
             >
+              {btn.icon}
               {
-                <Typo size={verticalScale(26)} fontWeight={600}>
+                <Typo
+                  size={verticalScale(26)}
+                  fontWeight={600}
+                  style={{ lineHeight: verticalScale(26) }}
+                >
                   {btn.label}
                 </Typo>
               }

@@ -8,6 +8,7 @@ interface ProfileProps {
   price: number;
   changeValue: number;
   changePercentage: number;
+  type: "todo" | "stock" | "news";
 }
 
 const Profile: React.FC<ProfileProps> = ({
@@ -15,12 +16,20 @@ const Profile: React.FC<ProfileProps> = ({
   price,
   changeValue,
   changePercentage,
+  type,
 }) => {
   const isPositive = changeValue >= 0;
   const changeColor = isPositive ? colors.red100 : colors.blue100;
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        (type === "stock" || type === "news") && {
+          paddingBottom: spacingY._10,
+        },
+      ]}
+    >
       <Image
         source={require("../assets/images/tempProfile.png")}
         style={styles.avatar}
@@ -33,7 +42,12 @@ const Profile: React.FC<ProfileProps> = ({
           <Typo size={22} fontWeight="bold" style={{ marginRight: 8 }}>
             $ {price}
           </Typo>
-          <Typo size={16} style={{ color: changeColor }}>
+          {type === "stock" && (
+            <Typo size={16} color={colors.neutral400} fontWeight={"500"}>
+              어제보다{" "}
+            </Typo>
+          )}
+          <Typo size={18} style={{ color: changeColor }}>
             {isPositive ? "▲" : "▼"} {changeValue} ({changePercentage}%)
           </Typo>
         </View>

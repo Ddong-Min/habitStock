@@ -1,17 +1,13 @@
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  View,
-  Dimensions,
-  TouchableOpacity,
-  Text as RNText,
-} from "react-native";
+import React, { useState, useMemo } from "react";
+import { StyleSheet, View, Dimensions, TouchableOpacity } from "react-native";
 import Svg, { G, Line, Rect, Text, Polyline } from "react-native-svg";
 import { verticalScale } from "@/utils/styling";
 import { Props } from "@/types";
 import { scaleLinear } from "d3-scale";
 import Typo from "./Typo";
+import { useSharedValue, runOnJS } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SVG_WIDTH = SCREEN_WIDTH;
@@ -50,8 +46,16 @@ const CustomChart: React.FC<Props> = ({
   low,
   volume,
 }) => {
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("day");
+  //줌/ 스크롤 관리
+  const [visibleRange, setVisibleRange] = useState(Math.min(30, date.length));
+  const [scrollOffset, setScrollOffset] = useState(0);
 
+  const pinchScale = useSharedValue(1);
+  const baseScale = useSharedValue(1);
+  const panOffset = useSharedValue(0);
+  const basePanOffset = useSharedValue(0);
+
+  // x축 설정
   const x0 = spacingX._25;
   const xAxisLength = SVG_WIDTH - x0 * 3;
   const x1 = x0 + xAxisLength;
@@ -67,35 +71,142 @@ const CustomChart: React.FC<Props> = ({
   const volumeXAxisY = volumeY0 + volumeYAxisLength;
 
   // 데이터 준비
-  const dataArray: [string, number, number, number, number, number][] = [];
+  const fullDataArray: [string, number, number, number, number, number][] = [];
   for (let i = 0; i < date.length; i++) {
-    dataArray.push([date[i], open[i], close[i], high[i], low[i], volume[i]]);
+    fullDataArray.push([
+      date[i],
+      open[i],
+      close[i],
+      high[i],
+      low[i],
+      volume[i],
+    ]);
   }
 
-  // 이동평균선 계산
-  const ma5 = calculateMovingAverage(close, 5);
-  const ma20 = calculateMovingAverage(close, 20);
-  const ma60 = calculateMovingAverage(close, 60);
+  const updateVisibleRange = (newRange: number) => {
+    setVisibleRange(newRange);
+  };
 
-  // 캔들 차트 범위 계산
-  const candleYMax = dataArray.reduce(
-    (max, [_, __, ___, high, ____]) => Math.max(max, high),
-    -Infinity
+  const updateScrollOffset = (newOffset: number) => {
+    setScrollOffset(newOffset);
+  };
+
+  //핀치 제스처 (줌인 줌아웃)
+  const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
+      baseScale.value = pinchScale.value;
+    })
+    .onUpdate((e) => {
+      const newScale = baseScale.value * e.scale;
+      const maxData = fullDataArray.length / 5; // 최소 5개 데이터는 보여야 함
+      const minData = fullDataArray.length / 40; // 최대 40개 데이터까지 확대 가능
+      const clampedScale = Math.min(Math.max(newScale, minData), maxData);
+      pinchScale.value = clampedScale;
+
+      const newRange = Math.max(
+        5,
+        Math.min(fullDataArray.length, fullDataArray.length / clampedScale)
+      );
+      runOnJS(updateVisibleRange)(Math.round(newRange));
+    })
+    .onEnd(() => {
+      baseScale.value = pinchScale.value;
+    });
+
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      basePanOffset.value = panOffset.value;
+    })
+    .onUpdate((e) => {
+      const newOffset = basePanOffset.value - e.translationX;
+      const maxScroll = Math.max(0, fullDataArray.length - visibleRange);
+      const pixelsPerData = xAxisLength / visibleRange;
+      const offsetInDataPoints = newOffset / pixelsPerData;
+      const clampedOffset = Math.max(
+        0,
+        Math.min(maxScroll, offsetInDataPoints)
+      );
+      panOffset.value = clampedOffset * pixelsPerData;
+      runOnJS(updateScrollOffset)(Math.round(clampedOffset));
+    })
+    .onEnd(() => {
+      basePanOffset.value = panOffset.value;
+    });
+
+  const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
+
+  // 전체 데이터의 이동평균선 계산 (한 번만)
+  const fullMa5 = useMemo(() => {
+    const allClose = fullDataArray.map((d) => d[2]);
+    return calculateMovingAverage(allClose, 5);
+  }, [fullDataArray]);
+
+  const fullMa20 = useMemo(() => {
+    const allClose = fullDataArray.map((d) => d[2]);
+    return calculateMovingAverage(allClose, 20);
+  }, [fullDataArray]);
+
+  const fullMa60 = useMemo(() => {
+    const allClose = fullDataArray.map((d) => d[2]);
+    return calculateMovingAverage(allClose, 60);
+  }, [fullDataArray]);
+
+  // 현재 보여줄 데이터 범위 계산
+  const { dataArray, startIndex } = useMemo(() => {
+    const start = Math.max(
+      0,
+      Math.min(scrollOffset, fullDataArray.length - visibleRange)
+    );
+    const end = Math.min(start + visibleRange, fullDataArray.length);
+    return {
+      dataArray: fullDataArray.slice(start, end),
+      startIndex: start,
+    };
+  }, [fullDataArray, scrollOffset, visibleRange]);
+
+  // 현재 보이는 범위의 이동평균선만 추출
+  const ma5 = fullMa5.slice(startIndex, startIndex + dataArray.length);
+  const ma20 = fullMa20.slice(startIndex, startIndex + dataArray.length);
+  const ma60 = fullMa60.slice(startIndex, startIndex + dataArray.length);
+
+  // 캔들 차트 범위 계산 (이동평균선 값 포함)
+  const rawCandleYMax = Math.max(
+    dataArray.reduce(
+      (max, [_, __, ___, high, ____]) => Math.max(max, high),
+      -Infinity
+    ),
+    ...ma5.filter((v): v is number => v !== null),
+    ...ma20.filter((v): v is number => v !== null),
+    ...ma60.filter((v): v is number => v !== null)
   );
-  const candleYMin = dataArray.reduce(
-    (min, [_, __, ___, ____, low]) => Math.min(min, low),
-    Infinity
+  const rawCandleYMin = Math.min(
+    dataArray.reduce(
+      (min, [_, __, ___, ____, low]) => Math.min(min, low),
+      Infinity
+    ),
+    ...ma5.filter((v): v is number => v !== null),
+    ...ma20.filter((v): v is number => v !== null),
+    ...ma60.filter((v): v is number => v !== null)
   );
+
+  // 위아래 5% 여유 공간 추가
+  const rawRange = rawCandleYMax - rawCandleYMin;
+  const padding = rawRange * 0.05;
+  const candleYMax = rawCandleYMax + padding;
+  const candleYMin = rawCandleYMin - padding;
   const candleYRange = candleYMax - candleYMin;
 
-  // 거래량 범위 계산
-  const volumeYMax = Math.max(...volume);
+  // 거래량 범위 계산 (현재 보이는 범위만)
+  const visibleVolumes = dataArray.map((d) => d[5]);
+  const volumeYMax = Math.max(...visibleVolumes);
   const volumeYMin = 0;
   const volumeYRange = volumeYMax - volumeYMin;
 
   const numYTicks = 7;
   const numXTicks = 5;
-  const barPlotWidth = xAxisLength / dataArray.length;
+  // 최소 5개 기준으로 캔들 너비 계산
+  const minDataCount = 5;
+  const barPlotWidth = xAxisLength / Math.max(dataArray.length, minDataCount);
 
   // 이동평균선 포인트 생성 함수
   const createMovingAveragePoints = (maData: (number | null)[]): string => {
@@ -117,288 +228,255 @@ const CustomChart: React.FC<Props> = ({
 
   return (
     <View style={styles.container}>
-      <Svg height={TOTAL_HEIGHT} width={SVG_WIDTH}>
-        {/* 캔들 차트 X축 */}
-        <Line
-          x1={x0}
-          y1={candleXAxisY}
-          x2={x1}
-          y2={candleXAxisY}
-          stroke={colors.neutral400}
-          strokeWidth="2"
-        />
+      <GestureDetector gesture={composedGesture}>
+        <View>
+          <Svg height={TOTAL_HEIGHT} width={SVG_WIDTH}>
+            {/* 캔들 차트 X축 */}
+            <Line
+              x1={x0}
+              y1={candleXAxisY}
+              x2={x1}
+              y2={candleXAxisY}
+              stroke={colors.neutral400}
+              strokeWidth="2"
+            />
+            {/* 캔들 차트 Y축 */}
+            <Line
+              x1={x1}
+              y1={candleY0}
+              x2={x1}
+              y2={candleXAxisY}
+              stroke={colors.neutral200}
+              strokeWidth="2"
+            />
+            {/* X축 격자선과 날짜 레이블 (전체 차트 관통) */}
+            {dataArray.map((_, index) => {
+              const shouldShowLabel =
+                index % Math.ceil(dataArray.length / numXTicks) === 0;
+              if (shouldShowLabel) {
+                const x = x0 + index * barPlotWidth + barPlotWidth / 2;
+                return (
+                  <G key={`x-${index}`}>
+                    {/* 캔들 차트 격자선 */}
+                    <Line
+                      x1={x}
+                      y1={candleY0}
+                      x2={x}
+                      y2={candleXAxisY}
+                      stroke={colors.neutral200}
+                      strokeWidth="1"
+                    />
+                    {/* 거래량 차트 격자선 */}
+                    <Line
+                      x1={x}
+                      y1={volumeY0}
+                      x2={x}
+                      y2={volumeXAxisY}
+                      stroke={colors.neutral200}
+                      strokeWidth="1"
+                    />
+                    {/* 날짜 레이블 */}
+                    <Text
+                      x={x}
+                      y={volumeXAxisY + spacingY._15}
+                      textAnchor="middle"
+                      fontSize={verticalScale(10)}
+                    >
+                      {dataArray[index][0]
+                        .split("-")
+                        .map((part, i) => (i === 0 ? part.slice(-2) : part))
+                        .join("/")}
+                    </Text>
+                  </G>
+                );
+              }
+              return null;
+            })}
 
-        {/* 캔들 차트 Y축 */}
-        <Line
-          x1={x1}
-          y1={candleY0}
-          x2={x1}
-          y2={candleXAxisY}
-          stroke={colors.neutral200}
-          strokeWidth="1"
-        />
-        {/* X축 격자선과 날짜 레이블 (전체 차트 관통) */}
-        {dataArray.map((_, index) => {
-          const shouldShowLabel =
-            index % Math.ceil(dataArray.length / numXTicks) === 0 ||
-            index === dataArray.length - 1;
+            {/* 캔들 차트 Y축 격자선과 가격 레이블 */}
+            {Array.from({ length: numYTicks }).map((_, index) => {
+              const y = candleY0 + index * (candleYAxisLength / numYTicks);
+              const yValue = Math.round(
+                candleYMax - index * (candleYRange / numYTicks)
+              );
+              return (
+                <G key={`candle-y-${index}`}>
+                  <Line
+                    x1={x1}
+                    y1={y}
+                    x2={x0}
+                    y2={y}
+                    stroke={colors.neutral200}
+                    strokeWidth="1"
+                  />
+                  <Text
+                    x={x1 + spacingX._5}
+                    y={y + spacingY._5}
+                    textAnchor="start"
+                    fontSize={verticalScale(12)}
+                  >
+                    {yValue.toLocaleString()}원
+                  </Text>
+                </G>
+              );
+            })}
+            {/* ========== 거래량 차트 영역 ========== */}
 
-          if (shouldShowLabel) {
-            const x = x0 + index * barPlotWidth + barPlotWidth / 2;
-            return (
-              <G key={`x-${index}`}>
-                {/* 캔들 차트 격자선 */}
-                <Line
-                  x1={x}
-                  y1={candleY0}
-                  x2={x}
-                  y2={candleXAxisY}
-                  stroke={colors.neutral200}
-                  strokeWidth="1"
-                />
-                {/* 거래량 차트 격자선 */}
-                <Line
-                  x1={x}
-                  y1={volumeY0}
-                  x2={x}
-                  y2={volumeXAxisY}
-                  stroke={colors.neutral200}
-                  strokeWidth="1"
-                />
-                {/* 날짜 레이블 */}
-                <Text
-                  x={x}
-                  y={volumeXAxisY + spacingY._15}
-                  textAnchor="middle"
-                  fontSize={verticalScale(10)}
-                >
-                  {dataArray[index][0].split("-").join("/")}
-                </Text>
-              </G>
-            );
-          }
-          return null;
-        })}
+            {/* 거래량 차트 X축 */}
+            <Line
+              x1={x0}
+              y1={volumeXAxisY}
+              x2={x1}
+              y2={volumeXAxisY}
+              stroke={colors.neutral400}
+              strokeWidth="2"
+            />
 
-        {/* 캔들 차트 Y축 격자선과 가격 레이블 */}
-        {Array.from({ length: numYTicks }).map((_, index) => {
-          const y = candleY0 + index * (candleYAxisLength / numYTicks);
-          const yValue = Math.round(
-            candleYMax - index * (candleYRange / numYTicks)
-          );
-          return (
-            <G key={`candle-y-${index}`}>
-              <Line
-                x1={x1}
-                y1={y}
-                x2={x0}
-                y2={y}
-                stroke={colors.neutral200}
-                strokeWidth="1"
-              />
+            {/* 거래량 차트 Y축 */}
+            <Line
+              x1={x1}
+              y1={volumeY0}
+              x2={x1}
+              y2={volumeXAxisY}
+              stroke={colors.neutral400}
+              strokeWidth="2"
+            />
+
+            {/* 거래량 차트 Y축 격자선과 레이블 */}
+            {Array.from({ length: 5 }).map((_, index) => {
+              const y = volumeY0 + index * (volumeYAxisLength / 4);
+              const yValue = Math.round(
+                volumeYMax - index * (volumeYRange / 4)
+              );
+              return (
+                <G key={`volume-y-${index}`}>
+                  <Line
+                    x1={x1}
+                    x2={x0}
+                    y1={y}
+                    y2={y}
+                    stroke={colors.neutral200}
+                    strokeWidth="1"
+                  />
+                  <Text
+                    fontSize={verticalScale(10)}
+                    x={x1 + spacingX._5}
+                    y={y + 5}
+                    textAnchor="start"
+                  >
+                    {Math.abs(yValue)}
+                  </Text>
+                </G>
+              );
+            })}
+
+            {/* 바 영역*/}
+            {dataArray.map(([day, open, close, high, low, volume], index) => {
+              const x = x0 + index * barPlotWidth;
+              const sidePadding = barPlotWidth / 6;
+              const max = Math.max(open, close);
+              const min = Math.min(open, close);
+              const scaleY = scaleLinear()
+                .domain([candleYMin, candleYMax])
+                .range([candleY0, candleYAxisLength]);
+              const fill = open > close ? colors.blue100 : colors.red100;
+
+              const highY = CANDLE_HEIGHT - scaleY(high) - candleY0;
+              const lowY = CANDLE_HEIGHT - scaleY(low) - candleY0;
+              const maxY = CANDLE_HEIGHT - scaleY(max) - candleY0;
+              const minY = CANDLE_HEIGHT - scaleY(min) - candleY0;
+
+              const rectHeight = minY - maxY;
+
+              // 거래량 바 설정
+              const volumeScaleY = scaleLinear()
+                .domain([volumeYMin, volumeYMax])
+                .range([0, volumeYAxisLength]);
+
+              const barHeight = volumeScaleY(volume);
+              const barY = volumeXAxisY - barHeight;
+
+              return (
+                <G key={`candle-${index}`}>
+                  {/* 심지(wick) */}
+                  <Line
+                    x1={x + sidePadding / 2 + (barPlotWidth - sidePadding) / 2}
+                    y1={highY}
+                    x2={x + sidePadding / 2 + (barPlotWidth - sidePadding) / 2}
+                    y2={lowY}
+                    stroke={fill}
+                    strokeWidth="1"
+                  />
+                  {/* 캔들 몸체 */}
+                  <Rect
+                    fill={fill}
+                    x={x + sidePadding / 2}
+                    y={maxY}
+                    width={barPlotWidth - sidePadding}
+                    height={rectHeight}
+                  />
+                  <Rect
+                    key={`volume-${index}`}
+                    x={x + sidePadding / 2}
+                    y={barY}
+                    width={barPlotWidth - sidePadding}
+                    height={barHeight}
+                    fill={fill}
+                  />
+                </G>
+              );
+            })}
+
+            {/* 이동평균선 */}
+            <Polyline
+              points={createMovingAveragePoints(ma5)}
+              fill="none"
+              stroke="#FF6B6B"
+              strokeWidth="2"
+            />
+            <Polyline
+              points={createMovingAveragePoints(ma20)}
+              fill="none"
+              stroke="#4ECDC4"
+              strokeWidth="2"
+            />
+            <Polyline
+              points={createMovingAveragePoints(ma60)}
+              fill="none"
+              stroke="#9B59B6"
+              strokeWidth="2"
+            />
+
+            {/* 이동평균선 범례 */}
+            <G>
               <Text
-                x={x1 + spacingX._5}
-                y={y + spacingY._5}
-                textAnchor="start"
+                x={x0}
+                y={candleY0 - 10}
                 fontSize={verticalScale(12)}
+                fill="#FF6B6B"
               >
-                {yValue.toLocaleString()}원
+                MA5
               </Text>
-            </G>
-          );
-        })}
-        {/* ========== 거래량 차트 영역 ========== */}
-
-        {/* 거래량 차트 X축 */}
-        <Line
-          x1={x0}
-          y1={volumeXAxisY}
-          x2={x1}
-          y2={volumeXAxisY}
-          stroke={colors.neutral400}
-          strokeWidth="2"
-        />
-
-        {/* 거래량 차트 Y축 */}
-        <Line
-          x1={x1}
-          y1={volumeY0}
-          x2={x1}
-          y2={volumeXAxisY}
-          stroke={colors.neutral400}
-          strokeWidth="2"
-        />
-
-        {/* 거래량 차트 Y축 격자선과 레이블 */}
-        {Array.from({ length: 5 }).map((_, index) => {
-          const y = volumeY0 + index * (volumeYAxisLength / 4);
-          const yValue = Math.round(volumeYMax - index * (volumeYRange / 4));
-          return (
-            <G key={`volume-y-${index}`}>
-              <Line
-                x1={x1}
-                x2={x0}
-                y1={y}
-                y2={y}
-                stroke={colors.neutral200}
-                strokeWidth="1"
-              />
               <Text
-                fontSize={verticalScale(10)}
-                x={x1 + spacingX._5}
-                y={y + 5}
-                textAnchor="start"
+                x={x0 + 50}
+                y={candleY0 - 10}
+                fontSize={verticalScale(12)}
+                fill="#4ECDC4"
               >
-                {Math.abs(yValue)}
+                MA20
+              </Text>
+              <Text
+                x={x0 + 110}
+                y={candleY0 - 10}
+                fontSize={verticalScale(12)}
+                fill="#9B59B6"
+              >
+                MA60
               </Text>
             </G>
-          );
-        })}
-
-        {/* 바 영역*/}
-        {dataArray.map(([day, open, close, high, low, volume], index) => {
-          const x = x0 + index * barPlotWidth;
-          const sidePadding = 3;
-          const max = Math.max(open, close);
-          const min = Math.min(open, close);
-          const scaleY = scaleLinear()
-            .domain([candleYMin, candleYMax])
-            .range([candleY0, candleYAxisLength]);
-          const fill = open > close ? colors.blue100 : colors.red100;
-
-          const highY = CANDLE_HEIGHT - scaleY(high) - candleY0;
-          const lowY = CANDLE_HEIGHT - scaleY(low) - candleY0;
-          const maxY = CANDLE_HEIGHT - scaleY(max) - candleY0;
-          const minY = CANDLE_HEIGHT - scaleY(min) - candleY0;
-
-          const rectHeight = minY - maxY;
-
-          // 거래량 바 설정
-          const volumeScaleY = scaleLinear()
-            .domain([volumeYMin, volumeYMax])
-            .range([0, volumeYAxisLength]);
-
-          const barHeight = volumeScaleY(volume);
-          const barY = volumeXAxisY - barHeight;
-
-          return (
-            <G key={`candle-${index}`}>
-              {/* 심지(wick) */}
-              <Line
-                x1={x + sidePadding / 2 + (barPlotWidth - sidePadding) / 2}
-                y1={highY}
-                x2={x + sidePadding / 2 + (barPlotWidth - sidePadding) / 2}
-                y2={lowY}
-                stroke={fill}
-                strokeWidth="1"
-              />
-              {/* 캔들 몸체 */}
-              <Rect
-                fill={fill}
-                x={x + sidePadding / 2}
-                y={maxY}
-                width={barPlotWidth - sidePadding}
-                height={rectHeight}
-              />
-              <Rect
-                key={`volume-${index}`}
-                x={x + sidePadding / 2}
-                y={barY}
-                width={barPlotWidth - sidePadding}
-                height={barHeight}
-                fill={fill}
-              />
-            </G>
-          );
-        })}
-
-        {/* 이동평균선 */}
-        <Polyline
-          points={createMovingAveragePoints(ma5)}
-          fill="none"
-          stroke="#FF6B6B"
-          strokeWidth="2"
-        />
-        <Polyline
-          points={createMovingAveragePoints(ma20)}
-          fill="none"
-          stroke="#4ECDC4"
-          strokeWidth="2"
-        />
-        <Polyline
-          points={createMovingAveragePoints(ma60)}
-          fill="none"
-          stroke="#9B59B6"
-          strokeWidth="2"
-        />
-
-        {/* 이동평균선 범례 */}
-        <G>
-          <Text
-            x={x0}
-            y={candleY0 - 10}
-            fontSize={verticalScale(12)}
-            fill="#FF6B6B"
-          >
-            MA5
-          </Text>
-          <Text
-            x={x0 + 50}
-            y={candleY0 - 10}
-            fontSize={verticalScale(12)}
-            fill="#4ECDC4"
-          >
-            MA20
-          </Text>
-          <Text
-            x={x0 + 110}
-            y={candleY0 - 10}
-            fontSize={verticalScale(12)}
-            fill="#9B59B6"
-          >
-            MA60
-          </Text>
-        </G>
-      </Svg>
-
-      {/* 일/주/월 버튼 */}
-      <View style={styles.periodButtonContainer}>
-        <TouchableOpacity
-          style={[
-            styles.periodButton,
-            selectedPeriod === "day" && styles.periodButtonActive,
-          ]}
-          onPress={() => setSelectedPeriod("day")}
-        >
-          <Typo color={selectedPeriod === "day" ? colors.white : colors.text}>
-            일
-          </Typo>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.periodButton,
-            selectedPeriod === "week" && styles.periodButtonActive,
-          ]}
-          onPress={() => setSelectedPeriod("week")}
-        >
-          <Typo color={selectedPeriod === "week" ? colors.white : colors.text}>
-            주
-          </Typo>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.periodButton,
-            selectedPeriod === "month" && styles.periodButtonActive,
-          ]}
-          onPress={() => setSelectedPeriod("month")}
-        >
-          <Typo color={selectedPeriod === "month" ? colors.white : colors.text}>
-            월
-          </Typo>
-        </TouchableOpacity>
-      </View>
+          </Svg>
+        </View>
+      </GestureDetector>
     </View>
   );
 };
@@ -412,8 +490,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: spacingY._5,
-    marginLeft: spacingX._25,
+    paddingHorizontal: spacingX._25,
     gap: spacingX._10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.sub,
   },
   periodButton: {
     paddingHorizontal: spacingX._10,

@@ -16,6 +16,7 @@ import { verticalScale } from "@/utils/styling";
 import { useCalendar } from "@/contexts/calendarContext";
 import { TasksState } from "@/types";
 import NewTask from "./NewTask";
+import { difficultyborderColor } from "@/constants/theme";
 
 const TaskList: React.FC<{
   isTodo: boolean;
@@ -33,7 +34,7 @@ const TaskList: React.FC<{
     chooseDifficulty,
     loadTasks,
     changeAddTaskState,
-    editTask,
+    completedTask,
     startModify,
     changeBottomSheetState,
   } = useTasks();
@@ -84,7 +85,14 @@ const TaskList: React.FC<{
         const isPositive = item.percentage.startsWith("+");
 
         return (
-          <View key={item.id} style={[styles.taskContainer, taskStyle]}>
+          <View
+            key={item.id}
+            style={[
+              styles.taskContainer,
+              taskStyle,
+              { borderColor: difficultyborderColor(item.difficulty) },
+            ]}
+          >
             {isEditText && selectedTaskId === item.id ? (
               <NewTask />
             ) : (
@@ -92,8 +100,7 @@ const TaskList: React.FC<{
                 <View style={styles.taskLeft}>
                   <TouchableOpacity
                     onPress={() => {
-                      startModify(item.id, item.dueDate, item.difficulty),
-                        editTask("completed", "");
+                      completedTask(item.id, item.dueDate, item.difficulty);
                     }}
                     style={[
                       styles.checkBox,
@@ -129,7 +136,12 @@ const TaskList: React.FC<{
                   </Typo>
                   <TouchableOpacity
                     onPress={() => {
-                      startModify(item.id, item.dueDate, item.difficulty),
+                      startModify(
+                        item.id,
+                        item.dueDate,
+                        item.difficulty,
+                        item.text
+                      ),
                         changeBottomSheetState();
                     }}
                   >

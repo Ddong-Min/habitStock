@@ -96,3 +96,11 @@ export const difficultyColors = (key: keyof TasksState) => {
   else if (key === "extreme") return colors.red100;
   return colors.sub;
 };
+
+export const difficultyborderColor = (key: keyof TasksState) => {
+  if (key === "easy") return colors.blue50;
+  else if (key === "medium") return colors.blue25;
+  else if (key === "hard") return colors.red25;
+  else if (key === "extreme") return colors.red50;
+  return colors.sub;
+};

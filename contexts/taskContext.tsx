@@ -20,6 +20,7 @@ type TasksContextType = {
   isModifyDifficultySheet: boolean;
   isAddTask: boolean;
   isEditText: boolean;
+  selectedText: string;
   chooseTaskId: (taskId: string | null) => void;
   chooseDueDate: (date: string) => void;
   chooseDifficulty: (difficulty: keyof TasksState) => void;
@@ -28,7 +29,8 @@ type TasksContextType = {
   startModify: (
     taskId: string,
     dueDate: string,
-    difficulty: keyof TasksState
+    difficulty: keyof TasksState,
+    text: string
   ) => void;
   finishModify: () => void;
   addNewTask: (dueDate: string) => Promise<void>;
@@ -37,6 +39,11 @@ type TasksContextType = {
     mode: "task" | "difficulty" | "dueDate" | "completed",
     edit: string
   ) => void;
+  completedTask: (
+    taskId: string,
+    dueDate: string,
+    difficulty: keyof TasksState
+  ) => Promise<void>;
   changeBottomSheetState: () => void;
   changeShowDatePicker: () => void;
   changeDifficultySheetState: () => void;
@@ -64,6 +71,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [isModifyDifficultySheet, setIsModifyDifficultySheet] = useState(false);
   const [isEditText, setIsEditText] = useState(false);
   const [isAddTask, setIsAddTask] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
   const { user } = useAuth();
 
   // ✅ load tasks from firestore
@@ -119,19 +127,20 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const startModify = (
     taskId: string,
     dueDate: string,
-    difficulty: keyof TasksState
+    difficulty: keyof TasksState,
+    text: string
   ) => {
     chooseTaskId(taskId);
     chooseDueDate(dueDate);
     chooseDifficulty(difficulty);
-
-    console.log(selectedDate, selectedDifficulty, selectedTaskId);
+    setSelectedText(text);
   };
 
   const finishModify = () => {
     setSelectedTaskId(null);
     setSelectedDate("");
     setSelectedDifficulty(null);
+    setSelectedText("");
   };
   //add new task to firestore and localState
   const addNewTask = async (dueDate: string) => {
@@ -176,11 +185,14 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const deleteTask = async () => {
     if (!user || !selectedTaskId || !selectedDate || !selectedDifficulty)
       return;
+
     console.log("delete task called");
-    const [taskIndex, taskList] = findIndex();
+    const [newTaskByDate, taskIndex] = findIndex();
     if (taskIndex === -1) return;
     // if taskIndex is found
+    let taskList = newTaskByDate[selectedDate][selectedDifficulty];
     taskList.splice(taskIndex, 1);
+
     setTaskByDate((prev) => ({
       ...prev,
       [selectedDate]: {
@@ -190,7 +202,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     }));
     // 3. Delete from Firestore
     await deleteTaskFirebase(user.uid!, selectedTaskId);
-    finishModify;
+    finishModify();
   };
 
   const editTask = async (
@@ -256,6 +268,37 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     finishModify();
   };
 
+  const completedTask = async (
+    taskId: string,
+    dueDate: string,
+    difficulty: keyof TasksState
+  ) => {
+    if (!user) return;
+    const taskList = taskByDate[dueDate][difficulty];
+    const taskIndex = taskList.findIndex((task: Task) => task.id === taskId);
+    if (taskIndex === -1) return;
+
+    const updatedTask = {
+      ...taskList[taskIndex],
+      completed: !taskList[taskIndex].completed,
+      updatedAt: new Date().toISOString(),
+    };
+    const updatedTaskList = [...taskList];
+    updatedTaskList[taskIndex] = updatedTask;
+
+    // Update state optimistically
+    setTaskByDate((prev) => ({
+      ...prev,
+      [dueDate]: {
+        ...prev[dueDate],
+        [difficulty]: updatedTaskList,
+      },
+    }));
+
+    // Call API
+    await updateTaskFirebase(updatedTask, user.uid!);
+  };
+
   const changeBottomSheetState = () => {
     setIsBottomSheetOpen((prev) => !prev);
   };
@@ -287,6 +330,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         showDatePicker,
         isModifyDifficultySheet,
         isAddTask,
+        selectedText,
         chooseTaskId,
         chooseDueDate,
         chooseDifficulty,
@@ -297,6 +341,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         addNewTask,
         deleteTask,
         editTask,
+        completedTask,
         changeBottomSheetState,
         changeShowDatePicker,
         changeDifficultySheetState,

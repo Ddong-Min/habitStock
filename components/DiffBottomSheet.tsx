@@ -1,8 +1,13 @@
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import React from "react";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
-import { colors } from "../constants/theme";
-import { spacingX, spacingY, radius } from "../constants/theme";
+import { colors, difficultyborderColor } from "../constants/theme";
+import {
+  spacingX,
+  spacingY,
+  radius,
+  difficultyColors,
+} from "../constants/theme";
 import { useTasks } from "@/contexts/taskContext";
 import { TasksState } from "../types";
 import Typo from "./Typo";
@@ -14,8 +19,8 @@ const DiffBottomSheet = () => {
   return (
     <BottomSheet
       ref={bottomSheetRef}
-      index={1} // snapPoints에 맞춰 0으로 설정
-      snapPoints={["30%"]} // 높이 40% 정도 (예시)
+      index={1}
+      snapPoints={["40%"]} // 높이 40% 정도 (예시)
       enablePanDownToClose
       onClose={() => changeDifficultySheetState()}
       style={{
@@ -23,10 +28,10 @@ const DiffBottomSheet = () => {
         marginLeft: "5%", // X축 중앙
       }}
       backgroundStyle={{
-        borderRadius: 12,
-        backgroundColor: colors.white + "4D",
-        borderColor: colors.neutral300,
-        borderWidth: 2,
+        borderRadius: radius._12,
+        backgroundColor: colors.white,
+        borderColor: colors.blue50,
+        borderWidth: 1,
       }}
     >
       <BottomSheetView
@@ -39,9 +44,8 @@ const DiffBottomSheet = () => {
       >
         <View
           style={{
-            flexDirection: "row",
             width: "100%",
-            height: "90%", // BottomSheet 높이의 80%
+            height: "90%",
           }}
         >
           {["easy", "medium", "hard", "extreme"].map((label, index) => (
@@ -53,19 +57,25 @@ const DiffBottomSheet = () => {
               }}
               style={{
                 flex: 1,
-                marginHorizontal: spacingX._10, // 버튼 간격
+                marginHorizontal: spacingX._10,
                 marginVertical: spacingY._5,
-                backgroundColor: colors.sub,
+                borderColor: difficultyColors(label as keyof TasksState),
+                borderWidth: 1,
+                backgroundColor: difficultyborderColor(
+                  label as keyof TasksState
+                ),
                 borderRadius: radius._10,
                 justifyContent: "center",
-                paddingLeft: spacingX._20,
+                alignItems: "center",
               }}
             >
-              {
-                <Typo size={verticalScale(26)} fontWeight={600}>
-                  {label}
-                </Typo>
-              }
+              <Typo
+                size={verticalScale(26)}
+                fontWeight={600}
+                style={{ lineHeight: verticalScale(26) }}
+              >
+                {label}
+              </Typo>
             </TouchableOpacity>
           ))}
         </View>

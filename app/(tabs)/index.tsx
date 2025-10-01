@@ -26,6 +26,7 @@ const TodoScreen = () => {
         price={1033}
         changeValue={-15}
         changePercentage={-0.3}
+        type="todo"
       />
       <Toggle onToggle={setActiveTab} />
 

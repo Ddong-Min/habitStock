@@ -1,5 +1,5 @@
 import React from "react";
-import { View, ScrollView, StyleSheet } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import Typo from "./Typo";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
@@ -36,6 +36,7 @@ const FriendStock: React.FC<FriendStockProps> = ({ friends }) => {
       percentage: 3.12,
       avatarColor: "#E8F0FE",
     },
+    { name: "Messi", amount: "4213", percentage: 7.32, avatarColor: "#E8FEE8" },
   ];
 
   const displayFriends = friends || defaultFriends;
@@ -44,7 +45,7 @@ const FriendStock: React.FC<FriendStockProps> = ({ friends }) => {
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={true}>
         {displayFriends.map((friend, index) => (
-          <View key={index} style={styles.friendItem}>
+          <TouchableOpacity key={index} style={styles.friendItem}>
             <View style={styles.leftSection}>
               <View
                 style={[styles.avatar, { backgroundColor: friend.avatarColor }]}
@@ -56,7 +57,7 @@ const FriendStock: React.FC<FriendStockProps> = ({ friends }) => {
               <Typo style={styles.amount}>$ {friend.amount}</Typo>
               <Typo style={styles.percentage}>+{friend.percentage}%</Typo>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </ScrollView>
     </View>
