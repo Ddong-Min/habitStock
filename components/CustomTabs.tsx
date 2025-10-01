@@ -3,6 +3,72 @@ import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
 import Typo from "./Typo";
+import { Ionicons } from "@expo/vector-icons";
+
+// 각 탭의 아이콘 매핑
+const getTabIcon = (routeName: string, isFocused: boolean) => {
+  const iconColor = isFocused ? colors.blue100 : colors.neutral400;
+  const size = 24;
+
+  switch (routeName) {
+    case "index":
+      return (
+        <Ionicons
+          name={isFocused ? "checkmark-circle" : "checkmark-circle-outline"}
+          size={size}
+          color={iconColor}
+        />
+      );
+    case "stock":
+      return (
+        <Ionicons
+          name={isFocused ? "trending-up" : "trending-up-outline"}
+          size={size}
+          color={iconColor}
+        />
+      );
+    case "news":
+      return (
+        <Ionicons
+          name={isFocused ? "newspaper" : "newspaper-outline"}
+          size={size}
+          color={iconColor}
+        />
+      );
+    case "profile":
+      return (
+        <Ionicons
+          name={isFocused ? "person" : "person-outline"}
+          size={size}
+          color={iconColor}
+        />
+      );
+    default:
+      return (
+        <Ionicons
+          name={isFocused ? "ellipse" : "ellipse-outline"}
+          size={size}
+          color={iconColor}
+        />
+      );
+  }
+};
+
+// 각 탭의 라벨 매핑
+const getTabLabel = (routeName: string) => {
+  switch (routeName) {
+    case "index":
+      return "할일";
+    case "stock":
+      return "주가";
+    case "news":
+      return "뉴스";
+    case "profile":
+      return "프로필";
+    default:
+      return routeName;
+  }
+};
 
 export function CustomTabs({
   state,
@@ -13,12 +79,12 @@ export function CustomTabs({
     <View style={styles.tabBar}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
-        const label: any =
+        const label =
           options.tabBarLabel !== undefined
             ? options.tabBarLabel
             : options.title !== undefined
             ? options.title
-            : route.name;
+            : getTabLabel(route.name);
 
         const isFocused = state.index === index;
 
@@ -44,7 +110,6 @@ export function CustomTabs({
         return (
           <TouchableOpacity
             key={route.name}
-            //href={buildHref(route.name, route.params)}
             accessibilityState={isFocused ? { selected: true } : {}}
             accessibilityLabel={options.tabBarAccessibilityLabel}
             testID={options.tabBarButtonTestID}
@@ -52,7 +117,13 @@ export function CustomTabs({
             onLongPress={onLongPress}
             style={styles.tabBarItem}
           >
-            <Typo style={{ color: isFocused ? colors.black : colors.text }}>
+            {getTabIcon(route.name, isFocused)}
+            <Typo
+              style={{
+                color: isFocused ? colors.blue100 : colors.neutral400,
+                marginTop: spacingY._3,
+              }}
+            >
               {label}
             </Typo>
           </TouchableOpacity>
@@ -66,16 +137,26 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
     width: "100%",
-    height: Platform.OS === "ios" ? verticalScale(73) : verticalScale(64),
-    backgroundColor: colors.neutral100,
+    height: Platform.OS === "ios" ? verticalScale(80) : verticalScale(70),
+    backgroundColor: colors.white,
     justifyContent: "space-around",
     alignItems: "center",
     borderTopWidth: 1,
-    borderTopColor: colors.sub,
+    borderTopColor: colors.neutral200,
+    paddingBottom: Platform.OS === "ios" ? spacingY._15 : spacingY._5,
+    shadowColor: colors.black,
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 5,
   },
   tabBarItem: {
-    marginBottom: Platform.OS === "ios" ? spacingY._10 : spacingY._5,
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingVertical: spacingY._10,
   },
 });

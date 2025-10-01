@@ -2,19 +2,14 @@ import React, { useState } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import Typo from "./Typo";
 import { colors, spacingX, spacingY } from "@/constants/theme";
+import { useTasks } from "@/contexts/taskContext";
 
 type ToggleMode = "todo" | "bucket";
 
-interface ToggleProps {
-  onToggle: (mode: ToggleMode) => void;
-}
-
-const Toggle: React.FC<ToggleProps> = ({ onToggle }) => {
-  const [activeTab, setActiveTab] = useState<ToggleMode>("todo");
-
+const Toggle: React.FC<{}> = () => {
+  const { taskType, changeTaskType } = useTasks();
   const handlePress = (mode: ToggleMode) => {
-    setActiveTab(mode);
-    onToggle(mode);
+    changeTaskType(mode);
   };
 
   return (
@@ -22,7 +17,7 @@ const Toggle: React.FC<ToggleProps> = ({ onToggle }) => {
       <TouchableOpacity
         style={[
           styles.toggleButton,
-          activeTab === "todo" ? styles.activeButton : {},
+          taskType === "todo" ? styles.activeButton : {},
         ]}
         onPress={() => handlePress("todo")}
       >
@@ -30,7 +25,7 @@ const Toggle: React.FC<ToggleProps> = ({ onToggle }) => {
           size={20}
           fontWeight="bold"
           style={
-            activeTab === "todo" ? styles.activeButtonText : styles.buttonText
+            taskType === "todo" ? styles.activeButtonText : styles.buttonText
           }
         >
           할일
@@ -39,7 +34,7 @@ const Toggle: React.FC<ToggleProps> = ({ onToggle }) => {
       <TouchableOpacity
         style={[
           styles.toggleButton,
-          activeTab === "bucket" ? styles.activeButton : {},
+          taskType === "bucket" ? styles.activeButton : {},
         ]}
         onPress={() => handlePress("bucket")}
       >
@@ -47,7 +42,7 @@ const Toggle: React.FC<ToggleProps> = ({ onToggle }) => {
           size={20}
           fontWeight="bold"
           style={
-            activeTab === "bucket" ? styles.activeButtonText : styles.buttonText
+            taskType === "bucket" ? styles.activeButtonText : styles.buttonText
           }
         >
           목표

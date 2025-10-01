@@ -6,16 +6,17 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  ViewStyle,
 } from "react-native";
 
-const YearHeader = ({ year }: { year: string }) => {
+const YearHeader = ({ year, style }: { year: string; style?: ViewStyle }) => {
   const [expanded, setExpanded] = useState(false);
   const [selectedYear, setSelectedYear] = useState(parseInt(year));
 
   const years = Array.from({ length: 21 }, (_, i) => selectedYear - 10 + i);
 
   return (
-    <View style={{ position: "relative" }}>
+    <View style={{ position: "relative", ...style }}>
       {/* 현재 연도 */}
       <TouchableOpacity onPress={() => setExpanded(!expanded)}>
         <Text style={styles.currentYear}>{selectedYear}년 ▼</Text>

@@ -9,9 +9,11 @@ import { useTasks } from "@/contexts/taskContext";
 import TaskBottomSheet from "@/components/TaskBottomSheet";
 import DiffBottomSheet from "@/components/DiffBottomSheet";
 import CustomDatePicker from "@/components/CustomDatePicker";
+import YearHeader from "@/components/YearHeader";
 const TodoScreen = () => {
   const [activeTab, setActiveTab] = useState<"todo" | "bucket">("todo");
   const {
+    taskType,
     isBottomSheetOpen,
     isModifyDifficultySheet,
     showDatePicker,
@@ -28,9 +30,9 @@ const TodoScreen = () => {
         changePercentage={-0.3}
         type="todo"
       />
-      <Toggle onToggle={setActiveTab} />
+      <Toggle />
 
-      {activeTab === "todo" && (
+      {taskType === "todo" && (
         <ScrollView showsVerticalScrollIndicator={false}>
           <CustomCalendar />
 
@@ -39,9 +41,18 @@ const TodoScreen = () => {
           </View>
         </ScrollView>
       )}
-      {activeTab === "bucket" && (
+      {taskType === "bucket" && (
         <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={{ flex: 1, marginTop: spacingY._15 }}>
+          <View
+            style={{
+              flex: 1,
+              marginTop: spacingY._15,
+            }}
+          >
+            <YearHeader
+              year={(2025).toString()}
+              style={{ marginLeft: spacingX._20, marginBottom: spacingY._10 }}
+            />
             <TaskList
               isTodo={false}
               diffStyle={{

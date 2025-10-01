@@ -2,14 +2,15 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { Task, TasksByDate, TasksState } from "../types";
 import {
-  addTodoFirebase,
+  addTaskFirebase,
   deleteTaskFirebase,
-  loadTodosFirebase,
+  loadTasksFirebase,
   updateTaskFirebase,
-} from "@/api/todoApi";
+} from "@/api/taskApi";
 import { useAuth } from "@/contexts/authContext";
 import randomPriceGenerator from "@/handler/randomPriceGenerator";
 type TasksContextType = {
+  taskType: "todo" | "bucket";
   taskByDate: TasksByDate;
   newTaskText: string;
   selectedTaskId: string | null;
@@ -49,6 +50,7 @@ type TasksContextType = {
   changeDifficultySheetState: () => void;
   changeAddTaskState: () => void;
   changeEditTextState: () => void;
+  changeTaskType: (type: "todo" | "bucket") => void;
 };
 
 const TasksContext = createContext<TasksContextType | undefined>(undefined);
@@ -72,6 +74,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [isEditText, setIsEditText] = useState(false);
   const [isAddTask, setIsAddTask] = useState(false);
   const [selectedText, setSelectedText] = useState("");
+  const [taskType, setTaskType] = useState<"todo" | "bucket">("todo");
   const { user } = useAuth();
 
   // ✅ load tasks from firestore
@@ -80,22 +83,24 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       return; // 이미 로드된 경우, 다시 로드하지 않음
     }
     //load the tododatawhich
-    await loadTodosFirebase(user?.uid!, dueDate).then((loadedTasks) => {
-      //initialize the date group if not exists, which type is TasksByDate
-      const groupedTasks: TasksByDate = {
-        [dueDate]: {
-          easy: [],
-          medium: [],
-          hard: [],
-          extreme: [],
-        },
-      };
+    await loadTasksFirebase(user?.uid!, taskType, { dueDate }).then(
+      (loadedTasks) => {
+        //initialize the date group if not exists, which type is TasksByDate
+        const groupedTasks: TasksByDate = {
+          [dueDate]: {
+            easy: [],
+            medium: [],
+            hard: [],
+            extreme: [],
+          },
+        };
 
-      loadedTasks.forEach((task) => {
-        groupedTasks[dueDate][task.difficulty].push(task);
-      });
-      setTaskByDate((prev) => ({ ...prev, ...groupedTasks }));
-    });
+        loadedTasks.forEach((task) => {
+          groupedTasks[dueDate][task.difficulty].push(task);
+        });
+        setTaskByDate((prev) => ({ ...prev, ...groupedTasks }));
+      }
+    );
   };
 
   const chooseTaskId = (taskId: string | null) => {
@@ -156,7 +161,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       difficulty: selectedDifficulty!,
     };
 
-    const res = await addTodoFirebase(newTask, user.uid!);
+    const res = await addTaskFirebase(newTask, user.uid!, taskType);
 
     if (res.success) {
       setTaskByDate((prev) => {
@@ -201,7 +206,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       },
     }));
     // 3. Delete from Firestore
-    await deleteTaskFirebase(user.uid!, selectedTaskId);
+    await deleteTaskFirebase(user.uid!, taskType, selectedTaskId);
     finishModify();
   };
 
@@ -260,7 +265,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Call API
-    await updateTaskFirebase(updatedTask, user.uid!);
+    await updateTaskFirebase(updatedTask, user.uid!, taskType);
 
     // Update state
     setTaskByDate(newTaskByDate);
@@ -296,7 +301,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     // Call API
-    await updateTaskFirebase(updatedTask, user.uid!);
+    await updateTaskFirebase(updatedTask, user.uid!, taskType);
   };
 
   const changeBottomSheetState = () => {
@@ -318,9 +323,14 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     setIsEditText((prev) => !prev);
   };
 
+  const changeTaskType = (type: "todo" | "bucket") => {
+    setTaskType(type);
+  };
+
   return (
     <TasksContext.Provider
       value={{
+        taskType,
         taskByDate,
         newTaskText,
         selectedTaskId,
@@ -348,6 +358,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         changeAddTaskState,
         changeEditTextState,
         isEditText,
+        changeTaskType,
       }}
     >
       {children}

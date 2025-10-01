@@ -154,6 +154,7 @@ export type AuthContextType = {
     name: string
   ) => Promise<{ success: boolean; msg?: string }>;
   updateUserData: (userId: string) => Promise<void>;
+  logout: () => Promise<void>;
 };
 
 export type ResponseType = {

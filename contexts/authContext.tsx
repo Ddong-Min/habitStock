@@ -92,12 +92,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const logout = async () => {
+    try {
+      console.log("Logging out...");
+      await auth.signOut();
+      setUser(null);
+      router.replace("/(auth)/welcome");
+    } catch (error) {
+      console.log("Logout Error: ", error);
+    }
+  };
+
   const contextValue: AuthContextType = {
     user,
     setUser,
     login,
     register,
     updateUserData,
+    logout,
   };
   return (
     <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
