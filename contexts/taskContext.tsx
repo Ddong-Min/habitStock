@@ -10,7 +10,7 @@ import {
 import { useAuth } from "@/contexts/authContext";
 import randomPriceGenerator from "@/handler/randomPriceGenerator";
 type TasksContextType = {
-  taskType: "todo" | "bucket";
+  taskType: "todos" | "buckets";
   taskByDate: TasksByDate;
   newTaskText: string;
   selectedTaskId: string | null;
@@ -50,7 +50,7 @@ type TasksContextType = {
   changeDifficultySheetState: () => void;
   changeAddTaskState: () => void;
   changeEditTextState: () => void;
-  changeTaskType: (type: "todo" | "bucket") => void;
+  changeTaskType: (type: "todos" | "buckets") => void;
 };
 
 const TasksContext = createContext<TasksContextType | undefined>(undefined);
@@ -74,7 +74,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [isEditText, setIsEditText] = useState(false);
   const [isAddTask, setIsAddTask] = useState(false);
   const [selectedText, setSelectedText] = useState("");
-  const [taskType, setTaskType] = useState<"todo" | "bucket">("todo");
+  const [taskType, setTaskType] = useState<"todos" | "buckets">("todos");
   const { user } = useAuth();
 
   // ✅ load tasks from firestore
@@ -139,6 +139,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     chooseDueDate(dueDate);
     chooseDifficulty(difficulty);
     setSelectedText(text);
+    setNewTaskText(text);
   };
 
   const finishModify = () => {
@@ -146,6 +147,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     setSelectedDate("");
     setSelectedDifficulty(null);
     setSelectedText("");
+    setNewTaskText("");
   };
   //add new task to firestore and localState
   const addNewTask = async (dueDate: string) => {
@@ -258,10 +260,6 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       // push task to new date
       newTaskByDate[newDate][updatedTask.difficulty].push(updatedTask);
       setSelectedDate(newDate);
-    } else if (mode === "completed") {
-      updatedTask.completed = !updatedTask.completed;
-      updatedTask.updatedAt = new Date().toISOString();
-      taskList[taskIndex] = updatedTask;
     }
 
     // Call API
@@ -323,7 +321,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     setIsEditText((prev) => !prev);
   };
 
-  const changeTaskType = (type: "todo" | "bucket") => {
+  const changeTaskType = (type: "todos" | "buckets") => {
     setTaskType(type);
   };
 

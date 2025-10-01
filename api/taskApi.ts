@@ -16,7 +16,7 @@ import { Task } from "@/types";
 export const addTaskFirebase = async (
   task: Task,
   userId: string,
-  type: "bucket" | "todo"
+  type: "buckets" | "todos"
 ) => {
   try {
     const docRef = doc(firestore, "users", userId, type, task.id);
@@ -32,7 +32,7 @@ export const addTaskFirebase = async (
 // ✅ Load Tasks (filter by dueDate or by year)
 export const loadTasksFirebase = async (
   userId: string,
-  type: "bucket" | "todo",
+  type: "buckets" | "todos",
   opts?: { dueDate?: string; year?: string }
 ): Promise<Task[]> => {
   try {
@@ -84,7 +84,7 @@ export const loadTasksFirebase = async (
 // ✅ Delete Task
 export const deleteTaskFirebase = async (
   userId: string,
-  type: "bucket" | "todo",
+  type: "buckets" | "todos",
   taskId: string
 ) => {
   try {
@@ -101,7 +101,7 @@ export const deleteTaskFirebase = async (
 export const updateTaskFirebase = async (
   task: Task,
   userId: string,
-  type: "bucket" | "todo"
+  type: "buckets" | "todos"
 ) => {
   try {
     const docRef = doc(firestore, "users", userId, type, task.id);

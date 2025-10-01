@@ -32,7 +32,7 @@ const TodoScreen = () => {
       />
       <Toggle />
 
-      {taskType === "todo" && (
+      {taskType === "todos" && (
         <ScrollView showsVerticalScrollIndicator={false}>
           <CustomCalendar />
 
@@ -41,7 +41,7 @@ const TodoScreen = () => {
           </View>
         </ScrollView>
       )}
-      {taskType === "bucket" && (
+      {taskType === "buckets" && (
         <ScrollView showsVerticalScrollIndicator={false}>
           <View
             style={{
