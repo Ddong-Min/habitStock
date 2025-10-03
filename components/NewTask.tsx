@@ -8,6 +8,7 @@ import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 
 const NewTask = () => {
   const {
+    taskType,
     newTaskText,
     putTaskText,
     addNewTask,
@@ -17,8 +18,10 @@ const NewTask = () => {
     isEditText,
     selectedTaskId,
     finishModify,
+    changeShowDatePicker,
   } = useTasks();
   const { selectedDate } = useCalendar();
+
   return (
     <View style={styles.newTaskContainer}>
       <TextInput
@@ -28,12 +31,20 @@ const NewTask = () => {
         style={styles.newTaskInput}
         autoFocus
         onSubmitEditing={() =>
-          isEditText ? editTask("task", newTaskText) : addNewTask(selectedDate)
+          isEditText
+            ? editTask("task", newTaskText)
+            : taskType === "buckets"
+            ? changeShowDatePicker()
+            : addNewTask(selectedDate)
         }
       />
       <TouchableOpacity
         onPress={() =>
-          isEditText ? editTask("task", newTaskText) : addNewTask(selectedDate)
+          isEditText
+            ? editTask("task", newTaskText)
+            : taskType === "buckets"
+            ? changeShowDatePicker()
+            : addNewTask(selectedDate)
         }
         style={styles.addButton}
       >

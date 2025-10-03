@@ -2,6 +2,7 @@ import React from "react";
 import { View, StyleSheet, Image } from "react-native";
 import Typo from "./Typo";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
+import { verticalScale } from "@/utils/styling";
 
 interface ProfileProps {
   name: string;
@@ -26,6 +27,9 @@ const Profile: React.FC<ProfileProps> = ({
       style={[
         styles.container,
         (type === "stock" || type === "news") && {
+          borderRadius: radius._10,
+          borderWidth: 1,
+          borderColor: colors.blue25,
           paddingBottom: spacingY._10,
         },
       ]}
@@ -35,22 +39,30 @@ const Profile: React.FC<ProfileProps> = ({
         style={styles.avatar}
       />
       <View style={styles.userInfo}>
-        <Typo size={24} fontWeight="bold">
+        <Typo
+          size={type === "news" ? 28 : 22}
+          fontWeight="bold"
+          style={{ lineHeight: verticalScale(24) }}
+        >
           {name}
         </Typo>
-        <View style={styles.stockInfo}>
-          <Typo size={22} fontWeight="bold" style={{ marginRight: 8 }}>
-            $ {price}
-          </Typo>
-          {type === "stock" && (
-            <Typo size={16} color={colors.neutral400} fontWeight={"500"}>
-              어제보다{" "}
+        {type !== "news" && (
+          <View style={styles.stockInfo}>
+            <Typo size={22} fontWeight="bold" style={{ marginRight: 8 }}>
+              $ {price}
             </Typo>
-          )}
-          <Typo size={18} style={{ color: changeColor }}>
-            {isPositive ? "▲" : "▼"} {changeValue} ({changePercentage}%)
-          </Typo>
-        </View>
+
+            {type === "stock" && (
+              <Typo size={16} color={colors.neutral400} fontWeight={"500"}>
+                어제보다{" "}
+              </Typo>
+            )}
+
+            <Typo size={18} style={{ color: changeColor }}>
+              {isPositive ? "▲" : "▼"} {changeValue} ({changePercentage}%)
+            </Typo>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -60,9 +72,10 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: spacingY._20,
+    paddingTop: spacingY._10,
     paddingLeft: spacingX._20,
     backgroundColor: colors.white,
+    marginHorizontal: spacingX._10,
   },
   avatar: {
     width: spacingX._50,

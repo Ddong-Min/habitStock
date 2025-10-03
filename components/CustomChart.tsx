@@ -5,7 +5,6 @@ import Svg, { G, Line, Rect, Text, Polyline } from "react-native-svg";
 import { verticalScale } from "@/utils/styling";
 import { Props } from "@/types";
 import { scaleLinear } from "d3-scale";
-import Typo from "./Typo";
 import { useSharedValue, runOnJS } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 

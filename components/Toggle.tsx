@@ -3,12 +3,31 @@ import { View, TouchableOpacity, StyleSheet } from "react-native";
 import Typo from "./Typo";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import { useTasks } from "@/contexts/taskContext";
+import { useCalendar } from "@/contexts/calendarContext";
 
-type ToggleMode = "todo" | "bucket";
+type ToggleMode = "todos" | "buckets";
 
 const Toggle: React.FC<{}> = () => {
   const { taskType, changeTaskType } = useTasks();
+  const { changeSelectedDate } = useCalendar();
+
   const handlePress = (mode: ToggleMode) => {
+    if (taskType === mode) return; // 이미 선택된 모드면 아무 작업도 하지 않음
+    if (mode === "buckets") {
+      const today = new Date();
+      const year = today.getFullYear();
+      const formattedDate = `${year}`;
+      changeSelectedDate(formattedDate); // 오늘 날짜로 변경
+    } else if (mode === "todos") {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth() + 1;
+      const day = today.getDate();
+      const formattedDate = `${year}-${String(month).padStart(2, "0")}-${String(
+        day
+      ).padStart(2, "0")}`;
+      changeSelectedDate(formattedDate); // 오늘 날짜로 변경
+    }
     changeTaskType(mode);
   };
 
@@ -17,15 +36,15 @@ const Toggle: React.FC<{}> = () => {
       <TouchableOpacity
         style={[
           styles.toggleButton,
-          taskType === "todo" ? styles.activeButton : {},
+          taskType === "todos" ? styles.activeButton : {},
         ]}
-        onPress={() => handlePress("todo")}
+        onPress={() => handlePress("todos")}
       >
         <Typo
           size={20}
           fontWeight="bold"
           style={
-            taskType === "todo" ? styles.activeButtonText : styles.buttonText
+            taskType === "todos" ? styles.activeButtonText : styles.buttonText
           }
         >
           할일
@@ -34,15 +53,15 @@ const Toggle: React.FC<{}> = () => {
       <TouchableOpacity
         style={[
           styles.toggleButton,
-          taskType === "bucket" ? styles.activeButton : {},
+          taskType === "buckets" ? styles.activeButton : {},
         ]}
-        onPress={() => handlePress("bucket")}
+        onPress={() => handlePress("buckets")}
       >
         <Typo
           size={20}
           fontWeight="bold"
           style={
-            taskType === "bucket" ? styles.activeButtonText : styles.buttonText
+            taskType === "buckets" ? styles.activeButtonText : styles.buttonText
           }
         >
           목표

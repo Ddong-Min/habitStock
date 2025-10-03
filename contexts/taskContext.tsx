@@ -1,6 +1,6 @@
 // contexts/TasksContext.tsx
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { Task, TasksByDate, TasksState } from "../types";
+import { Task, TasksByDate, TasksContextType, TasksState } from "../types";
 import {
   addTaskFirebase,
   deleteTaskFirebase,
@@ -9,50 +9,7 @@ import {
 } from "@/api/taskApi";
 import { useAuth } from "@/contexts/authContext";
 import randomPriceGenerator from "@/handler/randomPriceGenerator";
-type TasksContextType = {
-  taskType: "todos" | "buckets";
-  taskByDate: TasksByDate;
-  newTaskText: string;
-  selectedTaskId: string | null;
-  isBottomSheetOpen: boolean;
-  selectedDifficulty: keyof TasksState | null;
-  selectedDate: string;
-  showDatePicker: boolean;
-  isModifyDifficultySheet: boolean;
-  isAddTask: boolean;
-  isEditText: boolean;
-  selectedText: string;
-  chooseTaskId: (taskId: string | null) => void;
-  chooseDueDate: (date: string) => void;
-  chooseDifficulty: (difficulty: keyof TasksState) => void;
-  loadTasks: (dueDate: string) => Promise<void>;
-  putTaskText: (text: string) => void;
-  startModify: (
-    taskId: string,
-    dueDate: string,
-    difficulty: keyof TasksState,
-    text: string
-  ) => void;
-  finishModify: () => void;
-  addNewTask: (dueDate: string) => Promise<void>;
-  deleteTask: () => Promise<void>;
-  editTask: (
-    mode: "task" | "difficulty" | "dueDate" | "completed",
-    edit: string
-  ) => void;
-  completedTask: (
-    taskId: string,
-    dueDate: string,
-    difficulty: keyof TasksState
-  ) => Promise<void>;
-  changeBottomSheetState: () => void;
-  changeShowDatePicker: () => void;
-  changeDifficultySheetState: () => void;
-  changeAddTaskState: () => void;
-  changeEditTextState: () => void;
-  changeTaskType: (type: "todos" | "buckets") => void;
-};
-
+import { useCalendar } from "./calendarContext";
 const TasksContext = createContext<TasksContextType | undefined>(undefined);
 const initialTasksState: TasksState = {
   easy: [],
@@ -61,14 +18,12 @@ const initialTasksState: TasksState = {
   extreme: [],
 };
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
-  const [taskByDate, setTaskByDate] = useState<TasksByDate>({});
   const [newTaskText, setNewTaskText] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState<
     keyof TasksState | null
   >(null);
-  const [selectedDate, setSelectedDate] = useState<string>("");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isModifyDifficultySheet, setIsModifyDifficultySheet] = useState(false);
   const [isEditText, setIsEditText] = useState(false);
@@ -76,14 +31,22 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [selectedText, setSelectedText] = useState("");
   const [taskType, setTaskType] = useState<"todos" | "buckets">("todos");
   const { user } = useAuth();
+  const initialTaskTypeByDate: { todos: TasksByDate; buckets: TasksByDate } = {
+    todos: {},
+    buckets: {},
+  };
+  const [taskByDate, setTaskByDate] = useState<TasksByDate>(
+    initialTaskTypeByDate[taskType]
+  );
 
+  const { selectedDate, changeSelectedDate } = useCalendar();
   // ✅ load tasks from firestore
   const loadTasks = async (dueDate: string) => {
     if (taskByDate[dueDate]) {
       return; // 이미 로드된 경우, 다시 로드하지 않음
     }
     //load the tododatawhich
-    await loadTasksFirebase(user?.uid!, taskType, { dueDate }).then(
+    await loadTasksFirebase(user?.uid!, taskType, dueDate).then(
       (loadedTasks) => {
         //initialize the date group if not exists, which type is TasksByDate
         const groupedTasks: TasksByDate = {
@@ -108,7 +71,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const chooseDueDate = (date: string) => {
-    setSelectedDate(date);
+    changeSelectedDate(date);
   };
 
   const chooseDifficulty = (difficulty: keyof TasksState) => {
@@ -122,6 +85,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const findIndex = () => {
     if (!selectedDate || !selectedDifficulty || !user) return [-1, []];
     const newTaskByDate = JSON.parse(JSON.stringify(taskByDate));
+    console.log(selectedDate);
     const taskList = newTaskByDate[selectedDate][selectedDifficulty]; //cf) shallow copy
     const taskIndex = taskList.findIndex(
       (task: Task) => task.id === selectedTaskId
@@ -136,7 +100,6 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     text: string
   ) => {
     chooseTaskId(taskId);
-    chooseDueDate(dueDate);
     chooseDifficulty(difficulty);
     setSelectedText(text);
     setNewTaskText(text);
@@ -144,7 +107,6 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 
   const finishModify = () => {
     setSelectedTaskId(null);
-    setSelectedDate("");
     setSelectedDifficulty(null);
     setSelectedText("");
     setNewTaskText("");
@@ -153,7 +115,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const addNewTask = async (dueDate: string) => {
     if (!newTaskText.trim() || !user) return;
     const randomPrice = randomPriceGenerator(selectedDifficulty!);
-
+    console.log("add new task called");
     const newTask: Task = {
       id: Date.now().toString(),
       text: newTaskText.trim(),
@@ -165,6 +127,10 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 
     const res = await addTaskFirebase(newTask, user.uid!, taskType);
 
+    //cut only year for buckets
+    if (taskType === "buckets") {
+      dueDate = dueDate.slice(0, 4);
+    }
     if (res.success) {
       setTaskByDate((prev) => {
         const prevTasks = prev[dueDate] ?? initialTasksState;
@@ -183,8 +149,6 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     } else {
       console.error(res.msg);
     }
-
-    setNewTaskText("");
     finishModify();
     changeAddTaskState();
   };
@@ -192,11 +156,11 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const deleteTask = async () => {
     if (!user || !selectedTaskId || !selectedDate || !selectedDifficulty)
       return;
-
-    console.log("delete task called");
+    console.log("deleteTask called");
     const [newTaskByDate, taskIndex] = findIndex();
     if (taskIndex === -1) return;
     // if taskIndex is found
+
     let taskList = newTaskByDate[selectedDate][selectedDifficulty];
     taskList.splice(taskIndex, 1);
 
@@ -259,7 +223,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 
       // push task to new date
       newTaskByDate[newDate][updatedTask.difficulty].push(updatedTask);
-      setSelectedDate(newDate);
+      changeSelectedDate(newDate);
     }
 
     // Call API
@@ -322,6 +286,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const changeTaskType = (type: "todos" | "buckets") => {
+    setTaskByDate(initialTaskTypeByDate[type]);
     setTaskType(type);
   };
 
@@ -334,7 +299,6 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         selectedTaskId,
         isBottomSheetOpen,
         selectedDifficulty,
-        selectedDate,
         showDatePicker,
         isModifyDifficultySheet,
         isAddTask,

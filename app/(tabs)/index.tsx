@@ -11,14 +11,16 @@ import DiffBottomSheet from "@/components/DiffBottomSheet";
 import CustomDatePicker from "@/components/CustomDatePicker";
 import YearHeader from "@/components/YearHeader";
 const TodoScreen = () => {
-  const [activeTab, setActiveTab] = useState<"todo" | "bucket">("todo");
   const {
     taskType,
     isBottomSheetOpen,
     isModifyDifficultySheet,
     showDatePicker,
+    isAddTask,
     changeShowDatePicker,
     editTask,
+    addNewTask,
+    finishModify,
   } = useTasks();
   return (
     <SafeAreaView style={styles.container}>
@@ -66,22 +68,35 @@ const TodoScreen = () => {
       {/* 모달 영역 */}
       {isBottomSheetOpen && <TaskBottomSheet />}
       {isModifyDifficultySheet && <DiffBottomSheet />}
-      {showDatePicker && (
+      {showDatePicker && !isAddTask && (
         <View style={styles.datePickerOverlay}>
-          {showDatePicker && (
-            <CustomDatePicker
-              onConfirm={(date) => {
-                editTask(
-                  "dueDate",
-                  `${date.year}-${String(date.month).padStart(2, "0")}-${String(
-                    date.day
-                  ).padStart(2, "0")}`
-                );
-                changeShowDatePicker(); // close picker
-              }}
-              onCancel={() => changeShowDatePicker()}
-            />
-          )}
+          <CustomDatePicker
+            onConfirm={(date) => {
+              editTask(
+                "dueDate",
+                `${date.year}-${String(date.month).padStart(2, "0")}-${String(
+                  date.day
+                ).padStart(2, "0")}`
+              );
+              changeShowDatePicker(); // close picker
+            }}
+            onCancel={() => (finishModify(), changeShowDatePicker())}
+          />
+        </View>
+      )}
+      {showDatePicker && isAddTask && (
+        <View style={styles.datePickerOverlay}>
+          <CustomDatePicker
+            onConfirm={(date) => {
+              addNewTask(
+                `${date.year}-${String(date.month).padStart(2, "0")}-${String(
+                  date.day
+                ).padStart(2, "0")}`
+              );
+              changeShowDatePicker(); // close picker
+            }}
+            onCancel={() => changeShowDatePicker()}
+          />
         </View>
       )}
     </SafeAreaView>

@@ -8,13 +8,14 @@ import {
   StyleSheet,
   ViewStyle,
 } from "react-native";
+import { useCalendar } from "@/contexts/calendarContext";
 
 const YearHeader = ({ year, style }: { year: string; style?: ViewStyle }) => {
   const [expanded, setExpanded] = useState(false);
   const [selectedYear, setSelectedYear] = useState(parseInt(year));
 
   const years = Array.from({ length: 21 }, (_, i) => selectedYear - 10 + i);
-
+  const { changeSelectedDate } = useCalendar();
   return (
     <View style={{ position: "relative", ...style }}>
       {/* 현재 연도 */}

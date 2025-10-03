@@ -201,6 +201,11 @@ export interface TasksByDate {
   [date: string]: TasksState; // "2025-09-22": { easy: [...], medium: [...], ... }
 }
 
+export interface TaskTypeByDate {
+  todos: TasksByDate;
+  buckets: TasksByDate;
+}
+
 export interface CustomCalendarProps {
   selectedDate: string;
   onDateSelect: (date: string) => void;
@@ -249,4 +254,59 @@ export type CandleStickProps = {
 export type VolumeProps = {
   date: string[];
   volume: number[];
+};
+
+export type TasksContextType = {
+  taskType: "todos" | "buckets";
+  taskByDate: TasksByDate;
+  newTaskText: string;
+  selectedTaskId: string | null;
+  isBottomSheetOpen: boolean;
+  selectedDifficulty: keyof TasksState | null;
+  showDatePicker: boolean;
+  isModifyDifficultySheet: boolean;
+  isAddTask: boolean;
+  isEditText: boolean;
+  selectedText: string;
+  chooseTaskId: (taskId: string | null) => void;
+  chooseDueDate: (date: string) => void;
+  chooseDifficulty: (difficulty: keyof TasksState) => void;
+  loadTasks: (dueDate: string) => Promise<void>;
+  putTaskText: (text: string) => void;
+  startModify: (
+    taskId: string,
+    dueDate: string,
+    difficulty: keyof TasksState,
+    text: string
+  ) => void;
+  finishModify: () => void;
+  addNewTask: (dueDate: string) => Promise<void>;
+  deleteTask: () => Promise<void>;
+  editTask: (
+    mode: "task" | "difficulty" | "dueDate" | "completed",
+    edit: string
+  ) => void;
+  completedTask: (
+    taskId: string,
+    dueDate: string,
+    difficulty: keyof TasksState
+  ) => Promise<void>;
+  changeBottomSheetState: () => void;
+  changeShowDatePicker: () => void;
+  changeDifficultySheetState: () => void;
+  changeAddTaskState: () => void;
+  changeEditTextState: () => void;
+  changeTaskType: (type: "todos" | "buckets") => void;
+};
+
+export type StockDataType = {
+  [date: string]: {
+    changePrice: number[];
+    changeRate: number[];
+    open: number[];
+    close: number[];
+    high: number[];
+    low: number[];
+    volume: number[];
+  };
 };

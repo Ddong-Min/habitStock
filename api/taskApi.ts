@@ -33,15 +33,15 @@ export const addTaskFirebase = async (
 export const loadTasksFirebase = async (
   userId: string,
   type: "buckets" | "todos",
-  opts?: { dueDate?: string; year?: string }
+  dueDate?: string
 ): Promise<Task[]> => {
   try {
     const tasksCollection = collection(firestore, "users", userId, type);
 
     let q;
 
-    if (opts?.year) {
-      const year = parseInt(opts.year, 10);
+    if (type === "buckets") {
+      const year = parseInt(dueDate!, 10);
       // Year filter
       const startDate = `${year}-01-01`;
       const endDate = `${year}-12-31`;
@@ -52,11 +52,11 @@ export const loadTasksFirebase = async (
         where("dueDate", "<=", endDate),
         orderBy("dueDate", "asc")
       );
-    } else if (opts?.dueDate) {
+    } else if (dueDate) {
       // Exact dueDate filter
       q = query(
         tasksCollection,
-        where("dueDate", "==", opts.dueDate),
+        where("dueDate", "==", dueDate),
         orderBy("id", "asc")
       );
     } else {

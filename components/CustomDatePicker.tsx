@@ -1,18 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
 import Picker, { PickerItem } from "@quidone/react-native-wheel-picker";
 import Typo from "./Typo";
 import { verticalScale } from "@/utils/styling";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import { CustomDatePickerProps } from "@/types";
+
 const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   onConfirm,
   onCancel,
 }) => {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1); // getMonth() is 0-based
+  const [month, setMonth] = useState(today.getMonth() + 1);
   const [day, setDay] = useState(today.getDate());
+
+  // 각 달의 일수를 계산하는 함수
+  const getDaysInMonth = (year: number, month: number): number => {
+    return new Date(year, month, 0).getDate();
+  };
 
   const years: PickerItem<number>[] = Array.from({ length: 10 }, (_, i) => {
     const y = 2020 + i;
@@ -34,19 +40,34 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     { value: 12, label: "12월" },
   ];
 
-  const days: PickerItem<number>[] = Array.from({ length: 31 }, (_, i) => {
+  // 현재 선택된 년/월에 따라 일수 계산
+  const maxDays = getDaysInMonth(year, month);
+  const days: PickerItem<number>[] = Array.from({ length: maxDays }, (_, i) => {
     const d = i + 1;
     return { value: d, label: d.toString() };
   });
 
+  // 월이나 년도가 변경될 때 일자 유효성 체크
+  useEffect(() => {
+    const maxDaysInMonth = getDaysInMonth(year, month);
+    if (day > maxDaysInMonth) {
+      setDay(maxDaysInMonth);
+    }
+  }, [year, month]);
+
   const handleConfirm = () => {
     if (onConfirm) {
+      console.log("Calling onConfirm...");
+
       onConfirm({ year, month, day });
     }
   };
 
   const handleCancel = () => {
-    if (onCancel) onCancel();
+    console.log("Canceling date picker");
+    if (onCancel) {
+      onCancel();
+    }
   };
 
   return (
@@ -58,7 +79,6 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
         alignItems: "center",
       }}
     >
-      {/* Pickers row */}
       <View
         style={{
           flexDirection: "row",
@@ -69,24 +89,41 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
         <Picker
           style={{ flex: 1 }}
           value={year}
-          onValueChanged={(event) => setYear(years[event.index].value)}
+          onValueChanged={(event) => {
+            console.log("Year changed:", event);
+            const selectedYear = years[event.index]?.value;
+            if (selectedYear) {
+              setYear(selectedYear);
+            }
+          }}
           data={years}
         />
         <Picker
           style={{ flex: 1 }}
           value={month}
-          onValueChanged={(event) => setMonth(months[event.index].value)}
+          onValueChanged={(event) => {
+            console.log("Month changed:", event);
+            const selectedMonth = months[event.index]?.value;
+            if (selectedMonth) {
+              setMonth(selectedMonth);
+            }
+          }}
           data={months}
         />
         <Picker
           style={{ flex: 1 }}
           value={day}
-          onValueChanged={(event) => setDay(days[event.index].value)}
+          onValueChanged={(event) => {
+            console.log("Day changed:", event);
+            const selectedDay = days[event.index]?.value;
+            if (selectedDay) {
+              setDay(selectedDay);
+            }
+          }}
           data={days}
         />
       </View>
 
-      {/* Confirm / Cancel buttons */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.button} onPress={handleConfirm}>
           <Typo
@@ -113,6 +150,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: "row",
@@ -129,5 +167,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  
 });
+
 export default CustomDatePicker;
