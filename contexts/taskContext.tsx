@@ -198,7 +198,9 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       const oldDifficulty = updatedTask.difficulty;
       updatedTask.difficulty = edit as keyof TasksState;
       updatedTask.updatedAt = new Date().toISOString();
-
+      updatedTask.percentage = `+${randomPriceGenerator(
+        updatedTask.difficulty
+      ).toFixed(2)}%`;
       // remove from old list
       taskList.splice(taskIndex, 1);
 
