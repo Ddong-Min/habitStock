@@ -9,12 +9,17 @@ import {
   ViewStyle,
 } from "react-native";
 import { useCalendar } from "@/contexts/calendarContext";
+import Typo from "./Typo";
+import { colors, spacingY } from "@/constants/theme";
+import { verticalScale } from "@/utils/styling";
 
 const YearHeader = ({ year, style }: { year: string; style?: ViewStyle }) => {
   const [expanded, setExpanded] = useState(false);
   const [selectedYear, setSelectedYear] = useState(parseInt(year));
 
-  const years = Array.from({ length: 21 }, (_, i) => selectedYear - 10 + i);
+  const years = Array.from([
+    2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030,
+  ]);
   const { changeSelectedDate } = useCalendar();
   return (
     <View style={{ position: "relative", ...style }}>
@@ -31,18 +36,17 @@ const YearHeader = ({ year, style }: { year: string; style?: ViewStyle }) => {
                 key={y}
                 style={styles.item}
                 onPress={() => {
+                  changeSelectedDate(`${y}`);
                   setSelectedYear(y);
                   setExpanded(false);
                 }}
               >
-                <Text
-                  style={[
-                    styles.itemText,
-                    y === selectedYear && styles.selectedText,
-                  ]}
+                <Typo
+                  size={24}
+                  style={y === selectedYear ? { ...styles.selectedText } : {}}
                 >
                   {y}년
-                </Text>
+                </Typo>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -59,10 +63,11 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     position: "absolute", // 다른 애들 밀지 않고 겹침
-    top: 40, // 현재 연도 아래에 뜨게
+    top: spacingY._40, // 현재 연도 아래에 뜨게
     left: 0,
     right: 0,
-    maxHeight: 200, // 스크롤 가능하도록 제한
+    maxHeight: verticalScale(200), // 스크롤 가능하도록 제한
+    width: verticalScale(100),
     backgroundColor: "white",
     borderWidth: 1,
     borderColor: "#ddd",
@@ -74,14 +79,11 @@ const styles = StyleSheet.create({
     flexGrow: 0, // 스크롤이 동작하려면 높이 고정 필요
   },
   item: {
-    padding: 12,
-  },
-  itemText: {
-    fontSize: 18,
+    padding: spacingY._12,
   },
   selectedText: {
     fontWeight: "700",
-    color: "blue",
+    color: colors.main,
   },
 });
 

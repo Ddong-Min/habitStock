@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ScreenWrapper from "@/components/ScreenWrapper";
 import { TasksProvider } from "@/contexts/taskContext";
 import { CalendarProvider } from "@/contexts/calendarContext";
+import { StockProvider } from "@/contexts/stockContext";
 import "react-native-url-polyfill/auto";
 
 const StackLayout = () => {
@@ -20,9 +21,11 @@ export default function RootLayout() {
       <ScreenWrapper>
         <AuthProvider>
           <CalendarProvider>
-            <TasksProvider>
-              <StackLayout />
-            </TasksProvider>
+            <StockProvider>
+              <TasksProvider>
+                <StackLayout />
+              </TasksProvider>
+            </StockProvider>
           </CalendarProvider>
         </AuthProvider>
       </ScreenWrapper>

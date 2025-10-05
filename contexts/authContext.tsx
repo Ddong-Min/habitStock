@@ -6,7 +6,7 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 import { auth, firestore } from "@/config/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { router } from "expo-router";
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -14,7 +14,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<UserType>(null);
-
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (firebaseUser) => {
       console.log("Auth State Changed: ", firebaseUser);
@@ -60,6 +59,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         name,
         email,
         uid: response?.user?.uid,
+        image: null,
+        price: 100,
+        quantity: 1,
+        lastUpdated: new Date().toISOString(),
       });
       return { success: true };
     } catch (error: any) {
@@ -83,12 +86,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           email: data?.email || null,
           name: data?.name || null,
           image: data.image || null,
+          price: data?.price,
+          quantity: data?.quantity,
+          lastUpdated: data?.lastUpdated,
         };
         setUser({ ...userData });
       }
     } catch (error: any) {
       let msg = error.message;
       console.log(msg);
+    }
+  };
+
+  const changeUserStock = async (price: number) => {
+    if (user) {
+      setUser({ ...user, price });
+    }
+    const userRef = doc(firestore, "users", user?.uid!);
+    try {
+      await updateDoc(userRef, { price });
+      return { success: true };
+    } catch (error) {
+      console.log(error);
+      return { success: false, msg: "Failed to change user stock." };
     }
   };
 
@@ -109,6 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     login,
     register,
     updateUserData,
+    changeUserStock,
     logout,
   };
   return (

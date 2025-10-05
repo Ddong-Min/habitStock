@@ -10,6 +10,7 @@ import TaskBottomSheet from "@/components/TaskBottomSheet";
 import DiffBottomSheet from "@/components/DiffBottomSheet";
 import CustomDatePicker from "@/components/CustomDatePicker";
 import YearHeader from "@/components/YearHeader";
+import { useCalendar } from "@/contexts/calendarContext";
 const TodoScreen = () => {
   const {
     taskType,
@@ -22,16 +23,12 @@ const TodoScreen = () => {
     addNewTask,
     finishModify,
   } = useTasks();
+  const { selectedDate } = useCalendar();
+
   return (
     <SafeAreaView style={styles.container}>
       {/* 상단 고정 영역 */}
-      <Profile
-        name="Ddongmin (DMN)"
-        price={1033}
-        changeValue={-15}
-        changePercentage={-0.3}
-        type="todo"
-      />
+      <Profile type="todo" />
       <Toggle />
 
       {taskType === "todos" && (
@@ -52,7 +49,7 @@ const TodoScreen = () => {
             }}
           >
             <YearHeader
-              year={(2025).toString()}
+              year={selectedDate}
               style={{ marginLeft: spacingX._20, marginBottom: spacingY._10 }}
             />
             <TaskList

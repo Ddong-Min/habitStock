@@ -4,27 +4,29 @@ import { TouchableOpacity, View, StyleSheet } from "react-native";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import Typo from "./Typo";
 import { verticalScale } from "@/utils/styling";
-
+import { useStock } from "@/contexts/stockContext";
+import { useCalendar } from "@/contexts/calendarContext";
 type CustomDayProps = {
   date: {
     dateString: string;
     day: number;
   };
-  today: string;
   selectedDate: string;
   onDateSelect: (dateString: string) => void;
 };
 
 const CustomDay: React.FC<CustomDayProps> = ({
   date,
-  today,
   selectedDate,
   onDateSelect,
 }) => {
+  const { stockData } = useStock();
+  const { today } = useCalendar();
   if (!date) return null;
 
   const isToday = date.dateString === today;
   const isSelected = selectedDate === date.dateString;
+  const isPositive = stockData?.[date.dateString]?.changeRate! > 0;
 
   return (
     <TouchableOpacity
@@ -47,14 +49,26 @@ const CustomDay: React.FC<CustomDayProps> = ({
           {date.day}
         </Typo>
       </View>
-
-      <Typo
-        size={verticalScale(15)}
-        color={colors.blue100}
-        style={styles.percentageText}
-      >
-        ▲ {date.day * 2}%
-      </Typo>
+      {date.dateString <= today && (
+        <Typo
+          size={verticalScale(15)}
+          color={
+            (stockData?.[date.dateString]?.changePrice ?? 0) === 0
+              ? colors.neutral500
+              : isPositive
+              ? colors.red100
+              : colors.blue100
+          }
+          style={styles.percentageText}
+        >
+          {stockData?.[date.dateString]?.changePrice === 0
+            ? "- "
+            : isPositive
+            ? "▲"
+            : "▼"}
+          {stockData?.[date.dateString]?.changeRate}%
+        </Typo>
+      )}
     </TouchableOpacity>
   );
 };

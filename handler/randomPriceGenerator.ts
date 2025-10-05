@@ -1,31 +1,48 @@
 import { TasksState } from "@/types";
-import beta from "@stdlib/random-base-beta";
+import normal from "@stdlib/random-base-normal";
 
-const randomPriceGenerator = (mode: keyof TasksState) => {
-  const alpha = 5;
-  const betaparam = 5;
-  let weight;
-  let offset;
+const randomPriceGenerator = (mode: keyof TasksState, currentPrice: number) => {
+  // 난이도별 평균 상승률 (task 1개 기준)
+  let meanGrowthPerTask: number;
+  let volatility: number;
 
   if (mode === "easy") {
-    weight = 0.2;
-    offset = 0;
+    meanGrowthPerTask = 0.002; // 0.2%
+    volatility = 0.001;
   } else if (mode === "medium") {
-    weight = 0.3;
-    offset = 0.1;
+    meanGrowthPerTask = 0.003; // 0.3%
+    volatility = 0.0015;
   } else if (mode === "hard") {
-    weight = 0.4;
-    offset = 0.3;
+    meanGrowthPerTask = 0.004; // 0.4%
+    volatility = 0.002;
   } else {
-    weight = 0.7;
-    offset = 0.5;
+    // extreme
+    meanGrowthPerTask = 0.005; // 0.5%
+    volatility = 0.003;
   }
 
-  const priceGenerator = beta.factory(alpha, betaparam);
-  const price = priceGenerator();
-  console.log(price);
+  // 정규분포 랜덤값 생성
+  const growthGenerator = normal.factory(meanGrowthPerTask, volatility);
 
-  return price * weight + offset;
+  // 1) 랜덤 % 생성 (음수 방지)
+  let randomPercent = growthGenerator();
+  randomPercent = Math.abs(randomPercent); // 음수일 경우 절댓값으로 변환
+
+  // 2) 금액 변화 (소수점 1자리까지 반올림)
+  const rawChange = currentPrice * randomPercent;
+  const priceChange = Math.round(rawChange * 10) / 10; // 소수점 첫째자리 반올림
+
+  // 3) 다시 %로 환산
+  randomPercent = priceChange / currentPrice;
+
+  // 4) 최종 가격
+  const randomPrice = currentPrice + priceChange;
+
+  return {
+    randomPrice: Math.max(0.1, parseFloat(randomPrice.toFixed(1))), // 최소 0.1 이상
+    randomPercent: parseFloat((randomPercent * 100).toFixed(2)), // %
+    priceChange: priceChange, // 금액 변화
+  };
 };
 
 export default randomPriceGenerator;

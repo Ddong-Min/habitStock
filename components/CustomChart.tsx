@@ -14,8 +14,6 @@ const CANDLE_HEIGHT = verticalScale(300);
 const VOLUME_HEIGHT = verticalScale(70);
 const TOTAL_HEIGHT = CANDLE_HEIGHT + VOLUME_HEIGHT;
 
-type PeriodType = "day" | "week" | "month";
-
 // 이동평균선 계산 함수
 const calculateMovingAverage = (
   data: number[],

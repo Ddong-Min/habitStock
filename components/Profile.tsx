@@ -3,25 +3,20 @@ import { View, StyleSheet, Image } from "react-native";
 import Typo from "./Typo";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
-
+import { useAuth } from "@/contexts/authContext";
+import { useStock } from "@/contexts/stockContext";
+import { useCalendar } from "@/contexts/calendarContext";
 interface ProfileProps {
-  name: string;
-  price: number;
-  changeValue: number;
-  changePercentage: number;
   type: "todo" | "stock" | "news";
 }
 
-const Profile: React.FC<ProfileProps> = ({
-  name,
-  price,
-  changeValue,
-  changePercentage,
-  type,
-}) => {
-  const isPositive = changeValue >= 0;
+const Profile: React.FC<ProfileProps> = ({ type }) => {
+  const { user } = useAuth();
+  const { stockData } = useStock();
+  const { today } = useCalendar();
+  const isPositive = 1; //changeValue >= 0;
   const changeColor = isPositive ? colors.red100 : colors.blue100;
-
+  const todayStock = stockData?.[today];
   return (
     <View
       style={[
@@ -44,12 +39,12 @@ const Profile: React.FC<ProfileProps> = ({
           fontWeight="bold"
           style={{ lineHeight: verticalScale(24) }}
         >
-          {name}
+          {user!.name}
         </Typo>
         {type !== "news" && (
           <View style={styles.stockInfo}>
             <Typo size={22} fontWeight="bold" style={{ marginRight: 8 }}>
-              $ {price}
+              ₩{user!.price!}
             </Typo>
 
             {type === "stock" && (
@@ -59,7 +54,8 @@ const Profile: React.FC<ProfileProps> = ({
             )}
 
             <Typo size={18} style={{ color: changeColor }}>
-              {isPositive ? "▲" : "▼"} {changeValue} ({changePercentage}%)
+              {isPositive ? "▲" : "▼"} {todayStock?.changePrice} (
+              {todayStock?.changeRate}%)
             </Typo>
           </View>
         )}

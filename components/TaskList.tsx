@@ -83,7 +83,7 @@ const TaskList: React.FC<{
           );
         }
 
-        const isPositive = item.percentage.startsWith("+");
+        const isPositive = item.priceChange > 0;
 
         return (
           <View
@@ -101,7 +101,7 @@ const TaskList: React.FC<{
                 <View style={styles.taskLeft}>
                   <TouchableOpacity
                     onPress={() => {
-                      completedTask(item.id, item.dueDate, item.difficulty);
+                      completedTask(item.id, item.difficulty);
                     }}
                     style={[
                       styles.checkBox,
@@ -131,9 +131,9 @@ const TaskList: React.FC<{
                     }}
                   >
                     {item.completed &&
-                      `${isPositive ? "▲" : "▼"} ${item.percentage.substring(
-                        1
-                      )}`}
+                      `${isPositive ? "▲" : "▼"} ${item.priceChange} (${
+                        item.percentage
+                      })`}
                   </Typo>
                   <TouchableOpacity
                     onPress={() => {

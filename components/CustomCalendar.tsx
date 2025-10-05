@@ -10,7 +10,7 @@ import { colors, spacingX, spacingY } from "@/constants/theme";
 import CustomDay from "./CustomDay";
 import { verticalScale } from "@/utils/styling";
 import { useCalendar } from "@/contexts/calendarContext";
-
+import { useStock } from "@/contexts/stockContext";
 const CustomCalendar = () => {
   const {
     today,
@@ -23,7 +23,7 @@ const CustomCalendar = () => {
     onVisibleMonthsChange,
     changeSelectedDate,
   } = useCalendar();
-
+  const { loadStocks } = useStock();
   const calendarListRef = useRef<{ scrollToMonth: (date: string) => void }>(
     null
   ); //if i git it a date string like "2024-10-05", it scrolls to that month
@@ -33,6 +33,7 @@ const CustomCalendar = () => {
     if (!isWeekView && calendarListRef.current) {
       calendarListRef.current.scrollToMonth(selectedDate);
     }
+    loadStocks();
   }, [selectedDate, isWeekView]);
 
   return (
@@ -65,7 +66,6 @@ const CustomCalendar = () => {
             dayComponent={({ date }) => (
               <CustomDay
                 date={date ? date : { dateString: "", day: 0 }}
-                today={today}
                 selectedDate={selectedDate}
                 onDateSelect={changeSelectedDate}
               />
@@ -90,7 +90,6 @@ const CustomCalendar = () => {
           dayComponent={({ date }) => (
             <CustomDay
               date={date ? date : { dateString: "", day: 0 }}
-              today={today}
               selectedDate={selectedDate}
               onDateSelect={changeSelectedDate}
             />

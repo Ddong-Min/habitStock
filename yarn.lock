@@ -2483,7 +2483,7 @@
     "@stdlib/array-uint16" "^0.2.1"
     "@stdlib/array-uint8" "^0.2.1"
 
-"@stdlib/assert-is-nan@^0.2.2":
+"@stdlib/assert-is-nan@^0.2.1", "@stdlib/assert-is-nan@^0.2.2":
   version "0.2.2"
   resolved "https://registry.npmjs.org/@stdlib/assert-is-nan/-/assert-is-nan-0.2.2.tgz"
   integrity sha512-Wh7KPIVfi6UVBRuPgkjVnoJP6mVtDNg+Y4m3Hko86TSf78KqFXfyZy/m6hnlYBWZRkNJDKo1J/7A/zpPwcEUVg==
@@ -3411,6 +3411,28 @@
     "@stdlib/utils-define-nonenumerable-read-only-accessor" "^0.2.2"
     "@stdlib/utils-define-nonenumerable-read-only-property" "^0.2.1"
     "@stdlib/utils-define-nonenumerable-read-write-accessor" "^0.2.1"
+
+"@stdlib/random-base-normal@^0.2.1":
+  version "0.2.1"
+  resolved "https://registry.npmjs.org/@stdlib/random-base-normal/-/random-base-normal-0.2.1.tgz"
+  integrity sha512-k9tua7+S2hP0natk446LaizPh6n9gWY3PycUVqi7RY6ipiHbexOXJVW89l9Oh+teGDeMrfBclPyEZeWaZwN01g==
+  dependencies:
+    "@stdlib/array-to-json" "^0.2.1"
+    "@stdlib/assert-has-own-property" "^0.2.1"
+    "@stdlib/assert-is-function" "^0.2.1"
+    "@stdlib/assert-is-nan" "^0.2.1"
+    "@stdlib/assert-is-number" "^0.2.1"
+    "@stdlib/assert-is-plain-object" "^0.2.1"
+    "@stdlib/assert-is-positive-number" "^0.2.1"
+    "@stdlib/error-tools-fmtprodmsg" "^0.2.1"
+    "@stdlib/math-base-assert-is-nan" "^0.2.1"
+    "@stdlib/random-base-improved-ziggurat" "^0.2.1"
+    "@stdlib/string-format" "^0.2.1"
+    "@stdlib/utils-constant-function" "^0.2.1"
+    "@stdlib/utils-define-nonenumerable-read-only-accessor" "^0.2.2"
+    "@stdlib/utils-define-nonenumerable-read-only-property" "^0.2.1"
+    "@stdlib/utils-define-nonenumerable-read-write-accessor" "^0.2.1"
+    "@stdlib/utils-noop" "^0.2.1"
 
 "@stdlib/random-base-shared@^0.1.0":
   version "0.1.1"

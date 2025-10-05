@@ -134,6 +134,9 @@ export type UserType = {
   email?: string | null;
   name: string | null;
   image?: any;
+  price?: number;
+  quantity?: number;
+  lastUpdated?: string;
 } | null;
 
 export type UserDataType = {
@@ -155,6 +158,7 @@ export type AuthContextType = {
   ) => Promise<{ success: boolean; msg?: string }>;
   updateUserData: (userId: string) => Promise<void>;
   logout: () => Promise<void>;
+  changeUserStock: (price: number) => void;
 };
 
 export type ResponseType = {
@@ -178,9 +182,11 @@ export interface Task {
   id: string;
   text: string;
   completed: boolean;
+  priceChange: number;
   percentage: string;
   dueDate: string;
   difficulty: "easy" | "medium" | "hard" | "extreme";
+  updatedDate?: string;
 }
 
 export interface TasksState {
@@ -288,7 +294,6 @@ export type TasksContextType = {
   ) => void;
   completedTask: (
     taskId: string,
-    dueDate: string,
     difficulty: keyof TasksState
   ) => Promise<void>;
   changeBottomSheetState: () => void;
@@ -298,15 +303,16 @@ export type TasksContextType = {
   changeEditTextState: () => void;
   changeTaskType: (type: "todos" | "buckets") => void;
 };
-
 export type StockDataType = {
-  [date: string]: {
-    changePrice: number[];
-    changeRate: number[];
-    open: number[];
-    close: number[];
-    high: number[];
-    low: number[];
-    volume: number[];
-  };
+  date: string;
+  changePrice: number;
+  changeRate: number;
+  open: number;
+  close: number;
+  high: number;
+  low: number;
+  volume: number;
+};
+export type StockDataByDateType = {
+  [date: string]: StockDataType;
 };

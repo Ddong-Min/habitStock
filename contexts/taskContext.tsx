@@ -10,6 +10,7 @@ import {
 import { useAuth } from "@/contexts/authContext";
 import randomPriceGenerator from "@/handler/randomPriceGenerator";
 import { useCalendar } from "./calendarContext";
+import { useStock } from "./stockContext";
 const TasksContext = createContext<TasksContextType | undefined>(undefined);
 const initialTasksState: TasksState = {
   easy: [],
@@ -40,6 +41,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const { selectedDate, changeSelectedDate } = useCalendar();
+  const { changeStockData } = useStock();
   // ✅ load tasks from firestore
   const loadTasks = async (dueDate: string) => {
     if (taskByDate[dueDate]) {
@@ -114,13 +116,17 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   //add new task to firestore and localState
   const addNewTask = async (dueDate: string) => {
     if (!newTaskText.trim() || !user) return;
-    const randomPrice = randomPriceGenerator(selectedDifficulty!);
+    const { randomPrice, randomPercent, priceChange } = randomPriceGenerator(
+      selectedDifficulty!,
+      100
+    );
     console.log("add new task called");
     const newTask: Task = {
       id: Date.now().toString(),
       text: newTaskText.trim(),
       completed: false,
-      percentage: `+${randomPrice.toFixed(2)}%`,
+      percentage: `${randomPercent}%`,
+      priceChange: priceChange,
       dueDate: dueDate,
       difficulty: selectedDifficulty!,
     };
@@ -195,12 +201,15 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       changeEditTextState();
       taskList[taskIndex] = updatedTask;
     } else if (mode === "difficulty") {
+      const { randomPrice, randomPercent, priceChange } = randomPriceGenerator(
+        updatedTask.difficulty,
+        100
+      );
       const oldDifficulty = updatedTask.difficulty;
       updatedTask.difficulty = edit as keyof TasksState;
       updatedTask.updatedAt = new Date().toISOString();
-      updatedTask.percentage = `+${randomPriceGenerator(
-        updatedTask.difficulty
-      ).toFixed(2)}%`;
+      updatedTask.percentage = `+${randomPercent}%`;
+      updatedTask.priceChange = priceChange;
       // remove from old list
       taskList.splice(taskIndex, 1);
 
@@ -239,18 +248,17 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 
   const completedTask = async (
     taskId: string,
-    dueDate: string,
     difficulty: keyof TasksState
   ) => {
     if (!user) return;
-    const taskList = taskByDate[dueDate][difficulty];
+    const taskList = taskByDate[selectedDate][difficulty];
     const taskIndex = taskList.findIndex((task: Task) => task.id === taskId);
     if (taskIndex === -1) return;
 
     const updatedTask = {
       ...taskList[taskIndex],
       completed: !taskList[taskIndex].completed,
-      updatedAt: new Date().toISOString(),
+      updatedDate: new Date().toISOString().split("T")[0],
     };
     const updatedTaskList = [...taskList];
     updatedTaskList[taskIndex] = updatedTask;
@@ -258,14 +266,19 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     // Update state optimistically
     setTaskByDate((prev) => ({
       ...prev,
-      [dueDate]: {
-        ...prev[dueDate],
+      [selectedDate]: {
+        ...prev[selectedDate],
         [difficulty]: updatedTaskList,
       },
     }));
 
     // Call API
     await updateTaskFirebase(updatedTask, user.uid!, taskType);
+    changeStockData(updatedTask).then((result) => {
+      if (result && !result.success) {
+        console.error(result.msg);
+      }
+    });
   };
 
   const changeBottomSheetState = () => {
