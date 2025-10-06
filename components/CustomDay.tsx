@@ -27,7 +27,6 @@ const CustomDay: React.FC<CustomDayProps> = ({
   const isToday = date.dateString === today;
   const isSelected = selectedDate === date.dateString;
   const isPositive = stockData?.[date.dateString]?.changeRate! > 0;
-
   return (
     <TouchableOpacity
       onPress={() => onDateSelect(date.dateString)}

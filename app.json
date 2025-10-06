@@ -23,7 +23,8 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.yourcompany.habitstock",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "bundler": "metro",

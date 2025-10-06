@@ -14,9 +14,15 @@ const Profile: React.FC<ProfileProps> = ({ type }) => {
   const { user } = useAuth();
   const { stockData } = useStock();
   const { today } = useCalendar();
-  const isPositive = 1; //changeValue >= 0;
-  const changeColor = isPositive ? colors.red100 : colors.blue100;
   const todayStock = stockData?.[today];
+  const isPositive = (todayStock?.changePrice ?? 0) > 0;
+  const isZero = (todayStock?.changePrice ?? 0) === 0;
+  const changeColor = isPositive
+    ? colors.red100
+    : isZero
+    ? colors.neutral500
+    : colors.blue100;
+
   return (
     <View
       style={[
@@ -54,8 +60,8 @@ const Profile: React.FC<ProfileProps> = ({ type }) => {
             )}
 
             <Typo size={18} style={{ color: changeColor }}>
-              {isPositive ? "▲" : "▼"} {todayStock?.changePrice} (
-              {todayStock?.changeRate}%)
+              {isPositive ? "▲" : isZero ? "-" : "▼"} {todayStock?.changePrice}{" "}
+              ({todayStock?.changeRate}%)
             </Typo>
           </View>
         )}

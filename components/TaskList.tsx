@@ -6,13 +6,15 @@ import {
   TouchableOpacity,
   TextInput,
   ViewStyle,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import DifficultyHeader from "./DifficultyHeader";
 import { useTasks } from "@/contexts/taskContext";
-import { verticalScale } from "@/utils/styling";
+import { scale, verticalScale } from "@/utils/styling";
 import { useCalendar } from "@/contexts/calendarContext";
 import { TasksState } from "@/types";
 import NewTask from "./NewTask";
@@ -59,106 +61,116 @@ const TaskList: React.FC<{
   }, [selectedDate, taskByDate]);
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: spacingY._20 }}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {flatData.map((item) => {
-        if (item.type === "header") {
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: spacingY._20 }}
+      >
+        {flatData.map((item) => {
+          if (item.type === "header") {
+            return (
+              <View key={item.difficulty}>
+                <DifficultyHeader
+                  difficulty={item.difficulty}
+                  setNewTaskDifficulty={chooseDifficulty}
+                  isAddMode={changeAddTaskState}
+                  style={diffStyle}
+                  fontSize={diffFontSize}
+                  isTodo={isTodo}
+                />
+                {/* Show input if this header is active */}
+                {selectedDifficulty === item.difficulty && isAddTask && (
+                  <NewTask />
+                )}
+              </View>
+            );
+          }
+
+          const isPositive = item.priceChange > 0;
+
           return (
-            <View key={item.difficulty}>
-              <DifficultyHeader
-                difficulty={item.difficulty}
-                setNewTaskDifficulty={chooseDifficulty}
-                isAddMode={changeAddTaskState}
-                style={diffStyle}
-                fontSize={diffFontSize}
-                isTodo={isTodo}
-              />
-              {/* Show input if this header is active */}
-              {selectedDifficulty === item.difficulty && isAddTask && (
+            <View
+              key={item.id}
+              style={[
+                styles.taskContainer,
+                taskStyle,
+                { borderColor: difficultyborderColor(item.difficulty) },
+              ]}
+            >
+              {isEditText && selectedTaskId === item.id ? (
                 <NewTask />
+              ) : (
+                <View style={styles.task}>
+                  <View style={styles.taskLeft}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        completedTask(item.id, item.difficulty);
+                      }}
+                      style={[
+                        styles.checkBox,
+                        item.completed && styles.checkedBox,
+                      ]}
+                    >
+                      {item.completed && (
+                        <Feather name="check" size={16} color="white" />
+                      )}
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                      <Typo size={taskFontSize} style={{ flexWrap: "wrap" }}>
+                        {item.text}
+                      </Typo>
+                      {!isTodo && (
+                        <Typo
+                          size={verticalScale(18)}
+                          style={{
+                            color: colors.neutral300,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          만료일 {item.dueDate}
+                        </Typo>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.taskRight}>
+                    <Typo
+                      style={{
+                        color: isPositive ? colors.red100 : colors.blue100,
+                      }}
+                    >
+                      {item.completed &&
+                        `${isPositive ? "▲" : "▼"} ${item.priceChange} (${
+                          item.percentage
+                        })`}
+                    </Typo>
+                    <TouchableOpacity
+                      onPress={() => {
+                        startModify(
+                          item.id,
+                          item.dueDate,
+                          item.difficulty,
+                          item.text
+                        ),
+                          changeBottomSheetState();
+                      }}
+                    >
+                      <Feather
+                        name="more-horizontal"
+                        size={verticalScale(22)}
+                        color={colors.neutral300}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               )}
             </View>
           );
-        }
-
-        const isPositive = item.priceChange > 0;
-
-        return (
-          <View
-            key={item.id}
-            style={[
-              styles.taskContainer,
-              taskStyle,
-              { borderColor: difficultyborderColor(item.difficulty) },
-            ]}
-          >
-            {isEditText && selectedTaskId === item.id ? (
-              <NewTask />
-            ) : (
-              <View style={styles.task}>
-                <View style={styles.taskLeft}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      completedTask(item.id, item.difficulty);
-                    }}
-                    style={[
-                      styles.checkBox,
-                      item.completed && styles.checkedBox,
-                    ]}
-                  >
-                    {item.completed && (
-                      <Feather name="check" size={16} color="white" />
-                    )}
-                  </TouchableOpacity>
-                  <View>
-                    <Typo size={taskFontSize}>{item.text}</Typo>
-                    {!isTodo && (
-                      <Typo
-                        size={verticalScale(18)}
-                        style={{ color: colors.neutral300 }}
-                      >
-                        만료일 {item.dueDate}
-                      </Typo>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.taskRight}>
-                  <Typo
-                    style={{
-                      color: isPositive ? colors.red100 : colors.blue100,
-                    }}
-                  >
-                    {item.completed &&
-                      `${isPositive ? "▲" : "▼"} ${item.priceChange} (${
-                        item.percentage
-                      })`}
-                  </Typo>
-                  <TouchableOpacity
-                    onPress={() => {
-                      startModify(
-                        item.id,
-                        item.dueDate,
-                        item.difficulty,
-                        item.text
-                      ),
-                        changeBottomSheetState();
-                    }}
-                  >
-                    <Feather
-                      name="more-horizontal"
-                      size={verticalScale(22)}
-                      color={colors.neutral300}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-        );
-      })}
-    </ScrollView>
+        })}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -184,11 +196,13 @@ const styles = StyleSheet.create({
   taskLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1, // ✅
   },
   taskRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacingX._10,
+    flexShrink: 0, // ✅
   },
 
   checkBox: {

@@ -232,7 +232,7 @@ export interface CustomDatePickerProps {
 }
 
 //chart types
-export interface Props {
+export interface chartProps {
   date: string[];
   open: number[];
   close: number[];

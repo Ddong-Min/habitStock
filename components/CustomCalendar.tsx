@@ -11,6 +11,7 @@ import CustomDay from "./CustomDay";
 import { verticalScale } from "@/utils/styling";
 import { useCalendar } from "@/contexts/calendarContext";
 import { useStock } from "@/contexts/stockContext";
+import { useAuth } from "@/contexts/authContext";
 const CustomCalendar = () => {
   const {
     today,
@@ -27,14 +28,26 @@ const CustomCalendar = () => {
   const calendarListRef = useRef<{ scrollToMonth: (date: string) => void }>(
     null
   ); //if i git it a date string like "2024-10-05", it scrolls to that month
-
+  const hasInitialLoadedRef = useRef(false);
+  const { user } = useAuth();
   useEffect(() => {
     // 월간 보기일 때, 그리고 ref가 연결되어 있을 때 스크롤 명령
-    if (!isWeekView && calendarListRef.current) {
-      calendarListRef.current.scrollToMonth(selectedDate);
+    if (hasInitialLoadedRef.current) {
+      if (!isWeekView && calendarListRef.current) {
+        calendarListRef.current.scrollToMonth(selectedDate);
+      }
+      loadStocks();
     }
-    loadStocks();
   }, [selectedDate, isWeekView]);
+
+  // 초기 로드용 useEffect - user.price가 처음 로드될 때만
+  //when user.price ===undifined, loadStocksFirebase function occur error
+  useEffect(() => {
+    if (user?.uid && user.price !== undefined && !hasInitialLoadedRef.current) {
+      hasInitialLoadedRef.current = true;
+      loadStocks();
+    }
+  }, [user?.uid, user?.price]);
 
   return (
     <View style={styles.container}>

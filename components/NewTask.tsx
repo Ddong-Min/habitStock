@@ -30,6 +30,7 @@ const NewTask = () => {
         onChangeText={putTaskText}
         style={styles.newTaskInput}
         autoFocus
+        multiline
         onSubmitEditing={() =>
           isEditText
             ? editTask("task", newTaskText)

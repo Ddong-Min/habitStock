@@ -1,13 +1,14 @@
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
-import React, { useState, useMemo } from "react";
-import { StyleSheet, View, Dimensions, TouchableOpacity } from "react-native";
+import React, { useState, useMemo, useEffect } from "react";
+import { StyleSheet, View, Dimensions } from "react-native";
 import Svg, { G, Line, Rect, Text, Polyline } from "react-native-svg";
 import { verticalScale } from "@/utils/styling";
-import { Props } from "@/types";
+import { chartProps } from "@/types";
 import { scaleLinear } from "d3-scale";
 import { useSharedValue, runOnJS } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-
+import { useStock } from "@/contexts/stockContext";
+import { aggregateData } from "@/handler/aggregateData";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SVG_WIDTH = SCREEN_WIDTH;
 const CANDLE_HEIGHT = verticalScale(300);
@@ -35,22 +36,63 @@ const calculateMovingAverage = (
   return result;
 };
 
-const CustomChart: React.FC<Props> = ({
-  date,
-  open,
-  close,
-  high,
-  low,
-  volume,
-}) => {
+const CustomChart: React.FC<{}> = ({}) => {
+  //주식데이터와 주식 데이터 함수
+  const { stockData, loadAllStocks, selectedPeriod } = useStock();
+  //전체 데이터를 배열로 변환하기 위한 배열,
+  //rendering될때 값이 달라지는걸 바로 적용하기 위해서 state로 작성
+  const [fullDataArray, setFullDataArray] = useState<
+    [string, number, number, number, number, number][]
+  >([]);
+
+  //처음 컴포넌트를 렌더링할때만 전체 주식 데이터를 불러옴
+  useEffect(() => {
+    loadAllStocks();
+  }, []);
+
+  //stockData의 정보가 바뀔때 마다 fullDataArray를 재계산
+  /* useEffect(() => {
+    if (!stockData) return;
+    const stockArray = Object.values(stockData);
+    const newFullDataArray: [string, number, number, number, number, number][] =
+      [];
+
+    for (let i = 0; i < stockArray.length; i++) {
+      newFullDataArray.push([
+        stockArray[i].date,
+        stockArray[i].open,
+        stockArray[i].close,
+        stockArray[i].high,
+        stockArray[i].low,
+        stockArray[i].volume,
+      ]);
+    }
+    setFullDataArray(newFullDataArray);
+  }, [stockData]);*/
+  useEffect(() => {
+    if (!stockData) return;
+    const aggregated = aggregateData(stockData, selectedPeriod);
+    setFullDataArray(aggregated);
+  }, [stockData, selectedPeriod]);
+
   //줌/ 스크롤 관리
-  const [visibleRange, setVisibleRange] = useState(Math.min(30, date.length));
+  const [visibleRange, setVisibleRange] = useState(30);
   const [scrollOffset, setScrollOffset] = useState(0);
 
+  //fullDataArray가 바뀌면 visibleRange를 재설정 (최대 30)
+  useEffect(() => {
+    if (fullDataArray.length > 0) {
+      setVisibleRange(Math.min(30, fullDataArray.length));
+    }
+  }, [fullDataArray.length]);
+
+  /* 자주 변화하는 gesture관련 ui에 대해 변수를 useState로 관리하지 않고
+  useSharedValu로 관리해서 javascript thread에서 re-rendering되지 않고 
+  native-thread에서 관리해서 smooth하고, 우수한 성능을 보장하게 합니다. */
   const pinchScale = useSharedValue(1);
-  const baseScale = useSharedValue(1);
+  const baseScale = useSharedValue(1); //기본값
   const panOffset = useSharedValue(0);
-  const basePanOffset = useSharedValue(0);
+  const basePanOffset = useSharedValue(0); //기본값
 
   // x축 설정
   const x0 = spacingX._25;
@@ -68,18 +110,6 @@ const CustomChart: React.FC<Props> = ({
   const volumeXAxisY = volumeY0 + volumeYAxisLength;
 
   // 데이터 준비
-  const fullDataArray: [string, number, number, number, number, number][] = [];
-  for (let i = 0; i < date.length; i++) {
-    fullDataArray.push([
-      date[i],
-      open[i],
-      close[i],
-      high[i],
-      low[i],
-      volume[i],
-    ]);
-  }
-
   const updateVisibleRange = (newRange: number) => {
     setVisibleRange(newRange);
   };
@@ -97,13 +127,16 @@ const CustomChart: React.FC<Props> = ({
       const newScale = baseScale.value * e.scale;
       const maxData = fullDataArray.length / 5; // 최소 5개 데이터는 보여야 함
       const minData = fullDataArray.length / 40; // 최대 40개 데이터까지 확대 가능
-      const clampedScale = Math.min(Math.max(newScale, minData), maxData);
+      const clampedScale = Math.min(Math.max(newScale, minData), maxData); //최소 5개 최대 40개의 데이터가 보이도록 설정
       pinchScale.value = clampedScale;
 
       const newRange = Math.max(
         5,
         Math.min(fullDataArray.length, fullDataArray.length / clampedScale)
       );
+      //gesturePinch는 native-thread에서 동작하기 때문에
+      //setState를 직접 호출할 수 없고, runOnJS를 사용해서
+      //javascript-thread에서 실행되도록 해야 합니다.
       runOnJS(updateVisibleRange)(Math.round(newRange));
     })
     .onEnd(() => {
@@ -118,18 +151,18 @@ const CustomChart: React.FC<Props> = ({
       const newOffset = basePanOffset.value - e.translationX;
       const maxScroll = Math.max(0, fullDataArray.length - visibleRange);
       const pixelsPerData = xAxisLength / visibleRange;
-      const offsetInDataPoints = newOffset / pixelsPerData;
+      const offsetInDataPoints = newOffset / pixelsPerData; //몇칸이동했나
       const clampedOffset = Math.max(
         0,
         Math.min(maxScroll, offsetInDataPoints)
       );
       panOffset.value = clampedOffset * pixelsPerData;
-      runOnJS(updateScrollOffset)(Math.round(clampedOffset));
+      runOnJS(updateScrollOffset)(Math.round(clampedOffset)); //이 부분덕분에 ui변화가 보임
     })
     .onEnd(() => {
       basePanOffset.value = panOffset.value;
     });
-
+  //두가지 제스처를 동시에 인식하게 하기 위해서 Gesture.Simultaneous 사용
   const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
 
   // 전체 데이터의 이동평균선 계산 (한 번만)
@@ -172,6 +205,7 @@ const CustomChart: React.FC<Props> = ({
       (max, [_, __, ___, high, ____]) => Math.max(max, high),
       -Infinity
     ),
+    //filtering을 위한 실제조건은 v !==null이고, v is number은 그냥 v!==null인 애들은 number이라는뜻 즉 타입가드 역할
     ...ma5.filter((v): v is number => v !== null),
     ...ma20.filter((v): v is number => v !== null),
     ...ma60.filter((v): v is number => v !== null)

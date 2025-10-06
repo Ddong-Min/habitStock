@@ -5,7 +5,6 @@ const randomPriceGenerator = (mode: keyof TasksState, currentPrice: number) => {
   // 난이도별 평균 상승률 (task 1개 기준)
   let meanGrowthPerTask: number;
   let volatility: number;
-
   if (mode === "easy") {
     meanGrowthPerTask = 0.002; // 0.2%
     volatility = 0.001;
@@ -13,11 +12,11 @@ const randomPriceGenerator = (mode: keyof TasksState, currentPrice: number) => {
     meanGrowthPerTask = 0.003; // 0.3%
     volatility = 0.0015;
   } else if (mode === "hard") {
-    meanGrowthPerTask = 0.004; // 0.4%
+    meanGrowthPerTask = 0.005; // 0.5%
     volatility = 0.002;
   } else {
     // extreme
-    meanGrowthPerTask = 0.005; // 0.5%
+    meanGrowthPerTask = 0.007; // 0.7%
     volatility = 0.003;
   }
 

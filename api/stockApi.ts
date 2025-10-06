@@ -102,3 +102,30 @@ export const loadStockDataFirebase = async (
     return null;
   }
 };
+
+export const loadAllStockDataFirebase = async (
+  user: UserType
+): Promise<StockDataByDateType | null> => {
+  try {
+    if (!user?.uid) {
+      throw new Error("User UID is undefined");
+    }
+    const stocksCollection = collection(firestore, "users", user.uid, "stocks");
+
+    const querySnapshot = await getDocs(stocksCollection);
+    const stockDataByDate: StockDataByDateType = {};
+    // Firebase에서 가져온 데이터를 먼저 저장
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data() as StockDataType;
+      stockDataByDate[data.date] = data;
+    });
+
+    if (Object.keys(stockDataByDate).length === 0) {
+      return null;
+    }
+    return stockDataByDate;
+  } catch (error) {
+    console.error("Error loading all user stock data: ", error);
+    return null;
+  }
+};

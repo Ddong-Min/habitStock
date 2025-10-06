@@ -118,7 +118,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     if (!newTaskText.trim() || !user) return;
     const { randomPrice, randomPercent, priceChange } = randomPriceGenerator(
       selectedDifficulty!,
-      100
+      user.price ?? 100
     );
     console.log("add new task called");
     const newTask: Task = {
@@ -162,11 +162,20 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const deleteTask = async () => {
     if (!user || !selectedTaskId || !selectedDate || !selectedDifficulty)
       return;
-    console.log("deleteTask called");
     const [newTaskByDate, taskIndex] = findIndex();
     if (taskIndex === -1) return;
     // if taskIndex is found
-
+    const updatedData =
+      newTaskByDate[selectedDate][selectedDifficulty][taskIndex];
+    if (updatedData.completed) {
+      updatedData.updatedDate = new Date().toISOString().split("T")[0];
+      updatedData.completed = false; // mark as not completed to reverse the stock change
+      changeStockData(updatedData).then((result) => {
+        if (result && !result.success) {
+          console.error(result.msg);
+        }
+      });
+    }
     let taskList = newTaskByDate[selectedDate][selectedDifficulty];
     taskList.splice(taskIndex, 1);
 
@@ -203,7 +212,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     } else if (mode === "difficulty") {
       const { randomPrice, randomPercent, priceChange } = randomPriceGenerator(
         updatedTask.difficulty,
-        100
+        user.price ?? 100
       );
       const oldDifficulty = updatedTask.difficulty;
       updatedTask.difficulty = edit as keyof TasksState;

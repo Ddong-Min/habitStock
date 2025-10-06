@@ -1,11 +1,16 @@
 import React, { ReactNode, useState } from "react";
 import { StockDataType, StockDataByDateType } from "@/types";
 import { useAuth } from "./authContext";
-import { loadStockDataFirebase, changeStockDataFirebase } from "@/api/stockApi";
+import {
+  loadStockDataFirebase,
+  changeStockDataFirebase,
+  loadAllStockDataFirebase,
+} from "@/api/stockApi";
 import { useCalendar } from "./calendarContext";
 import { Task } from "@/types";
 type StockContextType = {
   stockData: StockDataByDateType | undefined;
+  selectedPeriod: "day" | "week" | "month";
   loadStocks: () => Promise<void>;
   changeStockData: (
     task: Task
@@ -14,6 +19,8 @@ type StockContextType = {
     | { success: boolean; msg: string }
     | undefined
   >;
+  loadAllStocks: () => Promise<void>;
+  changeSelectedPeriod: (period: "day" | "week" | "month") => void;
 };
 
 const StockContext = React.createContext<StockContextType | undefined>(
@@ -24,6 +31,9 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
   const [stockData, setStockData] = useState<StockDataByDateType | undefined>(
     undefined
   );
+  const [selectedPeriod, setSelectedPeriod] = useState<
+    "day" | "week" | "month"
+  >("day");
   const { user, changeUserStock } = useAuth();
   const { selectedDate, isWeekView, today } = useCalendar();
 
@@ -34,6 +44,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     if the view is week view, load the data from the Sunday to Saturday of the selectedDate or today
     if the view is month view, load the data from the 1st to the last day of the month of the selectedDate
   */
+
   const loadStocks = async () => {
     if (!user?.uid) return;
 
@@ -95,18 +106,17 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    //이전 데이터에 새로 불러온 데이터까지 합참
+    // Firebase에서 데이터 불러오기
     await loadStockDataFirebase(user, startDate, endDate).then(
-      (loadedStocks) => {
-        if (loadedStocks) {
+      (fetchedData) => {
+        if (fetchedData) {
           setStockData((prev) => ({
             ...prev,
-            ...loadedStocks,
+            ...fetchedData,
           }));
         }
       }
     );
-    console.log(stockData);
   };
 
   const changeStockData = async (task: Task) => {
@@ -119,18 +129,35 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     const updatedStockData: StockDataType = existingData;
 
     // task의 변화량을 추가
+    // task's effect on stock
     if (task.completed) {
-      updatedStockData.changePrice += task.priceChange;
-      updatedStockData.changeRate += parseFloat(task.percentage);
-      updatedStockData.close += task.priceChange;
+      updatedStockData.changePrice =
+        Math.round((updatedStockData.changePrice + task.priceChange) * 10) / 10;
+
+      updatedStockData.changeRate =
+        Math.round(
+          (updatedStockData.changeRate + parseFloat(task.percentage)) * 10
+        ) / 10;
+
+      updatedStockData.close =
+        Math.round((updatedStockData.close + task.priceChange) * 10) / 10;
+
       updatedStockData.high = Math.max(
         updatedStockData.high,
         updatedStockData.close
       );
     } else {
-      updatedStockData.changePrice -= task.priceChange;
-      updatedStockData.changeRate -= parseFloat(task.percentage);
-      updatedStockData.close -= task.priceChange;
+      updatedStockData.changePrice =
+        Math.round((updatedStockData.changePrice - task.priceChange) * 10) / 10;
+
+      updatedStockData.changeRate =
+        Math.round(
+          (updatedStockData.changeRate - parseFloat(task.percentage)) * 10
+        ) / 10;
+
+      updatedStockData.close =
+        Math.round((updatedStockData.close - task.priceChange) * 10) / 10;
+
       updatedStockData.low = Math.min(
         updatedStockData.low,
         updatedStockData.close
@@ -156,8 +183,85 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
 
     return result;
   };
+
+  const loadAllStocks = async () => {
+    if (!user?.uid) return;
+
+    /* 디버그용 */
+    if (stockData && stockData["2025-09-01"]) return;
+
+    const allStockData = await loadAllStockDataFirebase(user);
+    setStockData(allStockData ?? undefined);
+  };
+
+  const changeSelectedPeriod = (period: "day" | "week" | "month") => {
+    setSelectedPeriod(period);
+  };
+  /*
+  const dummyStockData = async () => {
+    const dummyData: StockDataByDateType = {};
+    const start = new Date("2025-09-02");
+    const end = new Date("2025-10-04");
+
+    // Base day (seed)
+    dummyData["2025-09-01"] = {
+      date: "2025-09-01",
+      changePrice: 2,
+      changeRate: 2,
+      open: 100,
+      close: 102,
+      high: 105,
+      low: 99,
+      volume: 5,
+    };
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split("T")[0];
+
+      // Get previous day's close as today's open
+      const prevDate = new Date(d);
+      prevDate.setDate(prevDate.getDate() - 1);
+      const prevDateStr = prevDate.toISOString().split("T")[0];
+      const prevClose = dummyData[prevDateStr]?.close ?? 100; // fallback if missing
+
+      // Random daily change
+      const changePrice = Math.floor(Math.random() * 20) - 10; // -10 ~ +10
+      const close = prevClose + changePrice;
+      const changeRate = Math.round((changePrice / prevClose) * 100 * 10) / 10; // 1 decimal
+
+      // Construct the day's data
+      const todayData = {
+        date: dateStr,
+        changePrice,
+        changeRate,
+        open: prevClose,
+        close,
+        high: close + 10,
+        low: prevClose - 10,
+        volume: Math.floor(Math.random() * 10),
+      };
+
+      // Save locally
+      dummyData[dateStr] = todayData;
+
+      // Save to Firestore
+      await changeStockDataFirebase(user!.uid!, todayData, dateStr);
+    }
+
+    return dummyData;
+  };
+*/
   return (
-    <StockContext.Provider value={{ stockData, loadStocks, changeStockData }}>
+    <StockContext.Provider
+      value={{
+        stockData,
+        selectedPeriod,
+        loadStocks,
+        changeStockData,
+        loadAllStocks,
+        changeSelectedPeriod,
+      }}
+    >
       {children}
     </StockContext.Provider>
   );

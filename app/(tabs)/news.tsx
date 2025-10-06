@@ -15,7 +15,6 @@ import NewsDetail from "@/components/NewsDetail";
 import YearHeader from "@/components/YearHeader";
 const News = () => {
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
-
   const newsItems2022 = [
     {
       date: "06-30",
@@ -126,13 +125,7 @@ const News = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Profile
-        name="Ddongmin (DMN)"
-        price={1033}
-        changeValue={-15}
-        changePercentage={-0.3}
-        type="news"
-      />
+      <Profile type="news" />
 
       <ScrollView style={styles.content}>
         <View style={styles.section}>
