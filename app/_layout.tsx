@@ -8,6 +8,7 @@ import ScreenWrapper from "@/components/ScreenWrapper";
 import { TasksProvider } from "@/contexts/taskContext";
 import { CalendarProvider } from "@/contexts/calendarContext";
 import { StockProvider } from "@/contexts/stockContext";
+import { FollowProvider } from "@/contexts/followContext";
 import "react-native-url-polyfill/auto";
 
 const StackLayout = () => {
@@ -23,7 +24,9 @@ export default function RootLayout() {
           <CalendarProvider>
             <StockProvider>
               <TasksProvider>
-                <StackLayout />
+                <FollowProvider>
+                  <StackLayout />
+                </FollowProvider>
               </TasksProvider>
             </StockProvider>
           </CalendarProvider>

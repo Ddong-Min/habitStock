@@ -63,6 +63,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         price: 100,
         quantity: 1,
         lastUpdated: new Date().toISOString(),
+        name_lower: name.toLowerCase(),
+        followersCount: 0,
+        followingCount: 0,
       });
       return { success: true };
     } catch (error: any) {
@@ -89,6 +92,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           price: data?.price,
           quantity: data?.quantity,
           lastUpdated: data?.lastUpdated,
+          followersCount: data?.followersCount || 0,
+          followingCount: data?.followingCount || 0,
         };
         setUser({ ...userData });
       }

@@ -130,13 +130,17 @@ export type ImageUploadProps = {
 };
 
 export type UserType = {
-  uid?: string;
+  uid: string;
   email?: string | null;
   name: string | null;
+  name_lowercase?: string | null;
   image?: any;
   price?: number;
   quantity?: number;
   lastUpdated?: string;
+  followersCount?: number;
+  followingCount?: number;
+  bio?: string;
 } | null;
 
 export type UserDataType = {

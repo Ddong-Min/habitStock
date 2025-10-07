@@ -45,7 +45,7 @@ const Profile: React.FC<ProfileProps> = ({ type }) => {
           fontWeight="bold"
           style={{ lineHeight: verticalScale(24) }}
         >
-          {user!.name}
+          {user!.name ?? "사용자"}
         </Typo>
         {type !== "news" && (
           <View style={styles.stockInfo}>
