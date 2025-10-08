@@ -1,20 +1,44 @@
-import React, { useState } from "react";
-import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-} from "react-native";
+import CustomChart from "@/components/CustomChart";
+import React from "react";
+import { StyleSheet, TouchableOpacity, View, ScrollView } from "react-native";
 import Profile from "@/components/Profile";
-import { spacingX, spacingY } from "@/constants/theme";
-import { verticalScale } from "@/utils/styling";
+import FriendStock from "@/components/FriendStock";
 import Typo from "@/components/Typo";
-import { router } from "expo-router";
+import { useState, useEffect } from "react";
+import { useStock } from "@/contexts/stockContext";
+
 import NewsDetail from "@/components/NewsDetail";
 import YearHeader from "@/components/YearHeader";
-const News = () => {
+import { verticalScale } from "@/utils/styling";
+import { Ionicons } from "@expo/vector-icons";
+import { useFollow } from "@/contexts/followContext";
+import { spacingY, spacingX, radius } from "../constants/theme";
+import { colors } from "../constants/theme";
+
+const FriendStockDetail = ({
+  followId,
+  onBack,
+}: {
+  followId: string;
+  onBack: () => void;
+}) => {
+  const {
+    selectedPeriod,
+    changeSelectedPeriod,
+    stockTabType,
+    friendStockData,
+  } = useStock();
+  const { loadDetailFriendInfo, selectedFollowId } = useFollow();
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
+  //처음 컴포넌트를 렌더링할때만 전체 주식 데이터를 불러옴
+  if (!friendStockData) {
+    // stockData가 undefined일 때 렌더링을 방지하거나 대체 UI를 보여줄 수 있습니다.
+    return <Typo>No stock data available</Typo>;
+  }
+  useEffect(() => {
+    loadDetailFriendInfo();
+  }, [selectedFollowId]);
+
   const newsItems2022 = [
     {
       date: "06-30",
@@ -108,7 +132,6 @@ const News = () => {
       fullDate: "2022-06-18",
     },
   ];
-  // 뉴스 아이템 클릭 → 상세 페이지 진입
   const handleNewsPress = (item: any) => {
     setSelectedItem(item);
   };
@@ -117,20 +140,68 @@ const News = () => {
   const handleBack = () => {
     setSelectedItem(null);
   };
-
   // ✅ 선택된 아이템 있으면 상세 화면 보여주기
   if (selectedItem) {
     return <NewsDetail item={selectedItem} onBack={handleBack} />;
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Profile type="news" />
-
+    <View style={{ flex: 1, backgroundColor: "white" }}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#111827" />
+        </TouchableOpacity>
+        <Typo size={18} fontWeight={"600"}>
+          친구 주식 상세
+        </Typo>
+        <View style={{ width: 24 }} />
+      </View>
+      <Profile type={stockTabType} />
       <ScrollView style={styles.content}>
+        <CustomChart stockData={friendStockData[followId]} />
+        <View style={styles.periodButtonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.periodButton,
+              selectedPeriod === "day" && styles.periodButtonActive,
+            ]}
+            onPress={() => changeSelectedPeriod("day")}
+          >
+            <Typo color={selectedPeriod === "day" ? colors.white : colors.text}>
+              일
+            </Typo>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.periodButton,
+              selectedPeriod === "week" && styles.periodButtonActive,
+            ]}
+            onPress={() => changeSelectedPeriod("week")}
+          >
+            <Typo
+              color={selectedPeriod === "week" ? colors.white : colors.text}
+            >
+              주
+            </Typo>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.periodButton,
+              selectedPeriod === "month" && styles.periodButtonActive,
+            ]}
+            onPress={() => changeSelectedPeriod("month")}
+          >
+            <Typo
+              color={selectedPeriod === "month" ? colors.white : colors.text}
+            >
+              월
+            </Typo>
+          </TouchableOpacity>
+        </View>
         <View style={styles.section}>
           <YearHeader year={(2025).toString()} />
-
           {newsItems2022.map((item, index) => (
             <TouchableOpacity
               key={`2022-${index}`}
@@ -147,11 +218,30 @@ const News = () => {
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  periodButtonContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: spacingY._5,
+    paddingHorizontal: spacingX._25,
+    gap: spacingX._10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.sub,
+  },
+  periodButton: {
+    paddingHorizontal: spacingX._10,
+    paddingVertical: spacingY._7,
+    borderRadius: radius._10,
+    backgroundColor: colors.neutral100,
+    alignItems: "center",
+  },
+  periodButtonActive: {
+    backgroundColor: colors.blue100,
+  },
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -181,6 +271,17 @@ const styles = StyleSheet.create({
     color: "#374151",
     lineHeight: verticalScale(22),
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacingX._15,
+    paddingVertical: spacingY._15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  backButton: {
+    padding: spacingX._5,
+  },
 });
-
-export default News;
+export default FriendStockDetail;

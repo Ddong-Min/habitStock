@@ -6,8 +6,9 @@ import { verticalScale } from "@/utils/styling";
 import { useFollow } from "@/contexts/followContext";
 import { useStock } from "@/contexts/stockContext";
 import { useCalendar } from "@/contexts/calendarContext";
+
 const FriendStock: React.FC<{}> = () => {
-  const { followingUsers } = useFollow();
+  const { followingUsers, changeSelectedFollowId } = useFollow();
   const { friendStockData } = useStock();
   const { today } = useCalendar();
   const friends = followingUsers.map((user) => ({
@@ -16,6 +17,7 @@ const FriendStock: React.FC<{}> = () => {
     percentage: friendStockData[user!.uid][today].changeRate || 0,
     avatarColor: "#E8E8E8", // 기본 색상
     changePrice: friendStockData[user!.uid][today].changePrice || 0,
+    uid: user?.uid || "",
   }));
   const displayFriends = friends;
   console.log("Displaying friends:", displayFriends);
@@ -23,7 +25,11 @@ const FriendStock: React.FC<{}> = () => {
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={true}>
         {displayFriends.map((friend, index) => (
-          <TouchableOpacity key={index} style={styles.friendItem}>
+          <TouchableOpacity
+            key={index}
+            style={styles.friendItem}
+            onPress={() => changeSelectedFollowId(friend.uid)}
+          >
             <View style={styles.leftSection}>
               <View
                 style={[styles.avatar, { backgroundColor: friend.avatarColor }]}

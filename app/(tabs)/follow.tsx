@@ -44,7 +44,7 @@ const Search = () => {
             {item.name}
           </Text>
           <Text style={styles.username} numberOfLines={1}>
-            @{item.username}
+            @{item.email}
           </Text>
           {item.bio && (
             <Text style={styles.bio} numberOfLines={1}>

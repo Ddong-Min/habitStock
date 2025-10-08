@@ -16,7 +16,6 @@ import {
 } from "firebase/firestore";
 import { firestore } from "@/config/firebase";
 import { UserType } from "@/types";
-import { User } from "firebase/auth";
 
 // 사용자 검색 (name으로)
 export const searchUsersByName = async (

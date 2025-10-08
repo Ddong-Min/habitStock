@@ -248,7 +248,6 @@ export interface chartProps {
   high: number[];
   low: number[];
   volume: number[];
-  //type: "day" | "week" | "month";
 }
 export type CandleStickProps = {
   width?: number | undefined;

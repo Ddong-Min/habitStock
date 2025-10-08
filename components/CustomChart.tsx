@@ -14,7 +14,7 @@ import { useSharedValue, runOnJS } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useStock } from "@/contexts/stockContext";
 import { aggregateData } from "@/handler/aggregateData";
-
+import { StockDataByDateType } from "@/types";
 type ChartType = "candle" | "line";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -44,10 +44,11 @@ const calculateMovingAverage = (
   return result;
 };
 
-const CustomChart: React.FC<{}> = ({}) => {
+const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
+  stockData,
+}) => {
   //주식데이터와 주식 데이터 함수
-  const { stockData, loadAllStocks, selectedPeriod } = useStock();
-
+  const { selectedPeriod } = useStock();
   // 차트 타입 상태 추가
   const [chartType, setChartType] = useState<ChartType>("candle");
 
@@ -56,11 +57,6 @@ const CustomChart: React.FC<{}> = ({}) => {
   const [fullDataArray, setFullDataArray] = useState<
     [string, number, number, number, number, number][]
   >([]);
-
-  //처음 컴포넌트를 렌더링할때만 전체 주식 데이터를 불러옴
-  useEffect(() => {
-    loadAllStocks();
-  }, []);
 
   useEffect(() => {
     if (!stockData) return;
@@ -78,7 +74,13 @@ const CustomChart: React.FC<{}> = ({}) => {
       setVisibleRange(Math.min(30, fullDataArray.length));
     }
   }, [fullDataArray.length]);
-
+  useEffect(() => {
+    if (fullDataArray.length > 0) {
+      // 마지막 데이터를 기준으로 스크롤 오프셋 설정
+      const lastIndex = fullDataArray.length - visibleRange;
+      setScrollOffset(lastIndex > 0 ? lastIndex : 0); // 최소값 0을 보장
+    }
+  }, [fullDataArray, visibleRange]);
   /* 자주 변화하는 gesture관련 ui에 대해 변수를 useState로 관리하지 않고
   useSharedValu로 관리해서 javascript thread에서 re-rendering되지 않고 
   native-thread에서 관리해서 smooth하고, 우수한 성능을 보장하게 합니다. */

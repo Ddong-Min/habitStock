@@ -1,5 +1,10 @@
 import React, { ReactNode, useState } from "react";
-import { StockDataType, StockDataByDateType, FriendStockType } from "@/types";
+import {
+  StockDataType,
+  StockDataByDateType,
+  FriendStockType,
+  UserType,
+} from "@/types";
 import { useAuth } from "./authContext";
 import {
   loadStockDataFirebase,
@@ -24,6 +29,12 @@ type StockContextType = {
   loadAllStocks: () => Promise<void>;
   changeSelectedPeriod: (period: "day" | "week" | "month") => void;
   loadTodayFriendStocks: (followIds: string[]) => Promise<void>;
+  stockTabType: "stocks" | "news";
+  changeStockTabType: (type: "stocks" | "news") => void;
+  loadAllFriendStocksData: (
+    followId: string,
+    startDate: string
+  ) => Promise<void>;
 };
 
 const StockContext = React.createContext<StockContextType | undefined>(
@@ -40,7 +51,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
   const [friendStockData, setFriendStockData] = useState<FriendStockType>({});
   const { user, changeUserStock } = useAuth();
   const { selectedDate, isWeekView, today } = useCalendar();
-
+  const [stockTabType, setStockTabType] = useState<"stocks" | "news">("stocks");
   /*
    load the stock Data which have changePrice, changeRate, open, close, high, low, volume
     when the user change the calendar view or load the app
@@ -227,60 +238,39 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     }
     setFriendStockData(allFriendStockData);
   };
-  /*
-  const dummyStockData = async () => {
-    const dummyData: StockDataByDateType = {};
-    const start = new Date("2025-09-02");
-    const end = new Date("2025-10-04");
 
-    // Base day (seed)
-    dummyData["2025-09-01"] = {
-      date: "2025-09-01",
-      changePrice: 2,
-      changeRate: 2,
-      open: 100,
-      close: 102,
-      high: 105,
-      low: 99,
-      volume: 5,
-    };
-
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dateStr = d.toISOString().split("T")[0];
-
-      // Get previous day's close as today's open
-      const prevDate = new Date(d);
-      prevDate.setDate(prevDate.getDate() - 1);
-      const prevDateStr = prevDate.toISOString().split("T")[0];
-      const prevClose = dummyData[prevDateStr]?.close ?? 100; // fallback if missing
-
-      // Random daily change
-      const changePrice = Math.floor(Math.random() * 20) - 10; // -10 ~ +10
-      const close = prevClose + changePrice;
-      const changeRate = Math.round((changePrice / prevClose) * 100 * 10) / 10; // 1 decimal
-
-      // Construct the day's data
-      const todayData = {
-        date: dateStr,
-        changePrice,
-        changeRate,
-        open: prevClose,
-        close,
-        high: close + 10,
-        low: prevClose - 10,
-        volume: Math.floor(Math.random() * 10),
-      };
-
-      // Save locally
-      dummyData[dateStr] = todayData;
-
-      // Save to Firestore
-      await changeStockDataFirebase(user!.uid!, todayData, dateStr);
+  const loadAllFriendStocksData = async (
+    followId: string,
+    startDate: string
+  ) => {
+    if (!user?.uid) return;
+    if (followId.length === 0) {
+      setFriendStockData({});
+      return;
     }
+    const endDate = today;
 
-    return dummyData;
+    const allFriendStockData: FriendStockType = {};
+    const tempFriendStockData = await loadFriendStockDataFirebase(
+      followId,
+      startDate,
+      endDate
+    );
+    if (tempFriendStockData) {
+      if (!allFriendStockData[followId]) {
+        allFriendStockData[followId] = {}; // ✅ 초기화
+      }
+      Object.keys(tempFriendStockData).forEach((date) => {
+        allFriendStockData[followId][date] = tempFriendStockData[date];
+      });
+    }
+    setFriendStockData(allFriendStockData);
+    console.log("Loaded friend stock data:", allFriendStockData);
   };
-*/
+  const changeStockTabType = (type: "stocks" | "news") => {
+    setStockTabType(type);
+  };
+
   return (
     <StockContext.Provider
       value={{
@@ -292,6 +282,9 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
         loadAllStocks,
         changeSelectedPeriod,
         loadTodayFriendStocks,
+        stockTabType,
+        changeStockTabType,
+        loadAllFriendStocksData,
       }}
     >
       {children}

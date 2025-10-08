@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Image } from "react-native";
 import Typo from "./Typo";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
@@ -6,15 +6,36 @@ import { verticalScale } from "@/utils/styling";
 import { useAuth } from "@/contexts/authContext";
 import { useStock } from "@/contexts/stockContext";
 import { useCalendar } from "@/contexts/calendarContext";
+import { useFollow } from "@/contexts/followContext";
 interface ProfileProps {
-  type: "todo" | "stock" | "news";
+  type: "todo" | "stocks" | "news";
 }
 
 const Profile: React.FC<ProfileProps> = ({ type }) => {
   const { user } = useAuth();
-  const { stockData } = useStock();
+  const { stockData, friendStockData } = useStock();
   const { today } = useCalendar();
-  const todayStock = stockData?.[today];
+  const { selectedFollowId, followingUsers } = useFollow();
+  const [todayStock, setTodayStock] = useState(stockData?.[today]);
+  const [name, setName] = useState(user?.name || "사용자");
+
+  // selectedFollowId가 변경될 때마다 stockData와 user정보 업데이트
+  useEffect(() => {
+    if (selectedFollowId) {
+      // 팔로우된 사용자의 stockData로 업데이트
+      const followStock = friendStockData?.[selectedFollowId][today];
+      const followUser = followingUsers.find(
+        (user) => user?.uid === selectedFollowId
+      );
+      setName(followUser?.name || "사용자");
+      setTodayStock(followStock);
+    } else {
+      // selectedFollowId가 없다면 기본 user 정보로 돌아가기
+      setTodayStock(stockData?.[today]);
+      setName(user?.name || "사용자");
+    }
+  }, [selectedFollowId, stockData, today]);
+
   const isPositive = (todayStock?.changePrice ?? 0) > 0;
   const isZero = (todayStock?.changePrice ?? 0) === 0;
   const changeColor = isPositive
@@ -24,17 +45,7 @@ const Profile: React.FC<ProfileProps> = ({ type }) => {
     : colors.blue100;
 
   return (
-    <View
-      style={[
-        styles.container,
-        (type === "stock" || type === "news") && {
-          borderRadius: radius._10,
-          borderWidth: 1,
-          borderColor: colors.blue25,
-          paddingBottom: spacingY._10,
-        },
-      ]}
-    >
+    <View style={[styles.container]}>
       <Image
         source={require("../assets/images/tempProfile.png")}
         style={styles.avatar}
@@ -45,15 +56,15 @@ const Profile: React.FC<ProfileProps> = ({ type }) => {
           fontWeight="bold"
           style={{ lineHeight: verticalScale(24) }}
         >
-          {user!.name ?? "사용자"}
+          {name}
         </Typo>
         {type !== "news" && (
           <View style={styles.stockInfo}>
             <Typo size={22} fontWeight="bold" style={{ marginRight: 8 }}>
-              ₩{user!.price!}
+              ₩{todayStock?.close!}
             </Typo>
 
-            {type === "stock" && (
+            {type === "stocks" && (
               <Typo size={16} color={colors.neutral400} fontWeight={"500"}>
                 어제보다{" "}
               </Typo>

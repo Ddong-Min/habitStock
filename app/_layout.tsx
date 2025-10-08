@@ -10,7 +10,7 @@ import { CalendarProvider } from "@/contexts/calendarContext";
 import { StockProvider } from "@/contexts/stockContext";
 import { FollowProvider } from "@/contexts/followContext";
 import "react-native-url-polyfill/auto";
-
+import { NewsProvider } from "@/contexts/newsContext";
 const StackLayout = () => {
   return <Stack screenOptions={{ headerShown: false }}></Stack>;
 };
@@ -25,7 +25,9 @@ export default function RootLayout() {
             <StockProvider>
               <TasksProvider>
                 <FollowProvider>
-                  <StackLayout />
+                  <NewsProvider>
+                    <StackLayout />
+                  </NewsProvider>
                 </FollowProvider>
               </TasksProvider>
             </StockProvider>

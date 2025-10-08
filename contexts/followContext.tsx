@@ -19,11 +19,14 @@ interface FollowContextType {
   loading: boolean;
   currentUserId: string | null;
   followingUsers: UserType[]; // 팔로잉 유저 정보 배열
+  selectedFollowId: string | null;
   // 함수
   setSearchQuery: (query: string) => void;
   toggleFollow: (targetUserId: string) => Promise<void>;
   isFollowing: (userId: string) => boolean;
   refreshSuggestedUsers: () => Promise<void>;
+  loadDetailFriendInfo: () => Promise<void>;
+  changeSelectedFollowId: (followId: string | null) => void;
 }
 
 const FollowContext = createContext<FollowContextType | undefined>(undefined);
@@ -35,8 +38,9 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [followingUsers, setFollowingUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedFollowId, setSelectedFollowId] = useState<string | null>(null);
   const { user } = useAuth();
-  const { loadTodayFriendStocks } = useStock();
+  const { loadTodayFriendStocks, loadAllFriendStocksData } = useStock();
   const currentUserId = user?.uid || null;
 
   // 팔로잉 목록 실시간 업데이트
@@ -92,10 +96,13 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
 
       setLoading(true);
       try {
-        const [nameResults] = await Promise.all([
+        // 이름과 이메일 모두 검색
+        const [nameResults, emailResults] = await Promise.all([
           followApi.searchUsersByName(query, currentUserId),
+          followApi.searchUsersByEmail(query, currentUserId),
         ]);
         console.log("Name search results:", nameResults);
+        console.log("Email search results:", emailResults);
 
         // 중복 제거
         const usersMap = new Map<string, UserType>();
@@ -104,7 +111,12 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
             usersMap.set(user.uid, user);
           }
         });
-        console.log("Users map after name search:", usersMap);
+        emailResults.forEach((user) => {
+          if (user) {
+            usersMap.set(user.uid, user);
+          }
+        });
+        console.log("Users map after name/email search:", usersMap);
         setSearchResults(Array.from(usersMap.values()));
         console.log("Combined search results:", Array.from(usersMap.values()));
       } catch (error) {
@@ -155,7 +167,16 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
   );
 
   //팔로워 정보 불러오기
+  const loadDetailFriendInfo = async () => {
+    if (!user || !user.uid || !selectedFollowId) return;
+    const userObj = followingUsers.find((u) => u?.uid === selectedFollowId);
+    const startDate = userObj?.registerDate;
+    loadAllFriendStocksData(selectedFollowId, startDate || "");
+  };
 
+  const changeSelectedFollowId = (followId: string | null) => {
+    setSelectedFollowId(followId);
+  };
   const value: FollowContextType = {
     searchQuery,
     searchResults,
@@ -164,10 +185,13 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
     loading,
     currentUserId,
     followingUsers,
+    selectedFollowId,
     setSearchQuery,
     toggleFollow,
     isFollowing,
     refreshSuggestedUsers: loadSuggestedUsers,
+    loadDetailFriendInfo,
+    changeSelectedFollowId,
   };
 
   return (
