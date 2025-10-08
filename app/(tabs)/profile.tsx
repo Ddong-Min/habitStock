@@ -1,30 +1,157 @@
 import React, { useState } from "react";
 import {
-  StyleSheet,
-  View,
   ScrollView,
+  View,
   TouchableOpacity,
   Image,
   Switch,
   Alert,
+  TextInput,
+  StyleSheet,
+  Text,
 } from "react-native";
-import { colors, radius, spacingX, spacingY } from "@/constants/theme";
-import Typo from "@/components/Typo";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/authContext";
+import { doc, updateDoc } from "firebase/firestore";
+import { firestore } from "@/config/firebase";
+import { colors } from "@/constants/theme";
+
 const Profile: React.FC = () => {
-  const [userName, setUserName] = useState("홍길동");
-  const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
-  const [deadlineTime, setDeadlineTime] = useState("03:00");
-  const { logout } = useAuth();
+  const { logout, user, updateUserData } = useAuth();
+  if (!user) {
+    return (
+      <View style={styles.centeredContainer}>
+        <Text>로그인 정보가 없습니다.</Text>
+      </View>
+    );
+  }
+
+  const [userName, setUserName] = useState(user?.name || "");
+  const [bio, setBio] = useState(user?.bio || "");
+  const [darkMode, setDarkMode] = useState(user?.isDarkMode || false);
+  const [notifications, setNotifications] = useState(user?.allowAlarm || false);
+  const [deadlineTime, setDeadlineTime] = useState(user?.duetime || "00:00");
+  const [words, setWords] = useState(user?.words || "한국어");
+
+  // Firebase에 설정 저장하는 공통 함수
+  const updateUserSettings = async (field: string, value: any) => {
+    if (!user?.uid) return;
+
+    try {
+      const userRef = doc(firestore, "users", user.uid);
+      await updateDoc(userRef, {
+        [field]: value,
+      });
+
+      // 로컬 user 상태도 업데이트
+      await updateUserData(user.uid);
+      console.log(`✅ ${field} 업데이트 완료:`, value);
+    } catch (error) {
+      console.error(`❌ ${field} 업데이트 실패:`, error);
+      Alert.alert("오류", "설정을 저장하는데 실패했습니다.");
+    }
+  };
+
   const handleImagePicker = () => {
-    // 이미지 선택 로직
     Alert.alert("프로필 사진", "프로필 사진을 변경하시겠습니까?");
   };
 
   const handleEditName = () => {
-    Alert.alert("이름 변경", "새로운 이름을 입력하세요");
+    Alert.prompt(
+      "이름 변경",
+      "새로운 이름을 입력하세요",
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "변경",
+          onPress: async (newName) => {
+            if (newName && newName.trim()) {
+              setUserName(newName);
+              await updateUserSettings("name", newName);
+            }
+          },
+        },
+      ],
+      "plain-text",
+      userName
+    );
+  };
+
+  const handleEditBio = () => {
+    Alert.prompt(
+      "소개 변경",
+      "새로운 소개를 입력하세요 (최대 150자)",
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "변경",
+          onPress: async (newBio) => {
+            if (newBio !== null) {
+              const trimmedBio = newBio!.substring(0, 150);
+              setBio(trimmedBio);
+              await updateUserSettings("bio", trimmedBio);
+            }
+          },
+        },
+      ],
+      "plain-text",
+      bio
+    );
+  };
+
+  // 다크모드 토글
+  const handleDarkModeToggle = async (value: boolean) => {
+    setDarkMode(value);
+    await updateUserSettings("isDarkMode", value);
+  };
+
+  // 알림 토글
+  const handleNotificationToggle = async (value: boolean) => {
+    setNotifications(value);
+    await updateUserSettings("allowAlarm", value);
+  };
+
+  // 마감시간 변경
+  const handleDeadlineChange = () => {
+    Alert.prompt(
+      "마감 시간 설정",
+      "시간을 입력하세요 (예: 23:59)",
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "변경",
+          onPress: async (newTime) => {
+            if (newTime) {
+              setDeadlineTime(newTime);
+              await updateUserSettings("duetime", newTime);
+            }
+          },
+        },
+      ],
+      "plain-text",
+      deadlineTime
+    );
+  };
+
+  // 언어 변경
+  const handleLanguageChange = () => {
+    Alert.alert("언어 선택", "언어를 선택하세요", [
+      {
+        text: "한국어",
+        onPress: async () => {
+          setWords("한국어");
+          await updateUserSettings("words", "한국어");
+        },
+      },
+      {
+        text: "English",
+        onPress: async () => {
+          setWords("English");
+          await updateUserSettings("words", "English");
+        },
+      },
+      { text: "취소", style: "cancel" },
+    ]);
   };
 
   const handleLogout = () => {
@@ -71,301 +198,124 @@ const Profile: React.FC = () => {
           onPress={handleImagePicker}
         >
           <Image
-            source={{ uri: "https://via.placeholder.com/100" }}
+            source={{ uri: user?.image || "https://via.placeholder.com/100" }}
             style={styles.profileImage}
           />
           <View style={styles.cameraIconContainer}>
-            <Ionicons name="camera" size={20} color={colors.white} />
+            <Ionicons name="camera" size={20} color="#fff" />
           </View>
         </TouchableOpacity>
 
         <View style={styles.profileInfo}>
           <View style={styles.nameRow}>
-            <Typo fontWeight="bold">{userName}</Typo>
+            <Text style={styles.nameText}>{userName}</Text>
             <TouchableOpacity onPress={handleEditName}>
-              <Ionicons name="pencil" size={20} color={colors.blue100} />
+              <Ionicons name="pencil" size={20} color="#007AFF" />
             </TouchableOpacity>
           </View>
-          <Typo color={colors.neutral400}>나의 주식으로 성장하는 중</Typo>
+          <TouchableOpacity onPress={handleEditBio}>
+            <Text style={styles.bioText}>{bio || "소개를 입력하세요"}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* 설정 섹션 */}
       <View style={styles.section}>
-        <Typo fontWeight="semibold" style={styles.sectionTitle}>
-          일반 설정
-        </Typo>
+        <Text style={styles.sectionTitle}>일반 설정</Text>
 
         {/* 다크모드 */}
         <View style={styles.settingItem}>
           <View style={styles.settingLeft}>
-            <Ionicons name="moon" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>다크모드</Typo>
+            <Ionicons name="moon" size={24} color="#000" />
+            <Text style={styles.settingText}>다크모드</Text>
           </View>
           <Switch
             value={darkMode}
-            onValueChange={setDarkMode}
-            trackColor={{ false: colors.neutral200, true: colors.blue100 }}
-            thumbColor={colors.white}
+            onValueChange={handleDarkModeToggle}
+            trackColor={{ false: "#E5E5EA", true: "#007AFF" }}
+            thumbColor="#fff"
           />
         </View>
 
         {/* 알림 설정 */}
         <View style={styles.settingItem}>
           <View style={styles.settingLeft}>
-            <Ionicons name="notifications" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>알림</Typo>
+            <Ionicons name="notifications" size={24} color="#000" />
+            <Text style={styles.settingText}>알림</Text>
           </View>
           <Switch
             value={notifications}
-            onValueChange={setNotifications}
-            trackColor={{ false: colors.neutral200, true: colors.blue100 }}
-            thumbColor={colors.white}
+            onValueChange={handleNotificationToggle}
+            trackColor={{ false: "#E5E5EA", true: "#007AFF" }}
+            thumbColor="#fff"
           />
         </View>
 
         {/* 마감 시간 설정 */}
-        <TouchableOpacity style={styles.settingItem}>
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={handleDeadlineChange}
+        >
           <View style={styles.settingLeft}>
-            <Ionicons name="time" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>할일 마감 시간</Typo>
+            <Ionicons name="time" size={24} color="#000" />
+            <Text style={styles.settingText}>할일 마감 시간</Text>
           </View>
           <View style={styles.settingRight}>
-            <Typo color={colors.neutral400}>{deadlineTime}</Typo>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={colors.neutral400}
-            />
+            <Text style={styles.settingValue}>{deadlineTime}</Text>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
           </View>
         </TouchableOpacity>
 
         {/* 언어 설정 */}
-        <TouchableOpacity style={styles.settingItem}>
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={handleLanguageChange}
+        >
           <View style={styles.settingLeft}>
-            <Ionicons name="language" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>언어</Typo>
+            <Ionicons name="language" size={24} color="#000" />
+            <Text style={styles.settingText}>언어</Text>
           </View>
           <View style={styles.settingRight}>
-            <Typo color={colors.neutral400}>한국어</Typo>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={colors.neutral400}
-            />
+            <Text style={styles.settingValue}>{words}</Text>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
           </View>
         </TouchableOpacity>
       </View>
 
-      {/* 데이터 관리 섹션 */}
+      {/* 계정 관리 */}
       <View style={styles.section}>
-        <Typo fontWeight="semibold" style={styles.sectionTitle}>
-          데이터 관리
-        </Typo>
+        <Text style={styles.sectionTitle}>계정 관리</Text>
 
-        {/* 데이터 백업 */}
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="cloud-upload" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>데이터 백업</Typo>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
-        </TouchableOpacity>
-
-        {/* 데이터 복원 */}
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="cloud-download" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>데이터 복원</Typo>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
-        </TouchableOpacity>
-
-        {/* 데이터 초기화 */}
-        <TouchableOpacity style={styles.settingItem} onPress={handleResetData}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="refresh" size={24} color={colors.red100} />
-            <Typo color={colors.red100} style={styles.settingText}>
-              데이터 초기화
-            </Typo>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* 소셜 섹션 */}
-      <View style={styles.section}>
-        <Typo fontWeight="semibold" style={styles.sectionTitle}>
-          소셜
-        </Typo>
-
-        {/* 친구 관리 */}
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="people" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>친구 관리</Typo>
-          </View>
-          <View style={styles.settingRight}>
-            <Typo color={colors.neutral400}>12명</Typo>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={colors.neutral400}
-            />
-          </View>
-        </TouchableOpacity>
-
-        {/* 차단 목록 */}
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="ban" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>차단 목록</Typo>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* 정보 섹션 */}
-      <View style={styles.section}>
-        <Typo fontWeight="semibold" style={styles.sectionTitle}>
-          정보
-        </Typo>
-
-        {/* 공지사항 */}
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="megaphone" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>공지사항</Typo>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
-        </TouchableOpacity>
-
-        {/* FAQ */}
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="help-circle" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>자주 묻는 질문</Typo>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
-        </TouchableOpacity>
-
-        {/* 문의하기 */}
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="mail" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>문의하기</Typo>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
-        </TouchableOpacity>
-
-        {/* 앱 버전 */}
-        <View style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="information-circle" size={24} color={colors.text} />
-            <Typo fontWeight="regular" style={styles.settingText}>
-              앱 버전
-            </Typo>
-          </View>
-          <Typo fontWeight="regular" color={colors.neutral400}>
-            1.0.0
-          </Typo>
-        </View>
-
-        {/* 이용약관 */}
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="document-text" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>이용약관</Typo>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
-        </TouchableOpacity>
-
-        {/* 개인정보처리방침 */}
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <Ionicons name="shield-checkmark" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>개인정보처리방침</Typo>
-          </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* 계정 관리 섹션 */}
-      <View style={styles.section}>
-        <Typo fontWeight="semibold" style={styles.sectionTitle}>
-          계정 관리
-        </Typo>
-
-        {/* 로그아웃 */}
         <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
           <View style={styles.settingLeft}>
-            <Ionicons name="log-out" size={24} color={colors.text} />
-            <Typo style={styles.settingText}>로그아웃</Typo>
+            <Ionicons name="log-out" size={24} color="#FF3B30" />
+            <Text style={[styles.settingText, { color: "#FF3B30" }]}>
+              로그아웃
+            </Text>
           </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
         </TouchableOpacity>
 
-        {/* 회원탈퇴 */}
+        <TouchableOpacity style={styles.settingItem} onPress={handleResetData}>
+          <View style={styles.settingLeft}>
+            <Ionicons name="refresh" size={24} color="#FF9500" />
+            <Text style={[styles.settingText, { color: "#FF9500" }]}>
+              데이터 초기화
+            </Text>
+          </View>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.settingItem}
           onPress={handleDeleteAccount}
         >
           <View style={styles.settingLeft}>
-            <Ionicons name="person-remove" size={24} color={colors.red100} />
-            <Typo color={colors.red100} style={styles.settingText}>
+            <Ionicons name="trash" size={24} color="#FF3B30" />
+            <Text style={[styles.settingText, { color: "#FF3B30" }]}>
               회원탈퇴
-            </Typo>
+            </Text>
           </View>
-          <Ionicons
-            name="chevron-forward"
-            size={20}
-            color={colors.neutral400}
-          />
         </TouchableOpacity>
       </View>
-
-      {/* 하단 여백 */}
-      <View style={styles.bottomSpacing} />
     </ScrollView>
   );
 };
@@ -373,16 +323,14 @@ const Profile: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: "#fff",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacingX._25,
-    paddingTop: spacingY._30,
-    paddingBottom: spacingY._25,
+    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral100,
+    borderBottomColor: "#E5E5EA",
   },
   profileImageContainer: {
     position: "relative",
@@ -391,62 +339,74 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.neutral200,
   },
   cameraIconContainer: {
     position: "absolute",
-    right: 0,
     bottom: 0,
-    backgroundColor: colors.blue100,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    right: 0,
+    backgroundColor: "#007AFF",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: colors.white,
+    borderColor: "#fff",
   },
   profileInfo: {
     flex: 1,
-    marginLeft: spacingX._20,
+    marginLeft: 16,
   },
   nameRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacingX._10,
-    marginBottom: spacingY._5,
+    gap: 8,
+    marginBottom: 4,
+  },
+  nameText: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  bioText: {
+    fontSize: 14,
+    color: "#999",
   },
   section: {
-    marginTop: spacingY._20,
-    paddingHorizontal: spacingX._25,
+    padding: 20,
   },
   sectionTitle: {
-    marginBottom: spacingY._15,
-    color: colors.neutral400,
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 16,
   },
   settingItem: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: spacingY._15,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral100,
+    alignItems: "center",
+    paddingVertical: 12,
   },
   settingLeft: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
+    gap: 12,
   },
   settingText: {
-    marginLeft: spacingX._15,
+    fontSize: 16,
   },
   settingRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacingX._10,
+    gap: 8,
   },
-  bottomSpacing: {
-    height: spacingY._30,
+  settingValue: {
+    fontSize: 14,
+    color: "#999",
+  },
+  centeredContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.white,
   },
 });
 

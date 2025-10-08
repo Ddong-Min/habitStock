@@ -1,7 +1,7 @@
 import {
   collection,
   doc,
-  setDoc,
+  getDoc,
   deleteDoc,
   getDocs,
   query,
@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { firestore } from "@/config/firebase";
 import { UserType } from "@/types";
+import { User } from "firebase/auth";
 
 // 사용자 검색 (name으로)
 export const searchUsersByName = async (
@@ -103,9 +104,11 @@ export const getSuggestedUsers = async (
 };
 
 // 팔로잉 목록 실시간 구독
+// 팔로잉 목록 실시간 구독 (UserType 데이터 포함)
 export const subscribeToFollowingList = (
   userId: string,
-  onUpdate: (followingIds: Set<string>) => void
+  onUpdate: (followingIds: Set<string>) => void,
+  onGetData: (users: UserType[]) => void
 ) => {
   const followingRef = collection(
     firestore,
@@ -113,13 +116,38 @@ export const subscribeToFollowingList = (
     userId,
     "userFollowing"
   );
-  //firestore에서 데이터를 가져오는 방법은 get()과 onSnapshot()이 있다.
-  //get()은 한번만 데이터를 가져오고 실시간 반영은 안되서 변경 내용을 확인하고자 한다면 get()을 다시호출해야함
-  //onSnapshot()은 실시간으로 데이터를 가져온다.
-  //따라서 팔로잉 목록은 실시간으로 업데이트 되어야 하므로 onSnapshot()을 사용한다.
-  return onSnapshot(followingRef, (snapshot) => {
+
+  // 실시간 감시
+  return onSnapshot(followingRef, async (snapshot) => {
+    // 1️⃣ 팔로잉한 uid 수집
     const ids = new Set(snapshot.docs.map((doc) => doc.id));
     onUpdate(ids);
+
+    if (ids.size === 0) {
+      onGetData([]); // 팔로잉이 없으면 빈 배열 전달
+      return;
+    }
+
+    // 2️⃣ 각 uid의 users 컬렉션 데이터 가져오기
+    try {
+      const userDocs = await Promise.all(
+        Array.from(ids).map(async (id) => {
+          const userRef = doc(firestore, "users", id);
+          const userSnap = await getDoc(userRef);
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            return { uid: userSnap.id, ...data } as UserType;
+          }
+          return null;
+        })
+      );
+
+      // 3️⃣ 존재하는 유저만 전달
+      onGetData(userDocs.filter(Boolean) as UserType[]);
+    } catch (error) {
+      console.error("Error fetching following user data:", error);
+      onGetData([]); // 에러 발생 시 빈 배열 전달
+    }
   });
 };
 

@@ -112,7 +112,11 @@ export const loadAllStockDataFirebase = async (
     }
     const stocksCollection = collection(firestore, "users", user.uid, "stocks");
 
-    const querySnapshot = await getDocs(stocksCollection);
+    let q = query(
+      stocksCollection,
+      where("date", ">=", user.registerDate || "2023-01-01")
+    );
+    const querySnapshot = await getDocs(q);
     const stockDataByDate: StockDataByDateType = {};
     // Firebase에서 가져온 데이터를 먼저 저장
     querySnapshot.forEach((docSnap) => {
@@ -126,6 +130,43 @@ export const loadAllStockDataFirebase = async (
     return stockDataByDate;
   } catch (error) {
     console.error("Error loading all user stock data: ", error);
+    return null;
+  }
+};
+
+export const loadFriendStockDataFirebase = async (
+  userId: string,
+  startDate: string,
+  endDate: string
+): Promise<StockDataByDateType | null> => {
+  try {
+    if (!userId) {
+      throw new Error("User UID is undefined");
+    }
+    const stocksCollection = collection(firestore, "users", userId, "stocks");
+
+    let q = query(
+      stocksCollection,
+      where("date", ">=", startDate),
+      where("date", "<=", endDate)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const stockDataByDate: StockDataByDateType = {};
+
+    // Firebase에서 가져온 데이터를 먼저 저장
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data() as StockDataType;
+      stockDataByDate[data.date] = data;
+    });
+
+    if (Object.keys(stockDataByDate).length === 0) {
+      return null;
+    }
+
+    return stockDataByDate;
+  } catch (error) {
+    console.error("Error loading friend stock data: ", error);
     return null;
   }
 };

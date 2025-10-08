@@ -1,16 +1,18 @@
 import React, { ReactNode, useState } from "react";
-import { StockDataType, StockDataByDateType } from "@/types";
+import { StockDataType, StockDataByDateType, FriendStockType } from "@/types";
 import { useAuth } from "./authContext";
 import {
   loadStockDataFirebase,
   changeStockDataFirebase,
   loadAllStockDataFirebase,
+  loadFriendStockDataFirebase,
 } from "@/api/stockApi";
 import { useCalendar } from "./calendarContext";
 import { Task } from "@/types";
 type StockContextType = {
   stockData: StockDataByDateType | undefined;
   selectedPeriod: "day" | "week" | "month";
+  friendStockData: FriendStockType;
   loadStocks: () => Promise<void>;
   changeStockData: (
     task: Task
@@ -21,6 +23,7 @@ type StockContextType = {
   >;
   loadAllStocks: () => Promise<void>;
   changeSelectedPeriod: (period: "day" | "week" | "month") => void;
+  loadTodayFriendStocks: (followIds: string[]) => Promise<void>;
 };
 
 const StockContext = React.createContext<StockContextType | undefined>(
@@ -34,6 +37,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<
     "day" | "week" | "month"
   >("day");
+  const [friendStockData, setFriendStockData] = useState<FriendStockType>({});
   const { user, changeUserStock } = useAuth();
   const { selectedDate, isWeekView, today } = useCalendar();
 
@@ -197,6 +201,32 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
   const changeSelectedPeriod = (period: "day" | "week" | "month") => {
     setSelectedPeriod(period);
   };
+
+  const loadTodayFriendStocks = async (followIds: string[]) => {
+    if (!user?.uid) return;
+    if (followIds.length === 0) {
+      setFriendStockData({});
+      return;
+    }
+    const startDate = today;
+    const endDate = today;
+
+    const allFriendStockData: FriendStockType = {};
+    for (const fid of followIds) {
+      const tempFriendStockData = await loadFriendStockDataFirebase(
+        fid,
+        startDate,
+        endDate
+      );
+      if (tempFriendStockData && tempFriendStockData[today]) {
+        if (!allFriendStockData[fid]) {
+          allFriendStockData[fid] = {}; // ✅ 초기화
+        }
+        allFriendStockData[fid][today] = tempFriendStockData[today];
+      }
+    }
+    setFriendStockData(allFriendStockData);
+  };
   /*
   const dummyStockData = async () => {
     const dummyData: StockDataByDateType = {};
@@ -256,10 +286,12 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
       value={{
         stockData,
         selectedPeriod,
+        friendStockData,
         loadStocks,
         changeStockData,
         loadAllStocks,
         changeSelectedPeriod,
+        loadTodayFriendStocks,
       }}
     >
       {children}

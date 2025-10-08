@@ -66,6 +66,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         name_lower: name.toLowerCase(),
         followersCount: 0,
         followingCount: 0,
+        bio: "",
+        isDarkMode: false,
+        allowAlarm: true,
+        duetime: "00:00",
+        words: "한국어",
+        registerDate: new Date().toISOString().split("T")[0],
       });
       return { success: true };
     } catch (error: any) {
@@ -94,7 +100,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           lastUpdated: data?.lastUpdated,
           followersCount: data?.followersCount || 0,
           followingCount: data?.followingCount || 0,
+          bio: data?.bio || "",
+          isDarkMode: data?.isDarkMode || false,
+          allowAlarm: data?.allowAlarm || false,
+          duetime: data?.duetime || "00:00",
+          words: data?.words || "korean",
         };
+        // console.log("User Data Retrieved: ", userData); --- IGNORE ---
         setUser({ ...userData });
       }
     } catch (error: any) {

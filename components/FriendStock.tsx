@@ -3,44 +3,22 @@ import { View, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import Typo from "./Typo";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
-
-interface Friend {
-  name: string;
-  amount: string;
-  percentage: number;
-  avatarColor: string;
-}
-
-interface FriendStockProps {
-  friends?: Friend[];
-}
-
-const FriendStock: React.FC<FriendStockProps> = ({ friends }) => {
-  const defaultFriends: Friend[] = [
-    {
-      name: "Ronaldo",
-      amount: "5213",
-      percentage: 5.12,
-      avatarColor: "#E8E8E8",
-    },
-    {
-      name: "Bruno",
-      amount: "13242",
-      percentage: 6.02,
-      avatarColor: "#FFE4E4",
-    },
-    { name: "Cuna", amount: "4215", percentage: 15.23, avatarColor: "#FFE4F0" },
-    {
-      name: "Neymar",
-      amount: "2314",
-      percentage: 3.12,
-      avatarColor: "#E8F0FE",
-    },
-    { name: "Messi", amount: "4213", percentage: 7.32, avatarColor: "#E8FEE8" },
-  ];
-
-  const displayFriends = friends || defaultFriends;
-
+import { useFollow } from "@/contexts/followContext";
+import { useStock } from "@/contexts/stockContext";
+import { useCalendar } from "@/contexts/calendarContext";
+const FriendStock: React.FC<{}> = () => {
+  const { followingUsers } = useFollow();
+  const { friendStockData } = useStock();
+  const { today } = useCalendar();
+  const friends = followingUsers.map((user) => ({
+    name: user!.name || "Unknown",
+    price: user!.price || 0, // 임의의 금액
+    percentage: friendStockData[user!.uid][today].changeRate || 0,
+    avatarColor: "#E8E8E8", // 기본 색상
+    changePrice: friendStockData[user!.uid][today].changePrice || 0,
+  }));
+  const displayFriends = friends;
+  console.log("Displaying friends:", displayFriends);
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={true}>
@@ -54,8 +32,24 @@ const FriendStock: React.FC<FriendStockProps> = ({ friends }) => {
             </View>
 
             <View style={styles.rightSection}>
-              <Typo style={styles.amount}>$ {friend.amount}</Typo>
-              <Typo style={styles.percentage}>+{friend.percentage}%</Typo>
+              <Typo style={styles.price}>$ {friend.price}</Typo>
+              <Typo
+                color={
+                  friend.changePrice > 0
+                    ? colors.red100
+                    : friend.changePrice === 0
+                    ? colors.neutral500
+                    : colors.blue100
+                }
+                style={styles.percentage}
+              >
+                {friend.changePrice > 0
+                  ? "▲"
+                  : friend.changePrice === 0
+                  ? "-"
+                  : "▼"}{" "}
+                {friend.percentage ? friend.percentage : 0}%
+              </Typo>
             </View>
           </TouchableOpacity>
         ))}
@@ -102,7 +96,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: spacingY._5,
   },
-  amount: {
+  price: {
     fontSize: verticalScale(22),
     fontWeight: "700",
     color: colors.text,
@@ -110,7 +104,6 @@ const styles = StyleSheet.create({
   percentage: {
     fontSize: verticalScale(18),
     fontWeight: "500",
-    color: "#FF6B6B",
   },
 });
 

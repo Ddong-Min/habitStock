@@ -140,7 +140,12 @@ export type UserType = {
   lastUpdated?: string;
   followersCount?: number;
   followingCount?: number;
-  bio?: string;
+  bio?: string; //짧은 자기소개
+  isDarkMode?: boolean;
+  allowAlarm?: boolean;
+  duetime?: string;
+  words?: string;
+  registerDate?: string;
 } | null;
 
 export type UserDataType = {
@@ -319,4 +324,8 @@ export type StockDataType = {
 };
 export type StockDataByDateType = {
   [date: string]: StockDataType;
+};
+
+export type FriendStockType = {
+  [uid: string]: StockDataByDateType;
 };

@@ -9,6 +9,7 @@ import React, {
 import * as followApi from "../api/followApi";
 import { UserType } from "../types";
 import { useAuth } from "./authContext";
+import { useStock } from "./stockContext";
 interface FollowContextType {
   // 상태
   searchQuery: string;
@@ -17,7 +18,7 @@ interface FollowContextType {
   followingIds: Set<string>;
   loading: boolean;
   currentUserId: string | null;
-
+  followingUsers: UserType[]; // 팔로잉 유저 정보 배열
   // 함수
   setSearchQuery: (query: string) => void;
   toggleFollow: (targetUserId: string) => Promise<void>;
@@ -32,23 +33,32 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
   const [searchResults, setSearchResults] = useState<UserType[]>([]);
   const [suggestedUsers, setSuggestedUsers] = useState<UserType[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  const [followingUsers, setFollowingUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const { loadTodayFriendStocks } = useStock();
   const currentUserId = user?.uid || null;
 
   // 팔로잉 목록 실시간 업데이트
+
+  // 나중에 cleanup할 때
   useEffect(() => {
     if (!currentUserId) return;
-
     const unsubscribe = followApi.subscribeToFollowingList(
       currentUserId,
       (ids) => {
         setFollowingIds(ids);
+      },
+      (users) => {
+        setFollowingUsers(users); // 예시: useState로 저장
       }
     );
-
     return () => unsubscribe();
   }, [currentUserId]);
+
+  useEffect(() => {
+    loadTodayFriendStocks(Array.from(followingIds));
+  }, [followingIds]);
 
   // 추천 사용자 로드
   const loadSuggestedUsers = useCallback(async () => {
@@ -144,6 +154,8 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
     [followingIds]
   );
 
+  //팔로워 정보 불러오기
+
   const value: FollowContextType = {
     searchQuery,
     searchResults,
@@ -151,6 +163,7 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
     followingIds,
     loading,
     currentUserId,
+    followingUsers,
     setSearchQuery,
     toggleFollow,
     isFollowing,
