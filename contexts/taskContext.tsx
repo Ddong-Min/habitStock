@@ -125,7 +125,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       id: Date.now().toString(),
       text: newTaskText.trim(),
       completed: false,
-      percentage: `${randomPercent}%`,
+      percentage: randomPercent,
       priceChange: priceChange,
       dueDate: dueDate,
       difficulty: selectedDifficulty!,
@@ -187,7 +187,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       },
     }));
     // 3. Delete from Firestore
-    await deleteTaskFirebase(user.uid!, taskType, selectedTaskId);
+    await deleteTaskFirebase(user.uid!, taskType, selectedTaskId, selectedDate);
     finishModify();
   };
 
@@ -217,7 +217,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       const oldDifficulty = updatedTask.difficulty;
       updatedTask.difficulty = edit as keyof TasksState;
       updatedTask.updatedAt = new Date().toISOString();
-      updatedTask.percentage = `+${randomPercent}%`;
+      updatedTask.percentage = randomPercent;
       updatedTask.priceChange = priceChange;
       // remove from old list
       taskList.splice(taskIndex, 1);

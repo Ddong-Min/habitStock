@@ -1,4 +1,3 @@
-import { Href } from "expo-router";
 import { Firestore, Timestamp } from "firebase/firestore";
 import { Icon } from "phosphor-react-native";
 import React, { ReactNode } from "react";
@@ -192,7 +191,7 @@ export interface Task {
   text: string;
   completed: boolean;
   priceChange: number;
-  percentage: string;
+  percentage: number;
   dueDate: string;
   difficulty: "easy" | "medium" | "hard" | "extreme";
   updatedDate?: string;

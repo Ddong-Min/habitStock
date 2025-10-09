@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { SafeAreaView, StyleSheet, ScrollView, View } from "react-native";
+import {
+  SafeAreaView,
+  StyleSheet,
+  ScrollView,
+  View,
+  TouchableOpacity,
+  Text,
+} from "react-native";
 import { colors, radius, spacingX, spacingY } from "../../constants/theme";
 import Profile from "../../components/Profile";
 import CustomCalendar from "../../components/CustomCalendar";
@@ -11,6 +18,7 @@ import DiffBottomSheet from "@/components/DiffBottomSheet";
 import CustomDatePicker from "@/components/CustomDatePicker";
 import YearHeader from "@/components/YearHeader";
 import { useCalendar } from "@/contexts/calendarContext";
+
 const TodoScreen = () => {
   const {
     taskType,
@@ -25,6 +33,18 @@ const TodoScreen = () => {
   } = useTasks();
   const { selectedDate } = useCalendar();
 
+  // 뉴스 생성 모드 상태
+  const [isNewsMode, setIsNewsMode] = useState(false);
+
+  // 뉴스 생성 버튼 토글
+  const toggleNewsMode = () => {
+    setIsNewsMode(!isNewsMode);
+  };
+
+  // Z-index 계산: BottomSheet가 열려있으면 그 아래로
+  const floatingButtonZIndex =
+    isBottomSheetOpen || isModifyDifficultySheet ? 1 : 10;
+
   return (
     <SafeAreaView style={styles.container}>
       {/* 상단 고정 영역 */}
@@ -36,7 +56,7 @@ const TodoScreen = () => {
           <CustomCalendar />
 
           <View style={{ flex: 1, marginTop: spacingY._15 }}>
-            <TaskList isTodo={true} />
+            <TaskList isTodo={true} isNewsMode={isNewsMode} />
           </View>
         </ScrollView>
       )}
@@ -54,6 +74,7 @@ const TodoScreen = () => {
             />
             <TaskList
               isTodo={false}
+              isNewsMode={isNewsMode}
               diffStyle={{
                 paddingVertical: spacingY._7,
                 paddingHorizontal: spacingX._20,
@@ -62,6 +83,22 @@ const TodoScreen = () => {
           </View>
         </ScrollView>
       )}
+
+      {/* 뉴스 생성 플로팅 버튼 */}
+      <TouchableOpacity
+        style={[
+          styles.floatingButton,
+          { zIndex: floatingButtonZIndex },
+          isNewsMode && styles.floatingButtonActive,
+        ]}
+        onPress={toggleNewsMode}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.floatingButtonText}>
+          {isNewsMode ? "완료" : "뉴스생성"}
+        </Text>
+      </TouchableOpacity>
+
       {/* 모달 영역 */}
       {isBottomSheetOpen && <TaskBottomSheet />}
       {isModifyDifficultySheet && <DiffBottomSheet />}
@@ -75,7 +112,7 @@ const TodoScreen = () => {
                   date.day
                 ).padStart(2, "0")}`
               );
-              changeShowDatePicker(); // close picker
+              changeShowDatePicker();
             }}
             onCancel={() => (finishModify(), changeShowDatePicker())}
           />
@@ -90,7 +127,7 @@ const TodoScreen = () => {
                   date.day
                 ).padStart(2, "0")}`
               );
-              changeShowDatePicker(); // close picker
+              changeShowDatePicker();
             }}
             onCancel={() => changeShowDatePicker()}
           />
@@ -111,9 +148,35 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.3)", // dim background
+    backgroundColor: "rgba(0,0,0,0.3)",
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 100,
+  },
+  floatingButton: {
+    position: "absolute",
+    right: spacingX._20,
+    bottom: spacingY._30,
+    backgroundColor: colors.main,
+    paddingVertical: spacingY._12,
+    paddingHorizontal: spacingX._25,
+    borderRadius: radius._50,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  floatingButtonActive: {
+    backgroundColor: colors.sub,
+  },
+  floatingButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
 

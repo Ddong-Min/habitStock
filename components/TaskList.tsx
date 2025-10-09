@@ -8,6 +8,7 @@ import {
   ViewStyle,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
@@ -26,7 +27,15 @@ const TaskList: React.FC<{
   taskStyle?: ViewStyle;
   diffFontSize?: number;
   taskFontSize?: number;
-}> = ({ isTodo, diffStyle, taskStyle, diffFontSize, taskFontSize }) => {
+  isNewsMode?: boolean;
+}> = ({
+  isTodo,
+  diffStyle,
+  taskStyle,
+  diffFontSize,
+  taskFontSize,
+  isNewsMode = false,
+}) => {
   const {
     taskByDate,
     selectedDifficulty,
@@ -43,12 +52,17 @@ const TaskList: React.FC<{
 
   const { selectedDate } = useCalendar();
 
+  // 뉴스 생성된 task ID들을 추적
+  const [newsGeneratedTasks, setNewsGeneratedTasks] = useState<Set<string>>(
+    new Set()
+  );
+
   useEffect(() => {
-    loadTasks(selectedDate); // call the hook function to fetch tasks from Firestore
-  }, [selectedDate]); // empty dependency array -> run only once
+    loadTasks(selectedDate);
+  }, [selectedDate]);
 
   const flatData = useMemo(() => {
-    const tasksForSelectedDate = taskByDate[selectedDate] || []; //처음에 selectedDate에 해당하는 값이 없을 수 있으니 빈 배열로 초기화
+    const tasksForSelectedDate = taskByDate[selectedDate] || [];
     return (
       Object.keys(tasksForSelectedDate) as Array<keyof TasksState>
     ).flatMap((difficulty) => [
@@ -59,6 +73,56 @@ const TaskList: React.FC<{
       })),
     ]);
   }, [selectedDate, taskByDate]);
+
+  // 광고 시청 후 뉴스 생성
+  const handleNewsGeneration = async (taskId: string, taskText: string) => {
+    try {
+      Alert.alert(
+        "광고 시청",
+        "15초 광고를 시청하고 뉴스를 생성하시겠습니까?",
+        [
+          {
+            text: "취소",
+            style: "cancel",
+          },
+          {
+            text: "시청하기",
+            onPress: async () => {
+              // 실제 구현시 Google AdMob 사용
+              // const rewarded = RewardedAd.createForAdRequest('YOUR_AD_UNIT_ID');
+              // rewarded.load();
+              // rewarded.show();
+
+              // 광고 시청 시뮬레이션 (실제로는 광고 완료 콜백에서 실행)
+              setTimeout(async () => {
+                try {
+                  // 뉴스 생성 API 호출
+                  // const response = await fetch('/api/generate-news', {
+                  //   method: 'POST',
+                  //   headers: { 'Content-Type': 'application/json' },
+                  //   body: JSON.stringify({
+                  //     taskId,
+                  //     taskText,
+                  //     selectedDate
+                  //   })
+                  // });
+
+                  setNewsGeneratedTasks((prev) => new Set(prev).add(taskId));
+                  Alert.alert("완료", "뉴스가 생성되었습니다!");
+                } catch (error) {
+                  console.error("뉴스 생성 실패:", error);
+                  Alert.alert("오류", "뉴스 생성에 실패했습니다.");
+                }
+              }, 1000);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error("광고 로드 실패:", error);
+      Alert.alert("오류", "광고를 불러올 수 없습니다.");
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -81,7 +145,6 @@ const TaskList: React.FC<{
                   fontSize={diffFontSize}
                   isTodo={isTodo}
                 />
-                {/* Show input if this header is active */}
                 {selectedDifficulty === item.difficulty && isAddTask && (
                   <NewTask />
                 )}
@@ -90,6 +153,7 @@ const TaskList: React.FC<{
           }
 
           const isPositive = item.priceChange > 0;
+          const hasNewsGenerated = newsGeneratedTasks.has(item.id);
 
           return (
             <View
@@ -103,67 +167,86 @@ const TaskList: React.FC<{
               {isEditText && selectedTaskId === item.id ? (
                 <NewTask />
               ) : (
-                <View style={styles.task}>
-                  <View style={styles.taskLeft}>
-                    <TouchableOpacity
-                      onPress={() => {
-                        completedTask(item.id, item.difficulty);
-                      }}
-                      style={[
-                        styles.checkBox,
-                        item.completed && styles.checkedBox,
-                      ]}
-                    >
-                      {item.completed && (
-                        <Feather name="check" size={16} color="white" />
-                      )}
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }}>
-                      <Typo size={taskFontSize} style={{ flexWrap: "wrap" }}>
-                        {item.text}
-                      </Typo>
-                      {!isTodo && (
-                        <Typo
-                          size={verticalScale(18)}
-                          style={{
-                            color: colors.neutral300,
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          만료일 {item.dueDate}
+                <View style={styles.taskWrapper}>
+                  <View style={styles.task}>
+                    <View style={styles.taskLeft}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          completedTask(item.id, item.difficulty);
+                        }}
+                        style={[
+                          styles.checkBox,
+                          item.completed && styles.checkedBox,
+                        ]}
+                      >
+                        {item.completed && (
+                          <Feather name="check" size={16} color="white" />
+                        )}
+                      </TouchableOpacity>
+                      <View style={{ flex: 1 }}>
+                        <Typo size={taskFontSize} style={{ flexWrap: "wrap" }}>
+                          {item.text}
                         </Typo>
-                      )}
+                        {!isTodo && (
+                          <Typo
+                            size={verticalScale(18)}
+                            style={{
+                              color: colors.neutral300,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            만료일 {item.dueDate}
+                          </Typo>
+                        )}
+                      </View>
+                    </View>
+                    <View style={styles.taskRight}>
+                      <Typo
+                        style={{
+                          color: isPositive ? colors.red100 : colors.blue100,
+                        }}
+                      >
+                        {item.completed &&
+                          `${isPositive ? "▲" : "▼"} ${item.priceChange} (${
+                            item.percentage
+                          }%)`}
+                      </Typo>
+                      <TouchableOpacity
+                        onPress={() => {
+                          startModify(
+                            item.id,
+                            item.dueDate,
+                            item.difficulty,
+                            item.text
+                          ),
+                            changeBottomSheetState();
+                        }}
+                      >
+                        <Feather
+                          name="more-horizontal"
+                          size={verticalScale(22)}
+                          color={colors.neutral300}
+                        />
+                      </TouchableOpacity>
                     </View>
                   </View>
-                  <View style={styles.taskRight}>
-                    <Typo
-                      style={{
-                        color: isPositive ? colors.red100 : colors.blue100,
-                      }}
-                    >
-                      {item.completed &&
-                        `${isPositive ? "▲" : "▼"} ${item.priceChange} (${
-                          item.percentage
-                        })`}
-                    </Typo>
+
+                  {/* 뉴스 모드일 때 뉴스 아이콘 표시 */}
+                  {isNewsMode && (
                     <TouchableOpacity
-                      onPress={() => {
-                        startModify(
-                          item.id,
-                          item.dueDate,
-                          item.difficulty,
-                          item.text
-                        ),
-                          changeBottomSheetState();
-                      }}
+                      style={[
+                        styles.newsIcon,
+                        hasNewsGenerated && styles.newsIconActive,
+                      ]}
+                      onPress={() => handleNewsGeneration(item.id, item.text)}
+                      disabled={hasNewsGenerated}
+                      activeOpacity={0.7}
                     >
-                      <Feather
-                        name="more-horizontal"
-                        size={verticalScale(22)}
-                        color={colors.neutral300}
-                      />
+                      <Typo style={styles.newsIconText}>
+                        {hasNewsGenerated ? "✓" : "📰"}
+                      </Typo>
                     </TouchableOpacity>
-                  </View>
+                  )}
                 </View>
               )}
             </View>
@@ -188,7 +271,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.sub,
   },
+  taskWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   task: {
+    flex: 1,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -196,15 +284,14 @@ const styles = StyleSheet.create({
   taskLeft: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1, // ✅
+    flex: 1,
   },
   taskRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacingX._10,
-    flexShrink: 0, // ✅
+    flexShrink: 0,
   },
-
   checkBox: {
     width: spacingX._20,
     height: spacingX._20,
@@ -223,6 +310,29 @@ const styles = StyleSheet.create({
     padding: spacingX._5,
     alignSelf: "flex-start",
     marginBottom: spacingY._5,
+  },
+  newsIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius._50,
+    backgroundColor: colors.main,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: spacingX._10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  newsIconActive: {
+    backgroundColor: colors.black,
+  },
+  newsIconText: {
+    fontSize: 20,
   },
 });
 

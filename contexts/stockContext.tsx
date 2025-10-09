@@ -150,9 +150,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
         Math.round((updatedStockData.changePrice + task.priceChange) * 10) / 10;
 
       updatedStockData.changeRate =
-        Math.round(
-          (updatedStockData.changeRate + parseFloat(task.percentage)) * 10
-        ) / 10;
+        Math.round((updatedStockData.changeRate + task.percentage) * 10) / 10;
 
       updatedStockData.close =
         Math.round((updatedStockData.close + task.priceChange) * 10) / 10;
@@ -166,9 +164,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
         Math.round((updatedStockData.changePrice - task.priceChange) * 10) / 10;
 
       updatedStockData.changeRate =
-        Math.round(
-          (updatedStockData.changeRate - parseFloat(task.percentage)) * 10
-        ) / 10;
+        Math.round((updatedStockData.changeRate - task.percentage) * 10) / 10;
 
       updatedStockData.close =
         Math.round((updatedStockData.close - task.priceChange) * 10) / 10;
