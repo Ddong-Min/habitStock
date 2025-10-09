@@ -1,14 +1,7 @@
 import {
-  collection,
   doc,
-  getDocs,
-  query,
-  setDoc,
-  where,
-  addDoc,
-  orderBy,
-  limit,
   getDoc,
+  setDoc,
   deleteDoc,
   serverTimestamp,
   onSnapshot,
@@ -17,11 +10,12 @@ import {
 import { firestore } from "@/config/firebase";
 
 export interface NewsItemType {
-  id?: string; // Firestore will auto-generate this
+  id?: string;
   title: string;
   content: string;
-  date: string; // ISO date string
+  date: string;
 }
+
 export interface NewsItem {
   id: string;
   userId: string;
@@ -45,6 +39,13 @@ export interface Comment {
   content: string;
   createdAt: Timestamp;
 }
+
+// 새로운 구조:
+// users/{userId}/data/news (문서)
+// 문서 내부: { "newsId1": { ...newsData }, "newsId2": { ...newsData } }
+// users/{userId}/data/comments (문서)
+// 문서 내부: { "newsId1": { "commentId1": {...}, "commentId2": {...} } }
+
 // 뉴스 생성
 export const createNews = async (
   userId: string,
@@ -57,9 +58,16 @@ export const createNews = async (
 ): Promise<string> => {
   try {
     const now = new Date();
-    const newsRef = collection(firestore, "users", userId, "news");
+    const newsId = `news_${now.getTime()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
+    const docRef = doc(firestore, "users", userId, "data", "news");
+    const docSnap = await getDoc(docRef);
+    const currentData = docSnap.exists() ? docSnap.data() : {};
 
     const newNews = {
+      id: newsId,
       userId,
       userName: newsData.userName,
       userPhotoURL: newsData.userPhotoURL || null,
@@ -69,14 +77,16 @@ export const createNews = async (
         now.getDate()
       ).padStart(2, "0")}`,
       fullDate: now.toISOString().split("T")[0],
-      createdAt: serverTimestamp(),
+      createdAt: Timestamp.now(),
       likesCount: 0,
       commentsCount: 0,
     };
 
-    const docRef = await addDoc(newsRef, newNews);
-    console.log("✅ 뉴스 생성 완료:", docRef.id);
-    return docRef.id;
+    currentData[newsId] = newNews;
+    await setDoc(docRef, currentData, { merge: true });
+
+    console.log("✅ 뉴스 생성 완료:", newsId);
+    return newsId;
   } catch (error) {
     console.error("❌ 뉴스 생성 실패:", error);
     throw error;
@@ -86,14 +96,22 @@ export const createNews = async (
 // 특정 유저의 뉴스 전체 가져오기
 export const getUserNews = async (userId: string): Promise<NewsItem[]> => {
   try {
-    const newsRef = collection(firestore, "users", userId, "news");
-    const q = query(newsRef, orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
+    const docRef = doc(firestore, "users", userId, "data", "news");
+    const docSnap = await getDoc(docRef);
 
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as NewsItem[];
+    if (!docSnap.exists()) {
+      return [];
+    }
+
+    const allData = docSnap.data();
+    const newsArray = Object.values(allData) as NewsItem[];
+
+    // createdAt 기준 내림차순 정렬
+    return newsArray.sort((a, b) => {
+      const timeA = a.createdAt?.toMillis() || 0;
+      const timeB = b.createdAt?.toMillis() || 0;
+      return timeB - timeA;
+    });
   } catch (error) {
     console.error("❌ 유저 뉴스 가져오기 실패:", error);
     return [];
@@ -106,22 +124,23 @@ export const getUserNewsByYear = async (
   year: number
 ): Promise<NewsItem[]> => {
   try {
-    const newsRef = collection(firestore, "users", userId, "news");
+    const docRef = doc(firestore, "users", userId, "data", "news");
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return [];
+    }
+
+    const allData = docSnap.data();
     const startDate = `${year}-01-01`;
     const endDate = `${year}-12-31`;
 
-    const q = query(
-      newsRef,
-      where("fullDate", ">=", startDate),
-      where("fullDate", "<=", endDate),
-      orderBy("fullDate", "desc")
-    );
+    const newsArray = Object.values(allData).filter((news: any) => {
+      return news.fullDate >= startDate && news.fullDate <= endDate;
+    }) as NewsItem[];
 
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as NewsItem[];
+    // fullDate 기준 내림차순 정렬
+    return newsArray.sort((a, b) => b.fullDate.localeCompare(a.fullDate));
   } catch (error) {
     console.error("❌ 연도별 뉴스 가져오기 실패:", error);
     return [];
@@ -130,41 +149,26 @@ export const getUserNewsByYear = async (
 
 // 팔로우한 유저들의 최신 뉴스 가져오기 (피드)
 export const getFollowingNewsFeed = async (
-  currentUserId: string,
+  followingIds: string,
   limitCount: number = 50
 ): Promise<NewsItem[]> => {
   try {
-    // 1. 팔로잉 목록 가져오기
-    const followingRef = collection(
-      firestore,
-      "following",
-      currentUserId,
-      "userFollowing"
-    );
-    const followingSnapshot = await getDocs(followingRef);
-    const followingIds = followingSnapshot.docs.map((doc) => doc.id);
-
     if (followingIds.length === 0) {
       return [];
     }
 
-    // 2. 각 팔로우 유저의 뉴스 가져오기
     const allNews: NewsItem[] = [];
 
-    for (const followingId of followingIds) {
-      const newsRef = collection(firestore, "users", followingId, "news");
-      const q = query(newsRef, orderBy("createdAt", "desc"), limit(10));
-      const newsSnapshot = await getDocs(q);
+    const docRef = doc(firestore, "users", followingIds, "data", "news");
+    const docSnap = await getDoc(docRef);
 
-      const news = newsSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as NewsItem[];
-
-      allNews.push(...news);
+    if (docSnap.exists()) {
+      const userData = docSnap.data();
+      const newsArray = Object.values(userData) as NewsItem[];
+      allNews.push(...newsArray);
     }
 
-    // 3. 시간순 정렬 및 제한
+    // 시간순 정렬 및 제한
     return allNews
       .sort((a, b) => {
         const timeA = a.createdAt?.toMillis() || 0;
@@ -184,9 +188,39 @@ export const deleteNews = async (
   newsId: string
 ): Promise<void> => {
   try {
-    const newsRef = doc(firestore, "users", userId, "news", newsId);
-    await deleteDoc(newsRef);
-    console.log("✅ 뉴스 삭제 완료:", newsId);
+    const docRef = doc(firestore, "users", userId, "data", "news");
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      throw new Error("News document not found");
+    }
+
+    const currentData = docSnap.data();
+
+    if (currentData[newsId]) {
+      delete currentData[newsId];
+      await setDoc(docRef, currentData);
+
+      // 해당 뉴스의 댓글도 삭제
+      const commentsDocRef = doc(
+        firestore,
+        "users",
+        userId,
+        "data",
+        "comments"
+      );
+      const commentsSnap = await getDoc(commentsDocRef);
+
+      if (commentsSnap.exists()) {
+        const commentsData = commentsSnap.data();
+        if (commentsData[newsId]) {
+          delete commentsData[newsId];
+          await setDoc(commentsDocRef, commentsData);
+        }
+      }
+
+      console.log("✅ 뉴스 삭제 완료:", newsId);
+    }
   } catch (error) {
     console.error("❌ 뉴스 삭제 실패:", error);
     throw error;
@@ -209,38 +243,53 @@ export const addComment = async (
   }
 ): Promise<string> => {
   try {
-    const commentsRef = collection(
+    const commentId = `comment_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
+    // 댓글 추가
+    const commentsDocRef = doc(
       firestore,
       "users",
       newsUserId,
-      "news",
-      newsId,
+      "data",
       "comments"
     );
+    const commentsSnap = await getDoc(commentsDocRef);
+    const commentsData = commentsSnap.exists() ? commentsSnap.data() : {};
+
+    if (!commentsData[newsId]) {
+      commentsData[newsId] = {};
+    }
 
     const newComment = {
+      id: commentId,
       newsId,
       userId: commentData.userId,
       userName: commentData.userName,
       userPhotoURL: commentData.userPhotoURL || null,
       content: commentData.content,
-      createdAt: serverTimestamp(),
+      createdAt: Timestamp.now(),
     };
 
-    const docRef = await addDoc(commentsRef, newComment);
+    commentsData[newsId][commentId] = newComment;
+    await setDoc(commentsDocRef, commentsData, { merge: true });
 
     // 댓글 카운트 증가
-    const newsRef = doc(firestore, "users", newsUserId, "news", newsId);
-    await setDoc(
-      newsRef,
-      {
-        commentsCount: (await getDoc(newsRef)).data()?.commentsCount || 0 + 1,
-      },
-      { merge: true }
-    );
+    const newsDocRef = doc(firestore, "users", newsUserId, "data", "news");
+    const newsSnap = await getDoc(newsDocRef);
 
-    console.log("✅ 댓글 작성 완료:", docRef.id);
-    return docRef.id;
+    if (newsSnap.exists()) {
+      const newsData = newsSnap.data();
+      if (newsData[newsId]) {
+        newsData[newsId].commentsCount =
+          (newsData[newsId].commentsCount || 0) + 1;
+        await setDoc(newsDocRef, newsData, { merge: true });
+      }
+    }
+
+    console.log("✅ 댓글 작성 완료:", commentId);
+    return commentId;
   } catch (error) {
     console.error("❌ 댓글 작성 실패:", error);
     throw error;
@@ -253,21 +302,22 @@ export const getComments = async (
   newsId: string
 ): Promise<Comment[]> => {
   try {
-    const commentsRef = collection(
-      firestore,
-      "users",
-      newsUserId,
-      "news",
-      newsId,
-      "comments"
-    );
-    const q = query(commentsRef, orderBy("createdAt", "asc"));
-    const snapshot = await getDocs(q);
+    const docRef = doc(firestore, "users", newsUserId, "data", "comments");
+    const docSnap = await getDoc(docRef);
 
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Comment[];
+    if (!docSnap.exists() || !docSnap.data()[newsId]) {
+      return [];
+    }
+
+    const newsComments = docSnap.data()[newsId];
+    const commentsArray = Object.values(newsComments) as Comment[];
+
+    // createdAt 기준 오름차순 정렬
+    return commentsArray.sort((a, b) => {
+      const timeA = a.createdAt?.toMillis() || 0;
+      const timeB = b.createdAt?.toMillis() || 0;
+      return timeA - timeB;
+    });
   } catch (error) {
     console.error("❌ 댓글 가져오기 실패:", error);
     return [];
@@ -280,22 +330,25 @@ export const subscribeToComments = (
   newsId: string,
   onUpdate: (comments: Comment[]) => void
 ) => {
-  const commentsRef = collection(
-    firestore,
-    "users",
-    newsUserId,
-    "news",
-    newsId,
-    "comments"
-  );
-  const q = query(commentsRef, orderBy("createdAt", "asc"));
+  const docRef = doc(firestore, "users", newsUserId, "data", "comments");
 
-  return onSnapshot(q, (snapshot) => {
-    const comments = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Comment[];
-    onUpdate(comments);
+  return onSnapshot(docRef, (docSnap) => {
+    if (!docSnap.exists() || !docSnap.data()[newsId]) {
+      onUpdate([]);
+      return;
+    }
+
+    const newsComments = docSnap.data()[newsId];
+    const commentsArray = Object.values(newsComments) as Comment[];
+
+    // createdAt 기준 오름차순 정렬
+    const sortedComments = commentsArray.sort((a, b) => {
+      const timeA = a.createdAt?.toMillis() || 0;
+      const timeB = b.createdAt?.toMillis() || 0;
+      return timeA - timeB;
+    });
+
+    onUpdate(sortedComments);
   });
 };
 
@@ -306,29 +359,43 @@ export const deleteComment = async (
   commentId: string
 ): Promise<void> => {
   try {
-    const commentRef = doc(
+    // 댓글 삭제
+    const commentsDocRef = doc(
       firestore,
       "users",
       newsUserId,
-      "news",
-      newsId,
-      "comments",
-      commentId
+      "data",
+      "comments"
     );
-    await deleteDoc(commentRef);
+    const commentsSnap = await getDoc(commentsDocRef);
+
+    if (commentsSnap.exists()) {
+      const commentsData = commentsSnap.data();
+
+      if (commentsData[newsId] && commentsData[newsId][commentId]) {
+        delete commentsData[newsId][commentId];
+
+        // 해당 뉴스에 댓글이 더 이상 없으면 newsId 키도 삭제
+        if (Object.keys(commentsData[newsId]).length === 0) {
+          delete commentsData[newsId];
+        }
+
+        await setDoc(commentsDocRef, commentsData);
+      }
+    }
 
     // 댓글 카운트 감소
-    const newsRef = doc(firestore, "users", newsUserId, "news", newsId);
-    const newsDoc = await getDoc(newsRef);
-    const currentCount = newsDoc.data()?.commentsCount || 0;
+    const newsDocRef = doc(firestore, "users", newsUserId, "data", "news");
+    const newsSnap = await getDoc(newsDocRef);
 
-    await setDoc(
-      newsRef,
-      {
-        commentsCount: Math.max(0, currentCount - 1),
-      },
-      { merge: true }
-    );
+    if (newsSnap.exists()) {
+      const newsData = newsSnap.data();
+      if (newsData[newsId]) {
+        const currentCount = newsData[newsId].commentsCount || 0;
+        newsData[newsId].commentsCount = Math.max(0, currentCount - 1);
+        await setDoc(newsDocRef, newsData, { merge: true });
+      }
+    }
 
     console.log("✅ 댓글 삭제 완료:", commentId);
   } catch (error) {

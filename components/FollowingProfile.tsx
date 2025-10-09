@@ -3,19 +3,29 @@ import { View, StyleSheet, Image } from "react-native";
 import Typo from "./Typo";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
-import { useAuth } from "@/contexts/authContext";
+import { useFollow } from "@/contexts/followContext";
 import { useStock } from "@/contexts/stockContext";
 import { useCalendar } from "@/contexts/calendarContext";
-interface ProfileProps {
-  type: "todo" | "stocks" | "news";
-}
 
-const Profile: React.FC<ProfileProps> = ({ type }) => {
-  const { user } = useAuth();
-  const { stockData } = useStock();
+const FollowingProfile: React.FC = () => {
+  const { friendStockData } = useStock();
   const { today } = useCalendar();
+  const { selectedFollowId, followingUsers } = useFollow();
+  const [name, setName] = useState<string>("사용자");
+  const [todayStock, setTodayStock] = useState<any>(null);
 
-  const todayStock = stockData?.[today];
+  // 팔로워 프로필 정보 업데이트
+  useEffect(() => {
+    if (selectedFollowId) {
+      const followStock = friendStockData?.[selectedFollowId]?.[today];
+      const followUser = followingUsers.find(
+        (user) => user?.uid === selectedFollowId
+      );
+      setName(followUser?.name || "사용자");
+      setTodayStock(followStock);
+    }
+  }, [selectedFollowId, friendStockData, today, followingUsers]);
+
   const isPositive = (todayStock?.changePrice ?? 0) > 0;
   const isZero = (todayStock?.changePrice ?? 0) === 0;
   const changeColor = isPositive
@@ -32,30 +42,22 @@ const Profile: React.FC<ProfileProps> = ({ type }) => {
       />
       <View style={styles.userInfo}>
         <Typo
-          size={type === "news" ? 28 : 22}
+          size={22}
           fontWeight="bold"
           style={{ lineHeight: verticalScale(24) }}
         >
-          {user?.name || "사용자"}
+          {name}
         </Typo>
-        {type !== "news" && (
-          <View style={styles.stockInfo}>
-            <Typo size={22} fontWeight="bold" style={{ marginRight: 8 }}>
-              ₩{todayStock?.close!}
-            </Typo>
+        <View style={styles.stockInfo}>
+          <Typo size={22} fontWeight="bold" style={{ marginRight: 8 }}>
+            ₩{todayStock?.close!}
+          </Typo>
 
-            {type === "stocks" && (
-              <Typo size={16} color={colors.neutral400} fontWeight={"500"}>
-                어제보다{" "}
-              </Typo>
-            )}
-
-            <Typo size={18} style={{ color: changeColor }}>
-              {isPositive ? "▲" : isZero ? "-" : "▼"} {todayStock?.changePrice}{" "}
-              ({todayStock?.changeRate}%)
-            </Typo>
-          </View>
-        )}
+          <Typo size={18} style={{ color: changeColor }}>
+            {isPositive ? "▲" : isZero ? "-" : "▼"} {todayStock?.changePrice} (
+            {todayStock?.changeRate}%)
+          </Typo>
+        </View>
       </View>
     </View>
   );
@@ -86,4 +88,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Profile;
+export default FollowingProfile;

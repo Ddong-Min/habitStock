@@ -1,5 +1,11 @@
-import React from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import Typo from "./Typo";
 import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
@@ -11,20 +17,49 @@ const FriendStock: React.FC<{}> = () => {
   const { followingUsers, changeSelectedFollowId } = useFollow();
   const { friendStockData } = useStock();
   const { today } = useCalendar();
-  const friends = followingUsers.map((user) => ({
-    name: user!.name || "Unknown",
-    price: user!.price || 0, // 임의의 금액
-    percentage: friendStockData[user!.uid][today].changeRate || 0,
-    avatarColor: "#E8E8E8", // 기본 색상
-    changePrice: friendStockData[user!.uid][today].changePrice || 0,
-    uid: user?.uid || "",
-  }));
-  const displayFriends = friends;
-  console.log("Displaying friends:", displayFriends);
+
+  // 상태 초기화
+  const [friends, setFriends] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    // 데이터가 로딩되지 않은 경우 로딩 상태를 활성화
+    if (!friendStockData || !followingUsers.length) {
+      setIsLoading(true);
+      return;
+    }
+
+    // 데이터가 로드되면 friends 배열을 생성
+    const loadedFriends = followingUsers.map((user) => {
+      const stockData = friendStockData?.[user!.uid]?.[today];
+      return {
+        name: user!.name || "Unknown",
+        price: user!.price || 0, // 임의의 금액
+        percentage: stockData ? stockData.changeRate : 0,
+        avatarColor: "#E8E8E8", // 기본 색상
+        changePrice: stockData ? stockData.changePrice : 0,
+        uid: user?.uid || "",
+      };
+    });
+
+    // 로드된 친구 리스트 설정
+    setFriends(loadedFriends);
+    setIsLoading(false);
+  }, [friendStockData, followingUsers, today]); // friendStockData, followingUsers, today가 변경될 때마다 실행
+
+  // 로딩 중이면 로딩 스피너 표시
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.main} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={true}>
-        {displayFriends.map((friend, index) => (
+        {friends.map((friend, index) => (
           <TouchableOpacity
             key={index}
             style={styles.friendItem}
@@ -110,6 +145,12 @@ const styles = StyleSheet.create({
   percentage: {
     fontSize: verticalScale(18),
     fontWeight: "500",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.white,
   },
 });
 

@@ -104,6 +104,7 @@ export const getSuggestedUsers = async (
 
 // 팔로잉 목록 실시간 구독
 // 팔로잉 목록 실시간 구독 (UserType 데이터 포함)
+//read 2개 짜리
 export const subscribeToFollowingList = (
   userId: string,
   onUpdate: (followingIds: Set<string>) => void,

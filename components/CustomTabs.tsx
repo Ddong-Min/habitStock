@@ -61,8 +61,8 @@ const getTabLabel = (routeName: string) => {
       return "할일";
     case "stock":
       return "주가";
-    case "news":
-      return "뉴스";
+    case "follow":
+      return "팔로우";
     case "profile":
       return "프로필";
     default:

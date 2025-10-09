@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFollow } from "@/contexts/followContext";
 import { spacingY, spacingX, radius } from "../constants/theme";
 import { colors } from "../constants/theme";
+import FollowingProfile from "./FollowingProfile";
 
 const FriendStockDetail = ({
   followId,
@@ -156,7 +157,7 @@ const FriendStockDetail = ({
         </Typo>
         <View style={{ width: 24 }} />
       </View>
-      <Profile type={stockTabType} />
+      <FollowingProfile />
       <ScrollView style={styles.content}>
         <CustomChart stockData={friendStockData[followId]} />
         <View style={styles.periodButtonContainer}>

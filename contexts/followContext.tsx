@@ -61,6 +61,10 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
   }, [currentUserId]);
 
   useEffect(() => {
+    if (followingIds.size === 0) {
+      setFollowingUsers([]);
+      return;
+    }
     loadTodayFriendStocks(Array.from(followingIds));
   }, [followingIds]);
 
