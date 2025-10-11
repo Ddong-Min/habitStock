@@ -129,6 +129,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       priceChange: priceChange,
       dueDate: dueDate,
       difficulty: selectedDifficulty!,
+      updatedDate: new Date().toISOString(),
     };
 
     const res = await addTaskFirebase(newTask, user.uid!, taskType);

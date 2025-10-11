@@ -8,6 +8,8 @@ import React, {
 } from "react";
 import * as newsApi from "../api/newsApi";
 import { useAuth } from "./authContext";
+import { Alert } from "react-native";
+import { getAuth } from "firebase/auth";
 interface NewsContextType {
   // 상태
   currentUserId: string | null;
@@ -20,7 +22,11 @@ interface NewsContextType {
   // 함수
   loadMyNews: (year?: number) => Promise<void>;
   loadFollowingNews: () => Promise<void>;
-  createNews: (title: string, content: string) => Promise<void>;
+  createNews: (
+    taskId: string,
+    dueDate: string,
+    useAI?: boolean
+  ) => Promise<void>;
   deleteNews: (newsId: string) => Promise<void>;
   selectNews: (news: newsApi.NewsItem | null) => void;
   addComment: (
@@ -96,16 +102,49 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
 
   // 뉴스 생성
   const createNews = useCallback(
-    async (title: string, content: string) => {
+    async (taskId: string, dueDate: string, useAI: boolean = false) => {
       if (!currentUserId || !currentUserData) return;
 
       try {
-        await newsApi.createNews(currentUserId, {
-          title,
-          content,
-          userName: currentUserData.name,
-          userPhotoURL: currentUserData.photoURL,
-        });
+        // AI로 뉴스 생성
+        if (useAI) {
+          const auth = getAuth();
+          const user = auth.currentUser;
+
+          if (!user) {
+            Alert.alert("오류", "인증 정보를 찾을 수 없습니다");
+            return;
+          }
+
+          // ID 토큰 가져오기
+          const token = await user.getIdToken();
+
+          // Functions URL 구성
+          const functionsUrl = `https://asia-northeast3-habitstock-618dd.cloudfunctions.net/manualGenerateNews`;
+          const params = new URLSearchParams({
+            userId: currentUserId,
+            taskId: taskId,
+            date: dueDate,
+          });
+
+          // API 호출
+          const response = await fetch(`${functionsUrl}?${params.toString()}`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || "AI 뉴스 생성 실패");
+          }
+
+          const result = await response.json();
+          Alert.alert("성공", "AI 뉴스가 생성되었습니다!");
+        } else {
+          Alert.alert("오류", "아직 구현되지 않은 기능입니다.");
+        }
 
         // 뉴스 목록 새로고침
         await loadMyNews();

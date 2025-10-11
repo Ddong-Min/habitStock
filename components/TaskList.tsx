@@ -20,7 +20,8 @@ import { useCalendar } from "@/contexts/calendarContext";
 import { TasksState } from "@/types";
 import NewTask from "./NewTask";
 import { difficultyborderColor } from "@/constants/theme";
-
+import { useNews } from "@/contexts/newsContext";
+import { useAuth } from "@/contexts/authContext";
 const TaskList: React.FC<{
   isTodo: boolean;
   diffStyle?: ViewStyle;
@@ -49,9 +50,9 @@ const TaskList: React.FC<{
     startModify,
     changeBottomSheetState,
   } = useTasks();
-
+  const { user } = useAuth();
   const { selectedDate } = useCalendar();
-
+  const { createNews } = useNews();
   // 뉴스 생성된 task ID들을 추적
   const [newsGeneratedTasks, setNewsGeneratedTasks] = useState<Set<string>>(
     new Set()
@@ -75,7 +76,11 @@ const TaskList: React.FC<{
   }, [selectedDate, taskByDate]);
 
   // 광고 시청 후 뉴스 생성
-  const handleNewsGeneration = async (taskId: string, taskText: string) => {
+  const handleNewsGeneration = async (
+    taskId: string,
+    dueDate: string,
+    taskText: string
+  ) => {
     try {
       Alert.alert(
         "광고 시청",
@@ -96,19 +101,13 @@ const TaskList: React.FC<{
               // 광고 시청 시뮬레이션 (실제로는 광고 완료 콜백에서 실행)
               setTimeout(async () => {
                 try {
-                  // 뉴스 생성 API 호출
-                  // const response = await fetch('/api/generate-news', {
-                  //   method: 'POST',
-                  //   headers: { 'Content-Type': 'application/json' },
-                  //   body: JSON.stringify({
-                  //     taskId,
-                  //     taskText,
-                  //     selectedDate
-                  //   })
-                  // });
+                  // AI 뉴스 생성 호출
+                  await createNews(taskId, dueDate, true);
 
+                  // 생성된 할일 목록에 추가
                   setNewsGeneratedTasks((prev) => new Set(prev).add(taskId));
-                  Alert.alert("완료", "뉴스가 생성되었습니다!");
+
+                  Alert.alert("완료", "AI 뉴스가 생성되었습니다!");
                 } catch (error) {
                   console.error("뉴스 생성 실패:", error);
                   Alert.alert("오류", "뉴스 생성에 실패했습니다.");
@@ -123,7 +122,6 @@ const TaskList: React.FC<{
       Alert.alert("오류", "광고를 불러올 수 없습니다.");
     }
   };
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -152,9 +150,12 @@ const TaskList: React.FC<{
             );
           }
 
-          const isPositive = item.priceChange > 0;
           const hasNewsGenerated = newsGeneratedTasks.has(item.id);
+          const dueDateTimeString = `${item.dueDate}T${user?.duetime}:00`;
 
+          // new Date()를 사용하여 날짜 객체를 생성합니다.
+          const dueDateTime = new Date(dueDateTimeString);
+          const isOverdue = !item.completed && dueDateTime < new Date();
           return (
             <View
               key={item.id}
@@ -182,7 +183,11 @@ const TaskList: React.FC<{
                         {item.completed && (
                           <Feather name="check" size={16} color="white" />
                         )}
+                        {isOverdue && !item.completed && (
+                          <Feather name="x" size={16} color={colors.red100} />
+                        )}
                       </TouchableOpacity>
+
                       <View style={{ flex: 1 }}>
                         <Typo size={taskFontSize} style={{ flexWrap: "wrap" }}>
                           {item.text}
@@ -201,16 +206,24 @@ const TaskList: React.FC<{
                       </View>
                     </View>
                     <View style={styles.taskRight}>
-                      <Typo
-                        style={{
-                          color: isPositive ? colors.red100 : colors.blue100,
-                        }}
-                      >
-                        {item.completed &&
-                          `${isPositive ? "▲" : "▼"} ${item.priceChange} (${
-                            item.percentage
-                          }%)`}
-                      </Typo>
+                      {item.completed && (
+                        <Typo
+                          style={{
+                            color: colors.red100,
+                          }}
+                        >
+                          ▲ {item.priceChange}({item.percentage}%)
+                        </Typo>
+                      )}
+                      {!item.completed && isOverdue && (
+                        <Typo
+                          style={{
+                            color: colors.blue100,
+                          }}
+                        >
+                          ▼ {item.priceChange}({item.percentage}%)
+                        </Typo>
+                      )}
                       <TouchableOpacity
                         onPress={() => {
                           startModify(
@@ -238,7 +251,9 @@ const TaskList: React.FC<{
                         styles.newsIcon,
                         hasNewsGenerated && styles.newsIconActive,
                       ]}
-                      onPress={() => handleNewsGeneration(item.id, item.text)}
+                      onPress={() =>
+                        handleNewsGeneration(item.id, item.dueDate, item.text)
+                      }
                       disabled={hasNewsGenerated}
                       activeOpacity={0.7}
                     >

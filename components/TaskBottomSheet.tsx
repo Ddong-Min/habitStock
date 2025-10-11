@@ -78,6 +78,7 @@ const TaskBottomSheet = () => {
       style={{
         width: "90%",
         marginLeft: "5%", // X축 중앙
+        zIndex: 10,
       }}
       backgroundStyle={{
         borderRadius: 12,

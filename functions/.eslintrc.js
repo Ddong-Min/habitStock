@@ -34,5 +34,8 @@ module.exports = {
     ],
     "@typescript-eslint/no-non-null-assertion": "off",
     "operator-linebreak": "off",
+    "no-trailing-spaces": "off",
+    "spaced-comment": "off",
+    "valid-jsdoc": "off",
   },
 };

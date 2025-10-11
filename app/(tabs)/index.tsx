@@ -42,8 +42,7 @@ const TodoScreen = () => {
   };
 
   // Z-index 계산: BottomSheet가 열려있으면 그 아래로
-  const floatingButtonZIndex =
-    isBottomSheetOpen || isModifyDifficultySheet ? 1 : 10;
+  const floatingButtonZIndex = 5;
 
   return (
     <SafeAreaView style={styles.container}>
