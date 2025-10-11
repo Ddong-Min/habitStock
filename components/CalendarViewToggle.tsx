@@ -23,11 +23,13 @@ const CalendarViewToggle: React.FC<CalendarViewToggleProps> = ({
             viewMode === "week" && styles.activeButton,
           ]}
           onPress={() => onToggle("week")}
+          activeOpacity={0.7}
         >
           <Typo
             size={14}
             fontWeight="600"
-            color={viewMode === "week" ? colors.white : colors.textLight}
+            color={viewMode === "week" ? colors.black : colors.neutral500}
+            style={{ letterSpacing: -0.2 }}
           >
             주
           </Typo>
@@ -38,11 +40,13 @@ const CalendarViewToggle: React.FC<CalendarViewToggleProps> = ({
             viewMode === "month" && styles.activeButton,
           ]}
           onPress={() => onToggle("month")}
+          activeOpacity={0.7}
         >
           <Typo
             size={14}
             fontWeight="600"
-            color={viewMode === "month" ? colors.white : colors.textLight}
+            color={viewMode === "month" ? colors.black : colors.neutral500}
+            style={{ letterSpacing: -0.2 }}
           >
             월
           </Typo>
@@ -55,22 +59,31 @@ const CalendarViewToggle: React.FC<CalendarViewToggleProps> = ({
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-
     backgroundColor: colors.white,
   },
   toggleContainer: {
     flexDirection: "row",
     backgroundColor: colors.neutral100,
-    borderRadius: radius._10,
-    padding: spacingX._3,
+    borderRadius: 8,
+    padding: 3,
   },
   toggleButton: {
-    paddingVertical: spacingY._5,
+    paddingVertical: spacingY._7,
     paddingHorizontal: spacingX._12,
-    borderRadius: radius._10,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
   },
   activeButton: {
-    backgroundColor: colors.main,
+    backgroundColor: colors.white,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
   },
 });
 

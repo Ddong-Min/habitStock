@@ -48,7 +48,7 @@ const TodoScreen = () => {
     <SafeAreaView style={styles.container}>
       {/* 상단 고정 영역 */}
       <Profile type="todo" />
-      <Toggle />
+      {/* <Toggle /> */}
 
       {taskType === "todos" && (
         <ScrollView showsVerticalScrollIndicator={false}>

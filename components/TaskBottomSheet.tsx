@@ -1,3 +1,4 @@
+// TaskBottomSheet.tsx
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import React from "react";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
@@ -29,16 +30,19 @@ const TaskBottomSheet = () => {
   const buttonActions = [
     {
       label: "내용 수정하기",
-      icon: <ScissorsIcon size={24} color="gray" />,
+      icon: (
+        <ScissorsIcon size={22} color={colors.neutral500} weight="regular" />
+      ),
       onPress: () => {
         changeEditTextState();
       },
     },
     {
       label: "할일 삭제하기",
-      icon: <TrashSimpleIcon size={24} color="gray" />,
+      icon: (
+        <TrashSimpleIcon size={22} color={colors.red100} weight="regular" />
+      ),
       onPress: () => {
-        // code for deleting todo
         Alert.alert("삭제 확인", "정말로 이 할일을 삭제하시겠습니까?", [
           { text: "취소", style: "cancel" },
           {
@@ -53,95 +57,81 @@ const TaskBottomSheet = () => {
     },
     {
       label: "난이도 변경하기",
-      icon: <SwapIcon size={24} color="gray" />,
+      icon: <SwapIcon size={22} color={colors.neutral500} weight="regular" />,
       onPress: () => {
         changeDifficultySheetState();
       },
     },
     {
       label: "날짜 변경하기",
-      icon: <CalendarIcon size={24} color="gray" />,
+      icon: (
+        <CalendarIcon size={22} color={colors.neutral500} weight="regular" />
+      ),
       onPress: () => {
         changeShowDatePicker();
       },
     },
   ];
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
-      index={0} // snapPoints에 맞춰 0으로 설정
-      snapPoints={["30%", "40%"]} // 높이 40% 정도 (예시)
+      index={0}
+      snapPoints={["35%", "45%"]}
       enablePanDownToClose
       onClose={() => {
         finishModify(), changeBottomSheetState();
       }}
       style={{
-        width: "90%",
-        marginLeft: "5%", // X축 중앙
+        width: "94%",
+        marginLeft: "3%",
         zIndex: 10,
       }}
       backgroundStyle={{
-        borderRadius: 12,
+        borderRadius: 20,
         backgroundColor: colors.white,
-        borderColor: colors.blue50,
-        borderWidth: 2,
+        shadowColor: "#000",
+        shadowOffset: {
+          width: 0,
+          height: -4,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 8,
+      }}
+      handleIndicatorStyle={{
+        backgroundColor: colors.neutral400,
+        width: 40,
+        height: 4,
       }}
     >
-      <BottomSheetView
-        style={{
-          flex: 1,
-          height: "100%",
-          justifyContent: "center", // Y축 중앙
-          alignItems: "center",
-        }}
-      >
-        <Typo
-          size={verticalScale(30)}
-          fontWeight={700}
-          style={{
-            lineHeight: verticalScale(30),
-            marginBottom: spacingY._10,
-          }}
-        >
-          "{selectedText}"
-        </Typo>
-        <View
-          style={{
-            width: "90%",
-            height: "90%", // BottomSheet 높이의 80%
-          }}
-        >
+      <BottomSheetView style={styles.container}>
+        <View style={styles.header}>
+          <Typo
+            size={18}
+            fontWeight="600"
+            style={styles.titleText}
+            //numberOfLines={2}
+          >
+            {selectedText}
+          </Typo>
+        </View>
+
+        <View style={styles.buttonContainer}>
           {buttonActions.map((btn, index) => (
             <TouchableOpacity
               key={index}
               onPress={() => {
                 btn.onPress();
-                changeBottomSheetState(); // BottomSheet 닫기
+                changeBottomSheetState();
               }}
-              style={{
-                flex: 1,
-                flexDirection: "row",
-                marginHorizontal: spacingX._5, // 버튼 간격
-                marginVertical: spacingY._5,
-                backgroundColor: colors.neutral50,
-                borderRadius: radius._10,
-                paddingLeft: spacingX._20,
-                alignItems: "center",
-                gap: spacingX._15,
-                borderWidth: 1,
-                borderColor: colors.blue25,
-              }}
+              style={styles.actionButton}
+              activeOpacity={0.7}
             >
-              {btn.icon}
-              {
-                <Typo
-                  size={verticalScale(26)}
-                  fontWeight={600}
-                  style={{ lineHeight: verticalScale(26) }}
-                >
-                  {btn.label}
-                </Typo>
-              }
+              <View style={styles.iconWrapper}>{btn.icon}</View>
+              <Typo size={16} fontWeight="500" style={styles.buttonLabel}>
+                {btn.label}
+              </Typo>
             </TouchableOpacity>
           ))}
         </View>
@@ -152,4 +142,57 @@ const TaskBottomSheet = () => {
 
 export default TaskBottomSheet;
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: spacingX._20,
+    paddingTop: spacingY._7,
+    backgroundColor: colors.neutral50,
+  },
+  header: {
+    paddingBottom: spacingY._20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral200,
+    marginBottom: spacingY._12,
+  },
+  titleText: {
+    color: colors.black,
+    lineHeight: verticalScale(24),
+    letterSpacing: -0.3,
+  },
+  buttonContainer: {
+    flex: 1,
+    gap: spacingY._10,
+  },
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    paddingVertical: spacingY._15,
+    paddingHorizontal: spacingX._15,
+    borderWidth: 1,
+    borderColor: colors.neutral200,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  iconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: colors.neutral100,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: spacingX._12,
+  },
+  buttonLabel: {
+    color: colors.black,
+    letterSpacing: -0.2,
+  },
+});

@@ -18,36 +18,31 @@ const FriendStock: React.FC<{}> = () => {
   const { friendStockData } = useStock();
   const { today } = useCalendar();
 
-  // 상태 초기화
   const [friends, setFriends] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // 데이터가 로딩되지 않은 경우 로딩 상태를 활성화
     if (!friendStockData || !followingUsers.length) {
       setIsLoading(true);
       return;
     }
 
-    // 데이터가 로드되면 friends 배열을 생성
     const loadedFriends = followingUsers.map((user) => {
       const stockData = friendStockData?.[user!.uid]?.[today];
       return {
         name: user!.name || "Unknown",
-        price: user!.price || 0, // 임의의 금액
+        price: user!.price || 0,
         percentage: stockData ? stockData.changeRate : 0,
-        avatarColor: "#E8E8E8", // 기본 색상
+        avatarColor: "#E8E8E8",
         changePrice: stockData ? stockData.changePrice : 0,
         uid: user?.uid || "",
       };
     });
 
-    // 로드된 친구 리스트 설정
     setFriends(loadedFriends);
     setIsLoading(false);
-  }, [friendStockData, followingUsers, today]); // friendStockData, followingUsers, today가 변경될 때마다 실행
+  }, [friendStockData, followingUsers, today]);
 
-  // 로딩 중이면 로딩 스피너 표시
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -58,39 +53,59 @@ const FriendStock: React.FC<{}> = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={true}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         {friends.map((friend, index) => (
           <TouchableOpacity
             key={index}
             style={styles.friendItem}
             onPress={() => changeSelectedFollowId(friend.uid)}
+            activeOpacity={0.7}
           >
             <View style={styles.leftSection}>
               <View
                 style={[styles.avatar, { backgroundColor: friend.avatarColor }]}
-              ></View>
+              />
               <Typo style={styles.name}>{friend.name}</Typo>
             </View>
 
             <View style={styles.rightSection}>
-              <Typo style={styles.price}>$ {friend.price}</Typo>
-              <Typo
-                color={
-                  friend.changePrice > 0
-                    ? colors.red100
-                    : friend.changePrice === 0
-                    ? colors.neutral500
-                    : colors.blue100
-                }
-                style={styles.percentage}
-              >
-                {friend.changePrice > 0
-                  ? "▲"
-                  : friend.changePrice === 0
-                  ? "-"
-                  : "▼"}{" "}
-                {friend.percentage ? friend.percentage : 0}%
+              <Typo style={styles.price}>
+                ₩ {friend.price.toLocaleString()}
               </Typo>
+              <View
+                style={[
+                  styles.changeBadge,
+                  {
+                    backgroundColor:
+                      friend.changePrice > 0
+                        ? `${colors.red100}15`
+                        : friend.changePrice === 0
+                        ? `${colors.neutral500}15`
+                        : `${colors.blue100}15`,
+                  },
+                ]}
+              >
+                <Typo
+                  color={
+                    friend.changePrice > 0
+                      ? colors.red100
+                      : friend.changePrice === 0
+                      ? colors.neutral500
+                      : colors.blue100
+                  }
+                  style={styles.percentage}
+                >
+                  {friend.changePrice > 0
+                    ? "▲"
+                    : friend.changePrice === 0
+                    ? ""
+                    : "▼"}{" "}
+                  {friend.percentage ? friend.percentage : 0}%
+                </Typo>
+              </View>
             </View>
           </TouchableOpacity>
         ))}
@@ -111,10 +126,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: spacingY._12,
-    marginHorizontal: spacingX._25,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.sub,
+    paddingVertical: spacingY._15,
+    paddingHorizontal: spacingX._20,
+    marginHorizontal: spacingX._10,
+    marginVertical: spacingY._5,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   leftSection: {
     flexDirection: "row",
@@ -127,23 +152,32 @@ const styles = StyleSheet.create({
     borderRadius: radius._30,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.neutral100,
   },
   name: {
-    fontSize: verticalScale(24),
+    fontSize: verticalScale(18),
     fontWeight: "600",
-    color: colors.text,
+    color: colors.black,
+    letterSpacing: -0.3,
   },
   rightSection: {
     alignItems: "flex-end",
-    gap: spacingY._5,
+    gap: spacingY._7,
   },
   price: {
-    fontSize: verticalScale(22),
-    fontWeight: "700",
-    color: colors.text,
+    fontSize: verticalScale(17),
+    fontWeight: "600",
+    color: colors.black,
+    letterSpacing: -0.2,
+  },
+  changeBadge: {
+    paddingHorizontal: spacingX._7,
+    paddingVertical: spacingY._3,
+    borderRadius: 6,
   },
   percentage: {
-    fontSize: verticalScale(18),
+    fontSize: verticalScale(14),
     fontWeight: "500",
   },
   loadingContainer: {

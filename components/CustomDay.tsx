@@ -35,12 +35,12 @@ const CustomDay: React.FC<CustomDayProps> = ({
       <View
         style={[
           styles.circle,
-          { backgroundColor: isSelected ? colors.main : "transparent" },
+          { backgroundColor: isSelected ? colors.blue100 : "transparent" },
         ]}
       >
         <Typo
           style={{
-            color: isSelected ? "white" : isToday ? colors.main : "black",
+            color: isSelected ? "white" : isToday ? colors.blue100 : "black",
           }}
           size={verticalScale(24)}
           fontWeight="bold"

@@ -47,13 +47,9 @@ const calculateMovingAverage = (
 const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
   stockData,
 }) => {
-  //주식데이터와 주식 데이터 함수
   const { selectedPeriod } = useStock();
-  // 차트 타입 상태 추가
   const [chartType, setChartType] = useState<ChartType>("candle");
 
-  //전체 데이터를 배열로 변환하기 위한 배열,
-  //rendering될때 값이 달라지는걸 바로 적용하기 위해서 state로 작성
   const [fullDataArray, setFullDataArray] = useState<
     [string, number, number, number, number, number][]
   >([]);
@@ -64,30 +60,26 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     setFullDataArray(aggregated);
   }, [stockData, selectedPeriod]);
 
-  //줌/ 스크롤 관리
   const [visibleRange, setVisibleRange] = useState(30);
   const [scrollOffset, setScrollOffset] = useState(0);
 
-  //fullDataArray가 바뀌면 visibleRange를 재설정 (최대 30)
   useEffect(() => {
     if (fullDataArray.length > 0) {
       setVisibleRange(Math.min(30, fullDataArray.length));
     }
   }, [fullDataArray.length]);
+
   useEffect(() => {
     if (fullDataArray.length > 0) {
-      // 마지막 데이터를 기준으로 스크롤 오프셋 설정
       const lastIndex = fullDataArray.length - visibleRange;
-      setScrollOffset(lastIndex > 0 ? lastIndex : 0); // 최소값 0을 보장
+      setScrollOffset(lastIndex > 0 ? lastIndex : 0);
     }
   }, [fullDataArray, visibleRange]);
-  /* 자주 변화하는 gesture관련 ui에 대해 변수를 useState로 관리하지 않고
-  useSharedValu로 관리해서 javascript thread에서 re-rendering되지 않고 
-  native-thread에서 관리해서 smooth하고, 우수한 성능을 보장하게 합니다. */
+
   const pinchScale = useSharedValue(1);
-  const baseScale = useSharedValue(1); //기본값
+  const baseScale = useSharedValue(1);
   const panOffset = useSharedValue(0);
-  const basePanOffset = useSharedValue(0); //기본값
+  const basePanOffset = useSharedValue(0);
 
   // x축 설정
   const x0 = spacingX._25;
@@ -99,12 +91,11 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
   const candleYAxisLength = CANDLE_HEIGHT - candleY0 * 2;
   const candleXAxisY = candleY0 + candleYAxisLength;
 
-  // 거래량 차트 영역 (캔들 차트 바로 아래)
+  // 거래량 차트 영역
   const volumeY0 = CANDLE_HEIGHT - candleY0;
   const volumeYAxisLength = VOLUME_HEIGHT;
   const volumeXAxisY = volumeY0 + volumeYAxisLength;
 
-  // 데이터 준비
   const updateVisibleRange = (newRange: number) => {
     setVisibleRange(newRange);
   };
@@ -113,25 +104,21 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     setScrollOffset(newOffset);
   };
 
-  //핀치 제스처 (줌인 줌아웃)
   const pinchGesture = Gesture.Pinch()
     .onStart(() => {
       baseScale.value = pinchScale.value;
     })
     .onUpdate((e) => {
       const newScale = baseScale.value * e.scale;
-      const maxData = fullDataArray.length / 5; // 최소 5개 데이터는 보여야 함
-      const minData = fullDataArray.length / 40; // 최대 40개 데이터까지 확대 가능
-      const clampedScale = Math.min(Math.max(newScale, minData), maxData); //최소 5개 최대 40개의 데이터가 보이도록 설정
+      const maxData = fullDataArray.length / 5;
+      const minData = fullDataArray.length / 40;
+      const clampedScale = Math.min(Math.max(newScale, minData), maxData);
       pinchScale.value = clampedScale;
 
       const newRange = Math.max(
         5,
         Math.min(fullDataArray.length, fullDataArray.length / clampedScale)
       );
-      //gesturePinch는 native-thread에서 동작하기 때문에
-      //setState를 직접 호출할 수 없고, runOnJS를 사용해서
-      //javascript-thread에서 실행되도록 해야 합니다.
       runOnJS(updateVisibleRange)(Math.round(newRange));
     })
     .onEnd(() => {
@@ -146,21 +133,20 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
       const newOffset = basePanOffset.value - e.translationX;
       const maxScroll = Math.max(0, fullDataArray.length - visibleRange);
       const pixelsPerData = xAxisLength / visibleRange;
-      const offsetInDataPoints = newOffset / pixelsPerData; //몇칸이동했나
+      const offsetInDataPoints = newOffset / pixelsPerData;
       const clampedOffset = Math.max(
         0,
         Math.min(maxScroll, offsetInDataPoints)
       );
       panOffset.value = clampedOffset * pixelsPerData;
-      runOnJS(updateScrollOffset)(Math.round(clampedOffset)); //이 부분덕분에 ui변화가 보임
+      runOnJS(updateScrollOffset)(Math.round(clampedOffset));
     })
     .onEnd(() => {
       basePanOffset.value = panOffset.value;
     });
-  //두가지 제스처를 동시에 인식하게 하기 위해서 Gesture.Simultaneous 사용
+
   const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
 
-  // 전체 데이터의 이동평균선 계산 (한 번만)
   const fullMa5 = useMemo(() => {
     const allClose = fullDataArray.map((d) => d[2]);
     return calculateMovingAverage(allClose, 5);
@@ -176,7 +162,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     return calculateMovingAverage(allClose, 60);
   }, [fullDataArray]);
 
-  // 현재 보여줄 데이터 범위 계산
   const { dataArray, startIndex } = useMemo(() => {
     const start = Math.max(
       0,
@@ -189,18 +174,15 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     };
   }, [fullDataArray, scrollOffset, visibleRange]);
 
-  // 현재 보이는 범위의 이동평균선만 추출
   const ma5 = fullMa5.slice(startIndex, startIndex + dataArray.length);
   const ma20 = fullMa20.slice(startIndex, startIndex + dataArray.length);
   const ma60 = fullMa60.slice(startIndex, startIndex + dataArray.length);
 
-  // 캔들 차트 범위 계산 (이동평균선 값 포함)
   const rawCandleYMax = Math.max(
     dataArray.reduce(
       (max, [_, __, ___, high, ____]) => Math.max(max, high),
       -Infinity
     ),
-    //filtering을 위한 실제조건은 v !==null이고, v is number은 그냥 v!==null인 애들은 number이라는뜻 즉 타입가드 역할
     ...ma5.filter((v): v is number => v !== null),
     ...ma20.filter((v): v is number => v !== null),
     ...ma60.filter((v): v is number => v !== null)
@@ -215,14 +197,12 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     ...ma60.filter((v): v is number => v !== null)
   );
 
-  // 위아래 5% 여유 공간 추가
   const rawRange = rawCandleYMax - rawCandleYMin;
   const padding = rawRange * 0.05;
   const candleYMax = rawCandleYMax + padding;
   const candleYMin = rawCandleYMin - padding;
   const candleYRange = candleYMax - candleYMin;
 
-  // 거래량 범위 계산 (현재 보이는 범위만)
   const visibleVolumes = dataArray.map((d) => d[5]);
   const volumeYMax = Math.max(...visibleVolumes);
   const volumeYMin = 0;
@@ -230,11 +210,9 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
 
   const numYTicks = 7;
   const numXTicks = 5;
-  // 최소 5개 기준으로 캔들 너비 계산
   const minDataCount = 5;
   const barPlotWidth = xAxisLength / Math.max(dataArray.length, minDataCount);
 
-  // 이동평균선 포인트 생성 함수
   const createMovingAveragePoints = (maData: (number | null)[]): string => {
     const points: string[] = [];
     const scaleY = scaleLinear()
@@ -252,7 +230,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     return points.join(" ");
   };
 
-  // 라인차트용 종가 포인트 생성 함수
   const createLinePoints = (): string => {
     const points: string[] = [];
     const scaleY = scaleLinear()
@@ -260,7 +237,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
       .range([candleY0, candleYAxisLength]);
 
     dataArray.forEach((data, index) => {
-      const closePrice = data[2]; // close price
+      const closePrice = data[2];
       const x = x0 + index * barPlotWidth + barPlotWidth / 2;
       const y = CANDLE_HEIGHT - scaleY(closePrice) - candleY0;
       points.push(`${x},${y}`);
@@ -272,39 +249,43 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
   return (
     <View style={styles.container}>
       {/* 차트 타입 전환 버튼 */}
-      <View style={styles.chartTypeButtonContainer}>
-        <TouchableOpacity
-          style={[
-            styles.chartTypeButton,
-            chartType === "candle" && styles.chartTypeButtonActive,
-          ]}
-          onPress={() => setChartType("candle")}
-        >
-          <RNText
+      <View style={styles.chartTypeContainer}>
+        <View style={styles.chartTypeButtonContainer}>
+          <TouchableOpacity
             style={[
-              styles.chartTypeButtonText,
-              chartType === "candle" && styles.chartTypeButtonTextActive,
+              styles.chartTypeButton,
+              chartType === "candle" && styles.chartTypeButtonActive,
             ]}
+            onPress={() => setChartType("candle")}
+            activeOpacity={0.7}
           >
-            캔들차트
-          </RNText>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.chartTypeButton,
-            chartType === "line" && styles.chartTypeButtonActive,
-          ]}
-          onPress={() => setChartType("line")}
-        >
-          <RNText
+            <RNText
+              style={[
+                styles.chartTypeButtonText,
+                chartType === "candle" && styles.chartTypeButtonTextActive,
+              ]}
+            >
+              캔들차트
+            </RNText>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[
-              styles.chartTypeButtonText,
-              chartType === "line" && styles.chartTypeButtonTextActive,
+              styles.chartTypeButton,
+              chartType === "line" && styles.chartTypeButtonActive,
             ]}
+            onPress={() => setChartType("line")}
+            activeOpacity={0.7}
           >
-            라인차트
-          </RNText>
-        </TouchableOpacity>
+            <RNText
+              style={[
+                styles.chartTypeButtonText,
+                chartType === "line" && styles.chartTypeButtonTextActive,
+              ]}
+            >
+              라인차트
+            </RNText>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <GestureDetector gesture={composedGesture}>
@@ -316,8 +297,8 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               y1={candleXAxisY}
               x2={x1}
               y2={candleXAxisY}
-              stroke={colors.neutral400}
-              strokeWidth="2"
+              stroke={colors.neutral300}
+              strokeWidth="1"
             />
             {/* 캔들 차트 Y축 */}
             <Line
@@ -325,10 +306,10 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               y1={candleY0}
               x2={x1}
               y2={candleXAxisY}
-              stroke={colors.neutral200}
-              strokeWidth="2"
+              stroke={colors.neutral300}
+              strokeWidth="1"
             />
-            {/* X축 격자선과 날짜 레이블 (전체 차트 관통) */}
+            {/* X축 격자선과 날짜 레이블 */}
             {dataArray.map((_, index) => {
               const shouldShowLabel =
                 index % Math.ceil(dataArray.length / numXTicks) === 0;
@@ -336,30 +317,30 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                 const x = x0 + index * barPlotWidth + barPlotWidth / 2;
                 return (
                   <G key={`x-${index}`}>
-                    {/* 캔들 차트 격자선 */}
                     <Line
                       x1={x}
                       y1={candleY0}
                       x2={x}
                       y2={candleXAxisY}
-                      stroke={colors.neutral200}
+                      stroke={colors.neutral100}
                       strokeWidth="1"
+                      strokeDasharray="3,3"
                     />
-                    {/* 거래량 차트 격자선 */}
                     <Line
                       x1={x}
                       y1={volumeY0}
                       x2={x}
                       y2={volumeXAxisY}
-                      stroke={colors.neutral200}
+                      stroke={colors.neutral100}
                       strokeWidth="1"
+                      strokeDasharray="3,3"
                     />
-                    {/* 날짜 레이블 */}
                     <Text
                       x={x}
                       y={volumeXAxisY + spacingY._15}
                       textAnchor="middle"
                       fontSize={verticalScale(10)}
+                      fill={colors.neutral500}
                     >
                       {dataArray[index][0]
                         .split("-")
@@ -386,21 +367,22 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                     y1={y}
                     x2={x0}
                     y2={y}
-                    stroke={colors.neutral200}
+                    stroke={colors.neutral100}
                     strokeWidth="1"
+                    strokeDasharray="3,3"
                   />
                   <Text
                     x={x1 + spacingX._5}
                     y={y + spacingY._5}
                     textAnchor="start"
-                    fontSize={verticalScale(12)}
+                    fontSize={verticalScale(11)}
+                    fill={colors.neutral500}
                   >
-                    {yValue.toLocaleString()}원
+                    {yValue.toLocaleString()}
                   </Text>
                 </G>
               );
             })}
-            {/* ========== 거래량 차트 영역 ========== */}
 
             {/* 거래량 차트 X축 */}
             <Line
@@ -408,8 +390,8 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               y1={volumeXAxisY}
               x2={x1}
               y2={volumeXAxisY}
-              stroke={colors.neutral400}
-              strokeWidth="2"
+              stroke={colors.neutral300}
+              strokeWidth="1"
             />
 
             {/* 거래량 차트 Y축 */}
@@ -418,8 +400,8 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               y1={volumeY0}
               x2={x1}
               y2={volumeXAxisY}
-              stroke={colors.neutral400}
-              strokeWidth="2"
+              stroke={colors.neutral300}
+              strokeWidth="1"
             />
 
             {/* 거래량 차트 Y축 격자선과 레이블 */}
@@ -435,14 +417,16 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                     x2={x0}
                     y1={y}
                     y2={y}
-                    stroke={colors.neutral200}
+                    stroke={colors.neutral100}
                     strokeWidth="1"
+                    strokeDasharray="3,3"
                   />
                   <Text
                     fontSize={verticalScale(10)}
                     x={x1 + spacingX._5}
                     y={y + 5}
                     textAnchor="start"
+                    fill={colors.neutral500}
                   >
                     {Math.abs(yValue)}
                   </Text>
@@ -452,7 +436,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
 
             {/* 차트 영역 */}
             {chartType === "candle" ? (
-              // 캔들차트 렌더링
               dataArray.map(([day, open, close, high, low, volume], index) => {
                 const x = x0 + index * barPlotWidth;
                 const sidePadding = barPlotWidth / 6;
@@ -470,7 +453,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
 
                 const rectHeight = minY - maxY;
 
-                // 거래량 바 설정
                 const volumeScaleY = scaleLinear()
                   .domain([volumeYMin, volumeYMax])
                   .range([0, volumeYAxisLength]);
@@ -480,7 +462,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
 
                 return (
                   <G key={`candle-${index}`}>
-                    {/* 심지(wick) */}
                     <Line
                       x1={
                         x + sidePadding / 2 + (barPlotWidth - sidePadding) / 2
@@ -493,7 +474,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                       stroke={fill}
                       strokeWidth="1"
                     />
-                    {/* 캔들 몸체 */}
                     <Rect
                       fill={fill}
                       x={x + sidePadding / 2}
@@ -508,21 +488,19 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                       width={barPlotWidth - sidePadding}
                       height={barHeight}
                       fill={fill}
+                      opacity={0.5}
                     />
                   </G>
                 );
               })
             ) : (
-              // 라인차트 렌더링 (거래량은 동일)
               <>
-                {/* 종가 라인 */}
                 <Polyline
                   points={createLinePoints()}
                   fill="none"
                   stroke={colors.blue100}
-                  strokeWidth="3"
+                  strokeWidth="2.5"
                 />
-                {/* 거래량 바 */}
                 {dataArray.map(
                   ([day, open, close, high, low, volume], index) => {
                     const x = x0 + index * barPlotWidth;
@@ -544,6 +522,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                         width={barPlotWidth - sidePadding}
                         height={barHeight}
                         fill={fill}
+                        opacity={0.5}
                       />
                     );
                   }
@@ -556,19 +535,19 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               points={createMovingAveragePoints(ma5)}
               fill="none"
               stroke="#FF6B6B"
-              strokeWidth="2"
+              strokeWidth="1.5"
             />
             <Polyline
               points={createMovingAveragePoints(ma20)}
               fill="none"
               stroke="#4ECDC4"
-              strokeWidth="2"
+              strokeWidth="1.5"
             />
             <Polyline
               points={createMovingAveragePoints(ma60)}
               fill="none"
               stroke="#9B59B6"
-              strokeWidth="2"
+              strokeWidth="1.5"
             />
 
             {/* 이동평균선 범례 */}
@@ -576,24 +555,27 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               <Text
                 x={x0}
                 y={candleY0 - 10}
-                fontSize={verticalScale(12)}
+                fontSize={verticalScale(11)}
                 fill="#FF6B6B"
+                fontWeight="500"
               >
                 MA5
               </Text>
               <Text
                 x={x0 + 50}
                 y={candleY0 - 10}
-                fontSize={verticalScale(12)}
+                fontSize={verticalScale(11)}
                 fill="#4ECDC4"
+                fontWeight="500"
               >
                 MA20
               </Text>
               <Text
                 x={x0 + 110}
                 y={candleY0 - 10}
-                fontSize={verticalScale(12)}
+                fontSize={verticalScale(11)}
                 fill="#9B59B6"
+                fontWeight="500"
               >
                 MA60
               </Text>
@@ -607,55 +589,57 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: spacingY._10,
     backgroundColor: colors.white,
+    marginHorizontal: spacingX._10,
+    marginVertical: spacingY._7,
+    borderRadius: 16,
+    paddingVertical: spacingY._15,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  chartTypeContainer: {
+    paddingHorizontal: spacingX._20,
+    paddingBottom: spacingY._15,
   },
   chartTypeButtonContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacingY._10,
-    paddingHorizontal: spacingX._25,
-    gap: spacingX._10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.sub,
+    backgroundColor: colors.neutral100,
+    borderRadius: 10,
+    padding: 4,
   },
   chartTypeButton: {
-    paddingHorizontal: spacingX._15,
+    flex: 1,
     paddingVertical: spacingY._7,
-    borderRadius: radius._10,
-    backgroundColor: colors.neutral100,
     alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
   },
   chartTypeButtonActive: {
-    backgroundColor: colors.blue100,
+    backgroundColor: colors.white,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
   },
   chartTypeButtonText: {
-    fontSize: verticalScale(12),
-    color: colors.neutral400,
+    fontSize: verticalScale(13),
+    color: colors.neutral500,
     fontWeight: "500",
+    letterSpacing: -0.2,
   },
   chartTypeButtonTextActive: {
-    color: colors.white,
+    color: colors.black,
     fontWeight: "600",
-  },
-  periodButtonContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacingY._5,
-    paddingHorizontal: spacingX._25,
-    gap: spacingX._10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.sub,
-  },
-  periodButton: {
-    paddingHorizontal: spacingX._10,
-    paddingVertical: spacingY._7,
-    borderRadius: radius._10,
-    backgroundColor: colors.neutral100,
-    alignItems: "center",
-  },
-  periodButtonActive: {
-    backgroundColor: colors.blue100,
   },
 });
 

@@ -168,13 +168,18 @@ const TaskList: React.FC<{
                         style={[
                           styles.checkBox,
                           item.completed && styles.checkedBox,
+                          !item.completed && isOverdue && styles.overDueBox,
                         ]}
                       >
                         {item.completed && (
-                          <Feather name="check" size={16} color="white" />
+                          <Feather
+                            name="check"
+                            size={16}
+                            color={colors.red50}
+                          />
                         )}
                         {isOverdue && !item.completed && (
-                          <Feather name="x" size={16} color={colors.red100} />
+                          <Feather name="x" size={16} color={colors.blue50} />
                         )}
                       </TouchableOpacity>
 
@@ -317,8 +322,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   checkedBox: {
-    backgroundColor: colors.main,
-    borderColor: colors.main,
+    borderColor: colors.red50,
+    transform: [{ scale: 1.05 }],
+  },
+  overDueBox: {
+    borderColor: colors.blue50,
     transform: [{ scale: 1.05 }],
   },
   plusButton: {

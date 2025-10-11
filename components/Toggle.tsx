@@ -86,13 +86,13 @@ const styles = StyleSheet.create({
   },
   activeButton: {
     borderBottomWidth: 2,
-    borderBottomColor: colors.main,
+    borderBottomColor: colors.blue100,
   },
   buttonText: {
     color: colors.sub,
   },
   activeButtonText: {
-    color: colors.main,
+    color: colors.blue100,
   },
 });
 

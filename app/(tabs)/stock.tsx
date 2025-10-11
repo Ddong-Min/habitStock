@@ -19,7 +19,6 @@ import { useNews } from "@/contexts/newsContext";
 const Stock = () => {
   const {
     stockData,
-    loadAllStocks,
     selectedPeriod,
     changeSelectedPeriod,
     stockTabType,
@@ -27,34 +26,10 @@ const Stock = () => {
 
   const { selectedFollowId, changeSelectedFollowId } = useFollow();
 
-  const { myNews, loadMyNews, selectNews, selectedNews } = useNews();
-
-  const [selectedYear, setSelectedYear] = useState(2025);
-
-  // 컴포넌트 마운트 시 데이터 로드
-  useEffect(() => {
-    loadAllStocks();
-    loadMyNews(selectedYear);
-  }, [selectedYear]);
-
   if (!stockData) {
     return <Typo>No stock data available</Typo>;
   }
 
-  const handleNewsPress = (item: any) => {
-    selectNews(item);
-  };
-
-  const handleBack = () => {
-    selectNews(null);
-  };
-
-  // 선택된 뉴스 상세 화면
-  if (selectedNews) {
-    return <NewsDetail item={selectedNews} onBack={handleBack} />;
-  }
-
-  // 친구 주식 상세 화면
   if (selectedFollowId) {
     return (
       <FriendStockDetail
@@ -65,141 +40,114 @@ const Stock = () => {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "white" }}>
+    <View style={{ flex: 1, backgroundColor: colors.neutral50 }}>
       <Profile type={stockTabType} />
-      <ToggleStockTab />
+      {/* <ToggleStockTab /> */}
 
       {stockTabType === "stocks" && (
         <>
           <CustomChart stockData={stockData} />
-          <View style={styles.periodButtonContainer}>
-            <TouchableOpacity
-              style={[
-                styles.periodButton,
-                selectedPeriod === "day" && styles.periodButtonActive,
-              ]}
-              onPress={() => changeSelectedPeriod("day")}
-            >
-              <Typo
-                color={selectedPeriod === "day" ? colors.white : colors.text}
+          <View style={styles.periodContainer}>
+            <View style={styles.periodButtonContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.periodButton,
+                  selectedPeriod === "day" && styles.periodButtonActive,
+                ]}
+                onPress={() => changeSelectedPeriod("day")}
+                activeOpacity={0.7}
               >
-                일
-              </Typo>
-            </TouchableOpacity>
+                <Typo
+                  size={14}
+                  fontWeight="600"
+                  color={
+                    selectedPeriod === "day" ? colors.white : colors.neutral500
+                  }
+                  style={{ letterSpacing: -0.2 }}
+                >
+                  일
+                </Typo>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.periodButton,
-                selectedPeriod === "week" && styles.periodButtonActive,
-              ]}
-              onPress={() => changeSelectedPeriod("week")}
-            >
-              <Typo
-                color={selectedPeriod === "week" ? colors.white : colors.text}
+              <TouchableOpacity
+                style={[
+                  styles.periodButton,
+                  selectedPeriod === "week" && styles.periodButtonActive,
+                ]}
+                onPress={() => changeSelectedPeriod("week")}
+                activeOpacity={0.7}
               >
-                주
-              </Typo>
-            </TouchableOpacity>
+                <Typo
+                  size={14}
+                  fontWeight="600"
+                  color={
+                    selectedPeriod === "week" ? colors.white : colors.neutral500
+                  }
+                  style={{ letterSpacing: -0.2 }}
+                >
+                  주
+                </Typo>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.periodButton,
-                selectedPeriod === "month" && styles.periodButtonActive,
-              ]}
-              onPress={() => changeSelectedPeriod("month")}
-            >
-              <Typo
-                color={selectedPeriod === "month" ? colors.white : colors.text}
+              <TouchableOpacity
+                style={[
+                  styles.periodButton,
+                  selectedPeriod === "month" && styles.periodButtonActive,
+                ]}
+                onPress={() => changeSelectedPeriod("month")}
+                activeOpacity={0.7}
               >
-                월
-              </Typo>
-            </TouchableOpacity>
+                <Typo
+                  size={14}
+                  fontWeight="600"
+                  color={
+                    selectedPeriod === "month"
+                      ? colors.white
+                      : colors.neutral500
+                  }
+                  style={{ letterSpacing: -0.2 }}
+                >
+                  월
+                </Typo>
+              </TouchableOpacity>
+            </View>
           </View>
           <FriendStock />
         </>
-      )}
-
-      {stockTabType === "news" && (
-        <ScrollView style={styles.content}>
-          <View style={styles.section}>
-            <YearHeader year={selectedYear.toString()} />
-
-            {myNews.map((item, index) => (
-              <TouchableOpacity
-                key={`news-${item.id}`}
-                style={styles.newsItem}
-                onPress={() => handleNewsPress(item)}
-              >
-                <Typo size={18} fontWeight="600" style={styles.newsTime}>
-                  {item.date}
-                </Typo>
-                <Typo size={20} fontWeight="600" style={styles.newsTitle}>
-                  {item.title}
-                </Typo>
-              </TouchableOpacity>
-            ))}
-
-            {myNews.length === 0 && (
-              <View style={{ paddingVertical: 40, alignItems: "center" }}>
-                <Typo color={colors.sub}>아직 뉴스가 없습니다</Typo>
-              </View>
-            )}
-          </View>
-        </ScrollView>
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  periodContainer: {
+    backgroundColor: colors.white,
+    paddingHorizontal: spacingX._20,
+    paddingVertical: spacingY._12,
+  },
   periodButtonContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacingY._5,
-    paddingHorizontal: spacingX._25,
-    gap: spacingX._10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.sub,
+    backgroundColor: colors.neutral100,
+    borderRadius: 10,
+    padding: 4,
   },
   periodButton: {
-    paddingHorizontal: spacingX._10,
+    flex: 1,
     paddingVertical: spacingY._7,
-    borderRadius: radius._10,
-    backgroundColor: colors.neutral100,
     alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
   },
   periodButtonActive: {
-    backgroundColor: colors.blue100,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  content: {
-    flex: 1,
-  },
-  section: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  newsItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacingY._30,
-    gap: spacingX._15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  newsTime: {
-    fontSize: verticalScale(18),
-    color: "#9CA3AF",
-  },
-  newsTitle: {
-    flex: 1,
-    fontSize: verticalScale(20),
-    color: "#374151",
-    lineHeight: verticalScale(22),
+    backgroundColor: colors.white,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
   },
 });
-
 export default Stock;

@@ -36,32 +36,29 @@ const DifficultyHeader: React.FC<{
           { backgroundColor: difficultyColors(difficulty) },
         ]}
       >
-        <View
+        <Typo
+          size={verticalScale(fontSize ? fontSize : 18)}
           style={{
-            marginRight: spacingX._10,
-            marginLeft: isTodo ? -spacingX._5 : -spacingX._7,
+            lineHeight: verticalScale(fontSize ? fontSize : 18),
+            marginRight: spacingX._7,
           }}
+          color="white"
+          fontWeight="600"
         >
-          <Typo
-            size={verticalScale(fontSize ? fontSize : 22)}
-            style={{ lineHeight: verticalScale(fontSize ? fontSize : 22) }} // 폰트 크기랑 동일하게
-            color="white"
-            fontWeight="bold"
-          >
-            {difficulty}
-          </Typo>
-        </View>
+          {difficulty}
+        </Typo>
         <TouchableOpacity
           style={styles.plusButton}
           onPress={() => {
             setNewTaskDifficulty(difficulty);
             isAddMode();
           }}
+          activeOpacity={0.7}
         >
           <Feather
             name="plus"
-            size={verticalScale(fontSize ? fontSize : 22)}
-            color={colors.black}
+            size={verticalScale(fontSize ? fontSize - 2 : 16)}
+            color={colors.white}
           />
         </TouchableOpacity>
       </View>
@@ -75,18 +72,27 @@ const styles = StyleSheet.create({
   difficultyHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: spacingY._15,
+    marginBottom: spacingY._12,
   },
   difficultyBadge: {
     flexDirection: "row",
+    alignItems: "center",
     paddingVertical: spacingY._5,
-    paddingHorizontal: spacingX._15,
-    paddingRight: spacingX._15,
-    borderRadius: radius._20,
+    paddingLeft: spacingX._12,
+    paddingRight: spacingX._7,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
   },
   plusButton: {
-    backgroundColor: colors.neutral100,
-    borderRadius: radius._15,
-    marginRight: -spacingX._10,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    borderRadius: 6,
+    padding: spacingX._3,
   },
 });

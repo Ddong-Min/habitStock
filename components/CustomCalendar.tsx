@@ -12,6 +12,7 @@ import { verticalScale } from "@/utils/styling";
 import { useCalendar } from "@/contexts/calendarContext";
 import { useStock } from "@/contexts/stockContext";
 import { useAuth } from "@/contexts/authContext";
+
 const CustomCalendar = () => {
   const {
     today,
@@ -27,11 +28,11 @@ const CustomCalendar = () => {
   const { loadStocks } = useStock();
   const calendarListRef = useRef<{ scrollToMonth: (date: string) => void }>(
     null
-  ); //if i git it a date string like "2024-10-05", it scrolls to that month
+  );
   const hasInitialLoadedRef = useRef(false);
   const { user } = useAuth();
+
   useEffect(() => {
-    // 월간 보기일 때, 그리고 ref가 연결되어 있을 때 스크롤 명령
     if (hasInitialLoadedRef.current) {
       if (!isWeekView && calendarListRef.current) {
         calendarListRef.current.scrollToMonth(selectedDate);
@@ -40,8 +41,6 @@ const CustomCalendar = () => {
     }
   }, [selectedDate, isWeekView]);
 
-  // 초기 로드용 useEffect - user.price가 처음 로드될 때만
-  //when user.price ===undifined, loadStocksFirebase function occur error
   useEffect(() => {
     if (user?.uid && user.price !== undefined && !hasInitialLoadedRef.current) {
       hasInitialLoadedRef.current = true;
@@ -58,19 +57,22 @@ const CustomCalendar = () => {
             viewMode={isWeekView ? "week" : "month"}
             onToggle={handleViewToggle}
           />
-          <TouchableOpacity onPress={handlePrevious} style={styles.arrow}>
-            <Text style={styles.arrowText}>{"<"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleNext} style={styles.arrow}>
-            <Text style={styles.arrowText}>{">"}</Text>
-          </TouchableOpacity>
+          <View style={styles.arrowContainer}>
+            <TouchableOpacity onPress={handlePrevious} style={styles.arrow}>
+              <Text style={styles.arrowText}>‹</Text>
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity onPress={handleNext} style={styles.arrow}>
+              <Text style={styles.arrowText}>›</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
       {isWeekView ? (
         <CalendarProvider
-          date={selectedDate} // syncs selected date with provider
-          onDateChanged={changeSelectedDate} // update when user selects a new day
+          date={selectedDate}
+          onDateChanged={changeSelectedDate}
         >
           <WeekCalendar
             current={selectedDate}
@@ -116,43 +118,70 @@ const CustomCalendar = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#FAFAFA",
   },
   customHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: spacingX._20,
-    paddingVertical: spacingY._5,
-    backgroundColor: "white",
+    paddingTop: spacingY._15,
+    paddingBottom: spacingY._12,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
   },
-  monthText: { fontSize: 22, fontWeight: "bold" },
-  arrow: { padding: spacingX._5 },
-  arrowText: {
-    fontSize: verticalScale(30),
-    color: colors.black,
-    lineHeight: verticalScale(30),
+  monthText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1A1A1A",
+    letterSpacing: -0.3,
   },
   controlsContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacingX._10,
+    gap: spacingX._12,
+  },
+  arrowContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8F8F8",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  arrow: {
+    paddingHorizontal: spacingX._12,
+    paddingVertical: spacingY._7,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  arrowText: {
+    fontSize: 24,
+    color: "#1A1A1A",
+    fontWeight: "300",
+    lineHeight: 24,
+  },
+  divider: {
+    width: 1,
+    height: 20,
+    backgroundColor: "#E8E8E8",
   },
   weekCalendar: {
     shadowOpacity: 0,
     shadowRadius: 0,
     elevation: 0,
+    backgroundColor: "#FFFFFF",
   },
   calendarList: {
-    // For iOS
+    backgroundColor: "#FFFFFF",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    // For Android
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
 });
 
