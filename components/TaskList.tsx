@@ -22,6 +22,7 @@ import NewTask from "./NewTask";
 import { difficultyborderColor } from "@/constants/theme";
 import { useNews } from "@/contexts/newsContext";
 import { useAuth } from "@/contexts/authContext";
+
 const TaskList: React.FC<{
   isTodo: boolean;
   diffStyle?: ViewStyle;
@@ -53,7 +54,7 @@ const TaskList: React.FC<{
   const { user } = useAuth();
   const { selectedDate } = useCalendar();
   const { createNews } = useNews();
-  // 뉴스 생성된 task ID들을 추적
+
   const [newsGeneratedTasks, setNewsGeneratedTasks] = useState<Set<string>>(
     new Set()
   );
@@ -75,7 +76,6 @@ const TaskList: React.FC<{
     ]);
   }, [selectedDate, taskByDate]);
 
-  // 광고 시청 후 뉴스 생성
   const handleNewsGeneration = async (
     taskId: string,
     dueDate: string,
@@ -93,20 +93,10 @@ const TaskList: React.FC<{
           {
             text: "시청하기",
             onPress: async () => {
-              // 실제 구현시 Google AdMob 사용
-              // const rewarded = RewardedAd.createForAdRequest('YOUR_AD_UNIT_ID');
-              // rewarded.load();
-              // rewarded.show();
-
-              // 광고 시청 시뮬레이션 (실제로는 광고 완료 콜백에서 실행)
               setTimeout(async () => {
                 try {
-                  // AI 뉴스 생성 호출
                   await createNews(taskId, dueDate, true);
-
-                  // 생성된 할일 목록에 추가
                   setNewsGeneratedTasks((prev) => new Set(prev).add(taskId));
-
                   Alert.alert("완료", "AI 뉴스가 생성되었습니다!");
                 } catch (error) {
                   console.error("뉴스 생성 실패:", error);
@@ -122,6 +112,7 @@ const TaskList: React.FC<{
       Alert.alert("오류", "광고를 불러올 수 없습니다.");
     }
   };
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -152,17 +143,16 @@ const TaskList: React.FC<{
 
           const hasNewsGenerated = newsGeneratedTasks.has(item.id);
           const dueDateTimeString = `${item.dueDate}T${user?.duetime}:00`;
-
-          // new Date()를 사용하여 날짜 객체를 생성합니다.
           const dueDateTime = new Date(dueDateTimeString);
           const isOverdue = !item.completed && dueDateTime < new Date();
+
           return (
             <View
               key={item.id}
               style={[
                 styles.taskContainer,
                 taskStyle,
-                { borderColor: difficultyborderColor(item.difficulty) },
+                { borderLeftColor: difficultyborderColor(item.difficulty) },
               ]}
             >
               {isEditText && selectedTaskId === item.id ? (
@@ -244,7 +234,6 @@ const TaskList: React.FC<{
                     </View>
                   </View>
 
-                  {/* 뉴스 모드일 때 뉴스 아이콘 표시 */}
                   {isNewsMode && (
                     <TouchableOpacity
                       style={[
@@ -283,8 +272,18 @@ const styles = StyleSheet.create({
     padding: spacingY._20,
     borderRadius: radius._10,
     marginBottom: spacingY._10,
-    borderWidth: 1,
-    borderColor: colors.sub,
+    borderLeftWidth: 4,
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   taskWrapper: {
     flexDirection: "row",
@@ -308,11 +307,11 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   checkBox: {
-    width: spacingX._20,
-    height: spacingX._20,
-    borderRadius: radius._15,
-    borderWidth: 2,
-    borderColor: colors.sub,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 2.5,
+    borderColor: colors.neutral300,
     marginRight: spacingX._10,
     justifyContent: "center",
     alignItems: "center",
@@ -320,6 +319,7 @@ const styles = StyleSheet.create({
   checkedBox: {
     backgroundColor: colors.main,
     borderColor: colors.main,
+    transform: [{ scale: 1.05 }],
   },
   plusButton: {
     padding: spacingX._5,
@@ -327,27 +327,28 @@ const styles = StyleSheet.create({
     marginBottom: spacingY._5,
   },
   newsIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius._50,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: colors.main,
     justifyContent: "center",
     alignItems: "center",
     marginLeft: spacingX._10,
-    shadowColor: "#000",
+    shadowColor: colors.main,
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
   newsIconActive: {
-    backgroundColor: colors.black,
+    backgroundColor: "#10B981",
+    shadowColor: "#10B981",
   },
   newsIconText: {
-    fontSize: 20,
+    fontSize: 22,
   },
 });
 
