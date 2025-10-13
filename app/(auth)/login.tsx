@@ -22,6 +22,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { login: loginUser } = useAuth();
+  // Use the router object directly from expo-router
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("입력 오류", "이메일과 비밀번호를 입력해주세요.");
@@ -88,9 +89,8 @@ const Login = () => {
             로그인
           </Typo>
         </Button>
-
         <View style={styles.footer}>
-          <Pressable onPress={() => router.navigate("/(auth)/register")}>
+          <Pressable onPress={() => router.push("/(auth)/register")}>
             <Typo size={14} color={colors.textLight}>
               아직 계정이 없으신가요?{" "}
             </Typo>

@@ -3,7 +3,6 @@ import React from "react";
 import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
 import {
-  colors,
   difficultyColors,
   radius,
   spacingX,
@@ -11,6 +10,7 @@ import {
 } from "@/constants/theme";
 import { TasksState } from "@/types";
 import { verticalScale } from "@/utils/styling";
+import { useTheme } from "@/contexts/themeContext";
 
 const DifficultyHeader: React.FC<{
   difficulty: keyof TasksState;
@@ -27,28 +27,35 @@ const DifficultyHeader: React.FC<{
   fontSize,
   isTodo,
 }) => {
+  const { theme, isDarkMode } = useTheme();
+
   return (
     <View style={styles.difficultyHeader}>
       <View
         style={[
-          styles.difficultyBadge,
-          style,
-          { backgroundColor: difficultyColors(difficulty) },
+          styles.badgeContainer,
+          { backgroundColor: theme.cardBackground },
         ]}
       >
+        <View
+          style={[
+            styles.difficultyIndicator,
+            { backgroundColor: difficultyColors(difficulty, isDarkMode) },
+          ]}
+        />
         <Typo
-          size={verticalScale(fontSize ? fontSize : 18)}
+          size={verticalScale(fontSize ? fontSize : 16)}
           style={{
-            lineHeight: verticalScale(fontSize ? fontSize : 18),
-            marginRight: spacingX._7,
+            lineHeight: verticalScale(fontSize ? fontSize : 16),
+            letterSpacing: -0.2,
           }}
-          color="white"
+          color={theme.text}
           fontWeight="600"
         >
           {difficulty}
         </Typo>
         <TouchableOpacity
-          style={styles.plusButton}
+          style={[styles.plusButton, { backgroundColor: theme.neutral100 }]}
           onPress={() => {
             setNewTaskDifficulty(difficulty);
             isAddMode();
@@ -57,8 +64,8 @@ const DifficultyHeader: React.FC<{
         >
           <Feather
             name="plus"
-            size={verticalScale(fontSize ? fontSize - 2 : 16)}
-            color={colors.white}
+            size={verticalScale(fontSize ? fontSize - 2 : 14)}
+            color={theme.neutral500}
           />
         </TouchableOpacity>
       </View>
@@ -73,26 +80,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: spacingY._12,
+    marginTop: spacingY._10,
   },
-  difficultyBadge: {
+  badgeContainer: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: spacingY._5,
-    paddingLeft: spacingX._12,
-    paddingRight: spacingX._7,
+    paddingLeft: spacingX._7,
+    paddingRight: spacingX._10,
     borderRadius: 10,
+    gap: spacingX._7,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
     },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  difficultyIndicator: {
+    width: 4,
+    height: 24,
+    borderRadius: 2,
   },
   plusButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
     borderRadius: 6,
-    padding: spacingX._3,
+    padding: spacingX._5,
+    marginLeft: spacingX._5,
   },
 });

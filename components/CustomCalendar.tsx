@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo } from "react";
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import {
   CalendarList,
@@ -6,14 +6,15 @@ import {
   WeekCalendar,
 } from "react-native-calendars";
 import CalendarViewToggle from "./CalendarViewToggle";
-import { colors, spacingX, spacingY } from "@/constants/theme";
+import { spacingX, spacingY } from "@/constants/theme";
 import CustomDay from "./CustomDay";
-import { verticalScale } from "@/utils/styling";
 import { useCalendar } from "@/contexts/calendarContext";
 import { useStock } from "@/contexts/stockContext";
 import { useAuth } from "@/contexts/authContext";
+import { useTheme } from "@/contexts/themeContext";
 
 const CustomCalendar = () => {
+  const { theme } = useTheme();
   const {
     today,
     selectedDate,
@@ -32,6 +33,42 @@ const CustomCalendar = () => {
   const hasInitialLoadedRef = useRef(false);
   const { user } = useAuth();
 
+  // react-native-calendars theme 설정
+  const calendarTheme = useMemo(
+    () => ({
+      backgroundColor: theme.cardBackground,
+      calendarBackground: theme.cardBackground,
+      textSectionTitleColor: theme.textLight, // 요일 (일월화수목금토)
+      selectedDayBackgroundColor: theme.blue100,
+      selectedDayTextColor: theme.white,
+      todayTextColor: theme.blue100,
+      dayTextColor: theme.text, // 일반 날짜
+      textDisabledColor: theme.textLighter, // 비활성 날짜
+      monthTextColor: theme.text,
+      textMonthFontWeight: "600" as const,
+      textDayFontSize: 16,
+      textMonthFontSize: 18,
+      textDayHeaderFontSize: 14,
+      "stylesheet.calendar.header": {
+        week: {
+          marginTop: 5,
+          flexDirection: "row" as const,
+          justifyContent: "space-between" as const,
+        },
+        dayHeader: {
+          marginTop: 2,
+          marginBottom: 7,
+          width: 32,
+          textAlign: "center" as const,
+          fontSize: 14,
+          fontWeight: "500" as const,
+          color: theme.textLight, // 요일 색상
+        },
+      },
+    }),
+    [theme]
+  );
+
   useEffect(() => {
     if (hasInitialLoadedRef.current) {
       if (!isWeekView && calendarListRef.current) {
@@ -49,21 +86,38 @@ const CustomCalendar = () => {
   }, [user?.uid, user?.price]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.customHeader}>
-        <Text style={styles.monthText}>{headerText}</Text>
+    <View style={[styles.container, { backgroundColor: theme.cardBackground }]}>
+      <View
+        style={[
+          styles.customHeader,
+          {
+            backgroundColor: theme.cardBackground,
+            borderBottomColor: theme.neutral200,
+          },
+        ]}
+      >
+        <Text style={[styles.monthText, { color: theme.text }]}>
+          {headerText}
+        </Text>
         <View style={styles.controlsContainer}>
           <CalendarViewToggle
             viewMode={isWeekView ? "week" : "month"}
             onToggle={handleViewToggle}
           />
-          <View style={styles.arrowContainer}>
+          <View
+            style={[
+              styles.arrowContainer,
+              { backgroundColor: theme.neutral100 },
+            ]}
+          >
             <TouchableOpacity onPress={handlePrevious} style={styles.arrow}>
-              <Text style={styles.arrowText}>‹</Text>
+              <Text style={[styles.arrowText, { color: theme.text }]}>‹</Text>
             </TouchableOpacity>
-            <View style={styles.divider} />
+            <View
+              style={[styles.divider, { backgroundColor: theme.neutral200 }]}
+            />
             <TouchableOpacity onPress={handleNext} style={styles.arrow}>
-              <Text style={styles.arrowText}>›</Text>
+              <Text style={[styles.arrowText, { color: theme.text }]}>›</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -71,13 +125,19 @@ const CustomCalendar = () => {
 
       {isWeekView ? (
         <CalendarProvider
+          key={`week-${user?.isDarkMode}`}
           date={selectedDate}
           onDateChanged={changeSelectedDate}
         >
           <WeekCalendar
+            key={`week-calendar-${user?.isDarkMode}`}
             current={selectedDate}
             onDayPress={(day) => changeSelectedDate(day.dateString)}
-            style={styles.weekCalendar}
+            style={[
+              styles.weekCalendar,
+              { backgroundColor: theme.cardBackground },
+            ]}
+            theme={calendarTheme}
             dayComponent={({ date }) => (
               <CustomDay
                 date={date ? date : { dateString: "", day: 0 }}
@@ -90,10 +150,12 @@ const CustomCalendar = () => {
         </CalendarProvider>
       ) : (
         <CalendarList
+          key={`month-calendar-${user?.isDarkMode}`}
           ref={calendarListRef}
           calendarHeight={320}
           current={selectedDate}
           onDayPress={(day) => changeSelectedDate(day.dateString)}
+          theme={calendarTheme}
           horizontal
           pagingEnabled
           renderHeader={() => null}
@@ -101,7 +163,10 @@ const CustomCalendar = () => {
           pastScrollRange={12}
           futureScrollRange={12}
           showScrollIndicator={false}
-          style={styles.calendarList}
+          style={[
+            styles.calendarList,
+            { backgroundColor: theme.cardBackground },
+          ]}
           dayComponent={({ date }) => (
             <CustomDay
               date={date ? date : { dateString: "", day: 0 }}
@@ -118,7 +183,6 @@ const CustomCalendar = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
   },
   customHeader: {
     flexDirection: "row",
@@ -127,14 +191,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacingX._20,
     paddingTop: spacingY._15,
     paddingBottom: spacingY._12,
-    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
   },
   monthText: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#1A1A1A",
     letterSpacing: -0.3,
   },
   controlsContainer: {
@@ -145,7 +206,6 @@ const styles = StyleSheet.create({
   arrowContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8F8F8",
     borderRadius: 8,
     overflow: "hidden",
   },
@@ -157,23 +217,19 @@ const styles = StyleSheet.create({
   },
   arrowText: {
     fontSize: 24,
-    color: "#1A1A1A",
     fontWeight: "300",
     lineHeight: 24,
   },
   divider: {
     width: 1,
     height: 20,
-    backgroundColor: "#E8E8E8",
   },
   weekCalendar: {
     shadowOpacity: 0,
     shadowRadius: 0,
     elevation: 0,
-    backgroundColor: "#FFFFFF",
   },
   calendarList: {
-    backgroundColor: "#FFFFFF",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,

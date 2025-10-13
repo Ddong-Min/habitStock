@@ -1,32 +1,32 @@
 import { TasksState } from "@/types";
 import { scale, verticalScale } from "@/utils/styling";
-import { SimpleTask } from "react-native";
 
-export const colors = {
-  sub: "#E5E5E5",
+// 공통 색상 (모드에 관계없이 동일)
+const baseColors = {
   main: "#5aa5d8ff",
-  //red25: "#ED373840", // 25%
-  //red50: "#ED373880", // 50%
-  //red75: "#ED3738BF", // 75%
-  //red100: "#ED3738FF", // 100% (or just #ED3738)
+  // Red shades
   red25: "#d1706940",
   red50: "#d1706980",
   red75: "#d17069BF",
   red100: "#d17069",
-  // Blue
-  //blue25: "#0B6FF440", // 25%
-  //blue50: "#0B6FF480", // 50%
-  //blue75: "#0B6FF4BF", // 75%
-  //blue100: "#0B6FF4FF", // 100% (or just #0B6FF4)
+  // Blue shades
   blue25: "#7693a540",
-  blue50: "#7693a580", // 50%
-  blue75: "#7693a5BF", // 75%
-  blue100: "#7693a5", // 100% (or just #0B6FF4)
+  blue50: "#7693a580",
+  blue75: "#7693a5BF",
+  blue100: "#7693a5",
+};
+
+// 라이트모드 색상
+const lightColors = {
+  ...baseColors,
+  sub: "#E5E5E5",
   text: "#000",
   textLight: "#a3a3a3",
   textLighter: "#d4d4d4",
   white: "#fff",
   black: "#000",
+  background: "#fff",
+  cardBackground: "#fff",
   neutral50: "#fafafa",
   neutral100: "#f5f5f5",
   neutral200: "#e5e5e5",
@@ -38,6 +38,30 @@ export const colors = {
   neutral700: "#404040",
   neutral800: "#262626",
   neutral900: "#171717",
+};
+
+// 다크모드 색상
+const darkColors = {
+  ...baseColors,
+  sub: "#404040",
+  text: "#f5f5f5",
+  textLight: "#a3a3a3",
+  textLighter: "#525252",
+  white: "#171717",
+  black: "#f5f5f5",
+  background: "#000",
+  cardBackground: "#171717",
+  neutral50: "#171717",
+  neutral100: "#262626",
+  neutral200: "#404040",
+  neutral300: "#525252",
+  neutral350: "#5a5a5a",
+  neutral400: "#737373",
+  neutral500: "#a3a3a3",
+  neutral600: "#d4d4d4",
+  neutral700: "#e5e5e5",
+  neutral800: "#f5f5f5",
+  neutral900: "#fafafa",
 };
 
 export const spacingX = {
@@ -89,18 +113,35 @@ export const radius = {
   _50: verticalScale(50),
 };
 
-export const difficultyColors = (key: keyof TasksState) => {
-  if (key === "easy") return colors.blue100;
-  else if (key === "medium") return colors.blue75;
-  else if (key === "hard") return colors.red75;
-  else if (key === "extreme") return colors.red100;
-  return colors.sub;
+// 테마 타입
+export type Theme = typeof lightColors;
+
+// 테마 가져오기 함수
+export const getTheme = (isDarkMode: boolean): Theme => {
+  return isDarkMode ? darkColors : lightColors;
 };
 
-export const difficultyborderColor = (key: keyof TasksState) => {
-  if (key === "easy") return colors.blue50;
-  else if (key === "medium") return colors.blue25;
-  else if (key === "hard") return colors.red25;
-  else if (key === "extreme") return colors.red50;
-  return colors.sub;
+// 기본 export (라이트모드) - 기존 코드 호환성 유지
+export const colors = lightColors;
+
+// 난이도별 색상 함수
+export const difficultyColors = (key: keyof TasksState, isDarkMode = false) => {
+  const theme = getTheme(isDarkMode);
+  if (key === "easy") return theme.blue100;
+  else if (key === "medium") return theme.blue75;
+  else if (key === "hard") return theme.red75;
+  else if (key === "extreme") return theme.red100;
+  return theme.sub;
+};
+
+export const difficultyborderColor = (
+  key: keyof TasksState,
+  isDarkMode = false
+) => {
+  const theme = getTheme(isDarkMode);
+  if (key === "easy") return theme.blue50;
+  else if (key === "medium") return theme.blue25;
+  else if (key === "hard") return theme.red25;
+  else if (key === "extreme") return theme.red50;
+  return theme.sub;
 };

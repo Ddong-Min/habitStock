@@ -1,11 +1,15 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet } from "react-native";
 import React from "react";
 import { Tabs } from "expo-router";
 import { CustomTabs } from "@/components/CustomTabs";
-
-const _layout = () => {
+import { useTheme } from "@/contexts/themeContext";
+const TabLayout = () => {
+  const { theme } = useTheme();
   return (
-    <Tabs tabBar={CustomTabs} screenOptions={{ headerShown: false }}>
+    <Tabs
+      tabBar={(props) => <CustomTabs {...props} theme={theme} />}
+      screenOptions={{ headerShown: false }}
+    >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="stock" />
       <Tabs.Screen name="news" />
@@ -15,6 +19,6 @@ const _layout = () => {
   );
 };
 
-export default _layout;
+export default TabLayout;
 
 const styles = StyleSheet.create({});

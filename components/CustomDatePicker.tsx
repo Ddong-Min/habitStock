@@ -15,7 +15,6 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [day, setDay] = useState(today.getDate());
 
-  // 각 달의 일수를 계산하는 함수
   const getDaysInMonth = (year: number, month: number): number => {
     return new Date(year, month, 0).getDate();
   };
@@ -40,14 +39,12 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
     { value: 12, label: "12월" },
   ];
 
-  // 현재 선택된 년/월에 따라 일수 계산
   const maxDays = getDaysInMonth(year, month);
   const days: PickerItem<number>[] = Array.from({ length: maxDays }, (_, i) => {
     const d = i + 1;
     return { value: d, label: d.toString() };
   });
 
-  // 월이나 년도가 변경될 때 일자 유효성 체크
   useEffect(() => {
     const maxDaysInMonth = getDaysInMonth(year, month);
     if (day > maxDaysInMonth) {
@@ -58,7 +55,6 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   const handleConfirm = () => {
     if (onConfirm) {
       console.log("Calling onConfirm...");
-
       onConfirm({ year, month, day });
     }
   };
@@ -71,26 +67,18 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   };
 
   return (
-    <View
-      style={{
-        backgroundColor: "white",
-        padding: 20,
-        borderRadius: 10,
-        alignItems: "center",
-      }}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          width: "100%",
-          justifyContent: "space-between",
-        }}
-      >
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Typo size={18} fontWeight="600" style={styles.titleText}>
+          날짜 선택
+        </Typo>
+      </View>
+
+      <View style={styles.pickerContainer}>
         <Picker
-          style={{ flex: 1 }}
+          style={styles.picker}
           value={year}
           onValueChanged={(event) => {
-            console.log("Year changed:", event);
             const selectedYear = years[event.index]?.value;
             if (selectedYear) {
               setYear(selectedYear);
@@ -99,10 +87,9 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           data={years}
         />
         <Picker
-          style={{ flex: 1 }}
+          style={styles.picker}
           value={month}
           onValueChanged={(event) => {
-            console.log("Month changed:", event);
             const selectedMonth = months[event.index]?.value;
             if (selectedMonth) {
               setMonth(selectedMonth);
@@ -111,10 +98,9 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
           data={months}
         />
         <Picker
-          style={{ flex: 1 }}
+          style={styles.picker}
           value={day}
           onValueChanged={(event) => {
-            console.log("Day changed:", event);
             const selectedDay = days[event.index]?.value;
             if (selectedDay) {
               setDay(selectedDay);
@@ -125,25 +111,22 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
       </View>
 
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button} onPress={handleConfirm}>
-          <Typo
-            size={verticalScale(28)}
-            fontWeight={700}
-            style={{ lineHeight: verticalScale(28) }}
-          >
-            확인
+        <TouchableOpacity
+          style={[styles.button, styles.cancelButton]}
+          onPress={handleCancel}
+          activeOpacity={0.7}
+        >
+          <Typo size={16} fontWeight="600" style={styles.cancelButtonText}>
+            취소
           </Typo>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.red75 }]}
-          onPress={handleCancel}
+          style={[styles.button, styles.confirmButton]}
+          onPress={handleConfirm}
+          activeOpacity={0.7}
         >
-          <Typo
-            size={verticalScale(28)}
-            fontWeight={700}
-            style={{ lineHeight: verticalScale(28) }}
-          >
-            취소
+          <Typo size={16} fontWeight="600" style={styles.confirmButtonText}>
+            확인
           </Typo>
         </TouchableOpacity>
       </View>
@@ -152,20 +135,70 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
 };
 
 const styles = StyleSheet.create({
+  container: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    paddingTop: spacingY._20,
+    paddingHorizontal: spacingX._20,
+    paddingBottom: spacingY._15,
+    width: "90%",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  header: {
+    paddingBottom: spacingY._15,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral200,
+    marginBottom: spacingY._15,
+  },
+  titleText: {
+    color: colors.black,
+    letterSpacing: -0.3,
+    textAlign: "center",
+  },
+  pickerContainer: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-between",
+    marginBottom: spacingY._20,
+  },
+  picker: {
+    flex: 1,
+  },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: spacingY._10,
     width: "100%",
     gap: spacingX._10,
   },
   button: {
-    backgroundColor: colors.blue75,
     flex: 1,
-    padding: 10,
-    borderRadius: 5,
+    paddingVertical: spacingY._15,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  confirmButton: {
+    backgroundColor: colors.main,
+  },
+  confirmButtonText: {
+    color: colors.white,
+    letterSpacing: -0.2,
+  },
+  cancelButton: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.neutral200,
+  },
+  cancelButtonText: {
+    color: colors.black,
+    letterSpacing: -0.2,
   },
 });
 

@@ -4,24 +4,23 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
-  ViewStyle,
   KeyboardAvoidingView,
   Platform,
   Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
-import { colors, radius, spacingX, spacingY } from "@/constants/theme";
+import { radius, spacingX, spacingY } from "@/constants/theme";
 import DifficultyHeader from "./DifficultyHeader";
 import { useTasks } from "@/contexts/taskContext";
 import { scale, verticalScale } from "@/utils/styling";
 import { useCalendar } from "@/contexts/calendarContext";
 import { TasksState } from "@/types";
 import NewTask from "./NewTask";
-import { difficultyborderColor } from "@/constants/theme";
 import { useNews } from "@/contexts/newsContext";
 import { useAuth } from "@/contexts/authContext";
+import { useTheme } from "@/contexts/themeContext";
+import { ViewStyle } from "react-native";
 
 const TaskList: React.FC<{
   isTodo: boolean;
@@ -38,6 +37,7 @@ const TaskList: React.FC<{
   taskFontSize,
   isNewsMode = false,
 }) => {
+  const { theme } = useTheme();
   const {
     taskByDate,
     selectedDifficulty,
@@ -119,8 +119,11 @@ const TaskList: React.FC<{
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ paddingBottom: spacingY._20 }}
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={{
+          paddingBottom:
+            Platform.OS === "ios" ? verticalScale(150) : verticalScale(140),
+        }}
       >
         {flatData.map((item) => {
           if (item.type === "header") {
@@ -147,115 +150,102 @@ const TaskList: React.FC<{
           const isOverdue = !item.completed && dueDateTime < new Date();
 
           return (
-            <View
-              key={item.id}
-              style={[
-                styles.taskContainer,
-                taskStyle,
-                { borderLeftColor: difficultyborderColor(item.difficulty) },
-              ]}
-            >
+            <View key={item.id}>
               {isEditText && selectedTaskId === item.id ? (
                 <NewTask />
               ) : (
-                <View style={styles.taskWrapper}>
-                  <View style={styles.task}>
-                    <View style={styles.taskLeft}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          completedTask(item.id, item.difficulty);
-                        }}
-                        style={[
-                          styles.checkBox,
-                          item.completed && styles.checkedBox,
-                          !item.completed && isOverdue && styles.overDueBox,
-                        ]}
-                      >
-                        {item.completed && (
-                          <Feather
-                            name="check"
-                            size={16}
-                            color={colors.red50}
-                          />
-                        )}
-                        {isOverdue && !item.completed && (
-                          <Feather name="x" size={16} color={colors.blue50} />
-                        )}
-                      </TouchableOpacity>
-
-                      <View style={{ flex: 1 }}>
-                        <Typo size={taskFontSize} style={{ flexWrap: "wrap" }}>
-                          {item.text}
-                        </Typo>
-                        {!isTodo && (
-                          <Typo
-                            size={verticalScale(18)}
-                            style={{
-                              color: colors.neutral300,
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            만료일 {item.dueDate}
-                          </Typo>
-                        )}
-                      </View>
-                    </View>
-                    <View style={styles.taskRight}>
+                <View
+                  style={[
+                    styles.taskRow,
+                    { borderBottomColor: theme.neutral200 },
+                  ]}
+                >
+                  <TouchableOpacity
+                    onPress={() => {
+                      completedTask(item.id, item.difficulty);
+                    }}
+                    style={styles.checkBoxContainer}
+                  >
+                    <View
+                      style={[
+                        styles.checkBox,
+                        {
+                          borderColor: theme.neutral300,
+                          backgroundColor: theme.cardBackground,
+                        },
+                        item.completed && styles.checkedBox,
+                        !item.completed && isOverdue && styles.overDueBox,
+                      ]}
+                    >
                       {item.completed && (
-                        <Typo
-                          style={{
-                            color: colors.red100,
-                          }}
-                        >
-                          ▲ {item.priceChange}({item.percentage}%)
-                        </Typo>
+                        <Feather name="check" size={14} color={theme.white} />
                       )}
-                      {!item.completed && isOverdue && (
-                        <Typo
-                          style={{
-                            color: colors.blue100,
-                          }}
-                        >
-                          ▼ {item.priceChange}({item.percentage}%)
-                        </Typo>
-                      )}
-                      <TouchableOpacity
-                        onPress={() => {
-                          startModify(
-                            item.id,
-                            item.dueDate,
-                            item.difficulty,
-                            item.text
-                          ),
-                            changeBottomSheetState();
-                        }}
-                      >
-                        <Feather
-                          name="more-horizontal"
-                          size={verticalScale(22)}
-                          color={colors.neutral300}
-                        />
-                      </TouchableOpacity>
                     </View>
+                  </TouchableOpacity>
+
+                  <View style={styles.taskContent}>
+                    <Typo
+                      size={16}
+                      fontWeight={"600"}
+                      color={item.completed ? theme.red100 : theme.blue100}
+                      style={item.completed ? styles.completedText : undefined}
+                    >
+                      {item.text}
+                    </Typo>
+
+                    {(item.completed || isOverdue) && (
+                      <Typo
+                        size={13}
+                        fontWeight={"600"}
+                        color={item.completed ? theme.red100 : theme.blue100}
+                      >
+                        {item.completed ? "▲" : "▼"} {item.appliedPriceChange}(
+                        {item.appliedPercentage}%)
+                      </Typo>
+                    )}
                   </View>
 
-                  {isNewsMode && (
+                  <View style={styles.rightActions}>
+                    {isNewsMode && (
+                      <TouchableOpacity
+                        style={[
+                          styles.newsButton,
+                          { backgroundColor: theme.main },
+                          hasNewsGenerated && styles.newsButtonActive,
+                        ]}
+                        onPress={() =>
+                          handleNewsGeneration(item.id, item.dueDate, item.text)
+                        }
+                        disabled={hasNewsGenerated}
+                        activeOpacity={0.7}
+                      >
+                        <Feather
+                          name={hasNewsGenerated ? "check" : "edit-3"}
+                          size={16}
+                          color={theme.white}
+                        />
+                      </TouchableOpacity>
+                    )}
+
                     <TouchableOpacity
-                      style={[
-                        styles.newsIcon,
-                        hasNewsGenerated && styles.newsIconActive,
-                      ]}
-                      onPress={() =>
-                        handleNewsGeneration(item.id, item.dueDate, item.text)
-                      }
-                      disabled={hasNewsGenerated}
-                      activeOpacity={0.7}
+                      onPress={() => {
+                        startModify(
+                          item.id,
+                          item.dueDate,
+                          item.difficulty,
+                          item.text
+                        ),
+                          changeBottomSheetState();
+                      }}
+                      style={styles.moreButton}
                     >
-                      <Typo style={styles.newsIconText}>
-                        {hasNewsGenerated ? "✓" : "📰"}
-                      </Typo>
+                      <Feather
+                        name="more-horizontal"
+                        size={verticalScale(20)}
+                        color={theme.neutral400}
+                      />
                     </TouchableOpacity>
-                  )}
+                  </View>
                 </View>
               )}
             </View>
@@ -269,94 +259,67 @@ const TaskList: React.FC<{
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: spacingX._30,
-    backgroundColor: colors.neutral50,
+    paddingHorizontal: spacingX._20,
   },
-  taskContainer: {
-    backgroundColor: colors.white,
-    padding: spacingY._20,
-    borderRadius: radius._10,
-    marginBottom: spacingY._10,
-    borderLeftWidth: 4,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-    borderBottomWidth: 0,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  taskWrapper: {
+  taskRow: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: spacingY._12,
+    borderBottomWidth: 1,
   },
-  task: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  taskLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  taskRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacingX._10,
-    flexShrink: 0,
+  checkBoxContainer: {
+    paddingRight: spacingX._12,
   },
   checkBox: {
-    width: 24,
-    height: 24,
-    borderRadius: 8,
-    borderWidth: 2.5,
-    borderColor: colors.neutral300,
-    marginRight: spacingX._10,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
   },
   checkedBox: {
-    borderColor: colors.red50,
-    transform: [{ scale: 1.05 }],
+    backgroundColor: "#d1706980",
+    borderColor: "#d1706980",
   },
   overDueBox: {
-    borderColor: colors.blue50,
-    transform: [{ scale: 1.05 }],
+    backgroundColor: "#7693a580",
+    borderColor: "#7693a580",
   },
-  plusButton: {
-    padding: spacingX._5,
-    alignSelf: "flex-start",
-    marginBottom: spacingY._5,
+  taskContent: {
+    flex: 1,
+    gap: spacingY._5,
   },
-  newsIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: colors.main,
+  completedText: {
+    textDecorationLine: "line-through",
+  },
+  dueDateText: {},
+  priceText: {
+    fontSize: verticalScale(12),
+    fontWeight: "600",
+  },
+  priceUp: {},
+  priceDown: {},
+  rightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacingX._7,
+  },
+  newsButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: spacingX._10,
-    shadowColor: colors.main,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
   },
-  newsIconActive: {
+  newsButtonActive: {
     backgroundColor: "#10B981",
-    shadowColor: "#10B981",
   },
-  newsIconText: {
-    fontSize: 22,
+  newsButtonText: {
+    fontSize: 18,
+  },
+  moreButton: {
+    padding: spacingX._7,
   },
 });
 

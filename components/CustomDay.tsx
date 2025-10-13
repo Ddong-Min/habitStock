@@ -1,11 +1,13 @@
 // components/CustomDay.tsx
 import React from "react";
 import { TouchableOpacity, View, StyleSheet } from "react-native";
-import { colors, radius, spacingX, spacingY } from "@/constants/theme";
+import { radius, spacingX, spacingY } from "@/constants/theme";
 import Typo from "./Typo";
 import { verticalScale } from "@/utils/styling";
 import { useStock } from "@/contexts/stockContext";
 import { useCalendar } from "@/contexts/calendarContext";
+import { useTheme } from "@/contexts/themeContext";
+
 type CustomDayProps = {
   date: {
     dateString: string;
@@ -22,11 +24,16 @@ const CustomDay: React.FC<CustomDayProps> = ({
 }) => {
   const { stockData } = useStock();
   const { today } = useCalendar();
+  const { theme } = useTheme();
+
   if (!date) return null;
 
   const isToday = date.dateString === today;
   const isSelected = selectedDate === date.dateString;
   const isPositive = stockData?.[date.dateString]?.changeRate! > 0;
+  const changePrice = stockData?.[date.dateString]?.changePrice ?? 0;
+  const isNoChange = changePrice === 0;
+
   return (
     <TouchableOpacity
       onPress={() => onDateSelect(date.dateString)}
@@ -35,14 +42,18 @@ const CustomDay: React.FC<CustomDayProps> = ({
       <View
         style={[
           styles.circle,
-          { backgroundColor: isSelected ? colors.blue100 : "transparent" },
+          { backgroundColor: isSelected ? theme.blue100 : "transparent" },
         ]}
       >
         <Typo
           style={{
-            color: isSelected ? "white" : isToday ? colors.blue100 : "black",
+            color: isSelected
+              ? theme.background
+              : isToday
+              ? theme.blue100
+              : theme.text,
           }}
-          size={verticalScale(24)}
+          size={24}
           fontWeight="bold"
         >
           {date.day}
@@ -52,19 +63,15 @@ const CustomDay: React.FC<CustomDayProps> = ({
         <Typo
           size={verticalScale(15)}
           color={
-            (stockData?.[date.dateString]?.changePrice ?? 0) === 0
-              ? colors.neutral500
+            isNoChange
+              ? theme.neutral500
               : isPositive
-              ? colors.red100
-              : colors.blue100
+              ? theme.red100
+              : theme.blue100
           }
           style={styles.percentageText}
         >
-          {stockData?.[date.dateString]?.changePrice === 0
-            ? "- "
-            : isPositive
-            ? "▲"
-            : "▼"}
+          {isNoChange ? "- " : isPositive ? "▲" : "▼"}
           {stockData?.[date.dateString]?.changeRate}%
         </Typo>
       )}
@@ -78,10 +85,9 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   circle: {
-    // 월간 보기에 맞게 원 크기를 조절합니다.
     width: spacingX._30,
     height: spacingX._30,
-    borderRadius: radius._30, // width/height의 절반
+    borderRadius: radius._30,
     alignItems: "center",
     justifyContent: "center",
   },

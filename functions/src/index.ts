@@ -33,32 +33,28 @@ async function calculateStockPenalty(
       totalChangeRate += task.percentage || 0;
     });
 
-    // 새로운 주가 계산
-    const newPrice = Math.max(1, currentPrice - totalChangePrice); // 최소 1원
-
+    const newPrice = Math.max(
+      1,
+      Math.round((currentPrice - totalChangePrice) * 10) / 10
+    ); // 최소 1원
     // 주식 데이터 업데이트
     const stocksDocRef = db
       .collection("users")
       .doc(userId)
       .collection("data")
       .doc("stocks");
-
     const stocksDoc = await stocksDocRef.get();
     const stocksData = stocksDoc.exists ? stocksDoc.data() || {} : {};
     const previousStock = stocksData[date] || {};
-
     const low = previousStock.low
       ? Math.min(previousStock.low, newPrice)
       : newPrice;
-
     const changePrice = previousStock.changePrice
-      ? previousStock.changePrice - totalChangePrice
+      ? Math.round((previousStock.changePrice - totalChangePrice) * 10) / 10
       : -totalChangePrice;
-
     const changeRate = previousStock.changeRate
-      ? previousStock.changeRate - totalChangeRate
+      ? Math.round((previousStock.changeRate - totalChangeRate) * 10) / 10
       : -totalChangeRate;
-
     const open = previousStock.open ? previousStock.open : currentPrice;
     const volume =
       changePrice >= 0 ? completedTasks.length : incompleteTasks.length;
@@ -72,7 +68,6 @@ async function calculateStockPenalty(
       low: low,
       volume: volume,
     };
-
     await stocksDocRef.set(stocksData, { merge: true });
 
     // 유저 프로필의 price 업데이트

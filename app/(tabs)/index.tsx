@@ -18,7 +18,7 @@ import DiffBottomSheet from "@/components/DiffBottomSheet";
 import CustomDatePicker from "@/components/CustomDatePicker";
 import YearHeader from "@/components/YearHeader";
 import { useCalendar } from "@/contexts/calendarContext";
-
+import { useTheme } from "@/contexts/themeContext";
 const TodoScreen = () => {
   const {
     taskType,
@@ -32,7 +32,7 @@ const TodoScreen = () => {
     finishModify,
   } = useTasks();
   const { selectedDate } = useCalendar();
-
+  const { theme } = useTheme();
   // 뉴스 생성 모드 상태
   const [isNewsMode, setIsNewsMode] = useState(false);
 
@@ -45,43 +45,19 @@ const TodoScreen = () => {
   const floatingButtonZIndex = 5;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* 상단 고정 영역 */}
-      <Profile type="todo" />
-      {/* <Toggle /> */}
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <Profile type="todo" />
+        {/* <Toggle /> */}
 
-      {taskType === "todos" && (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <CustomCalendar />
+        <CustomCalendar />
 
-          <View style={{ flex: 1, marginTop: spacingY._15 }}>
-            <TaskList isTodo={true} isNewsMode={isNewsMode} />
-          </View>
-        </ScrollView>
-      )}
-      {taskType === "buckets" && (
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View
-            style={{
-              flex: 1,
-              marginTop: spacingY._15,
-            }}
-          >
-            <YearHeader
-              year={selectedDate}
-              style={{ marginLeft: spacingX._20, marginBottom: spacingY._10 }}
-            />
-            <TaskList
-              isTodo={false}
-              isNewsMode={isNewsMode}
-              diffStyle={{
-                paddingVertical: spacingY._7,
-                paddingHorizontal: spacingX._20,
-              }}
-            />
-          </View>
-        </ScrollView>
-      )}
+        <View style={{ flex: 1 }}>
+          <TaskList isTodo={true} isNewsMode={isNewsMode} />
+        </View>
+      </ScrollView>
 
       {/* 뉴스 생성 플로팅 버튼 */}
       <TouchableOpacity
@@ -139,7 +115,6 @@ const TodoScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral50,
   },
   datePickerOverlay: {
     position: "absolute",

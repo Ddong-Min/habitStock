@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { colors, radius, spacingX, spacingY } from "../../constants/theme";
 import { ScrollView } from "react-native-gesture-handler";
 import YearHeader from "../../components/YearHeader";
@@ -8,7 +8,6 @@ import { verticalScale } from "@/utils/styling";
 import { useCalendar } from "@/contexts/calendarContext";
 import { useNews } from "@/contexts/newsContext";
 import NewsDetail from "@/components/NewsDetail";
-import { useState, useEffect } from "react";
 import { useStock } from "@/contexts/stockContext";
 import Profile from "@/components/Profile";
 
@@ -16,6 +15,13 @@ const news = () => {
   const [selectedYear, setSelectedYear] = useState(2025);
   const { myNews, loadMyNews, selectNews, selectedNews } = useNews();
   const { loadAllStocks } = useStock();
+
+  // 모든 Hook을 최상단에 배치
+  useEffect(() => {
+    loadAllStocks();
+    loadMyNews(selectedYear);
+  }, [selectedYear]);
+
   const handleNewsPress = (item: any) => {
     selectNews(item);
   };
@@ -24,17 +30,21 @@ const news = () => {
     selectNews(null);
   };
 
+  // Hook 호출 이후에 조건부 렌더링
   if (selectedNews) {
     return <NewsDetail item={selectedNews} onBack={handleBack} />;
   }
-  useEffect(() => {
-    loadAllStocks();
-    loadMyNews(selectedYear);
-  }, [selectedYear]);
+
   return (
     <View style={styles.container}>
       <Profile type="news" />
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingBottom: verticalScale(140), // TabBar + 광고 공간
+        }}
+      >
         <View style={styles.section}>
           <YearHeader year={selectedYear.toString()} />
 
@@ -74,11 +84,11 @@ export default news;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.neutral50,
   },
   content: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.neutral50,
   },
   section: {
     paddingHorizontal: spacingX._20,

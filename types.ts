@@ -154,7 +154,6 @@ export type UserDataType = {
 
 export type AuthContextType = {
   user: UserType;
-  setUser: Function;
   login: (
     email: string,
     password: string
@@ -167,6 +166,7 @@ export type AuthContextType = {
   updateUserData: (userId: string) => Promise<void>;
   logout: () => Promise<void>;
   changeUserStock: (price: number) => void;
+  isAuthLoading: boolean;
 };
 
 export type ResponseType = {
@@ -195,6 +195,8 @@ export interface Task {
   dueDate: string;
   difficulty: "easy" | "medium" | "hard" | "extreme";
   updatedDate?: string;
+  appliedPriceChange: number;
+  appliedPercentage: number;
 }
 
 export interface TasksState {

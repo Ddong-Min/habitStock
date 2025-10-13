@@ -1,13 +1,14 @@
 import { View, Platform, TouchableOpacity, StyleSheet } from "react-native";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { colors, spacingX, spacingY } from "@/constants/theme";
+import { spacingY } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
 import Typo from "./Typo";
 import { Ionicons } from "@expo/vector-icons";
+import { Theme } from "@/constants/theme";
 
 // 각 탭의 아이콘 매핑
-const getTabIcon = (routeName: string, isFocused: boolean) => {
-  const iconColor = isFocused ? colors.blue100 : colors.neutral400;
+const getTabIcon = (routeName: string, isFocused: boolean, theme: Theme) => {
+  const iconColor = isFocused ? theme.blue100 : theme.neutral400;
   const size = 24;
 
   switch (routeName) {
@@ -31,6 +32,14 @@ const getTabIcon = (routeName: string, isFocused: boolean) => {
       return (
         <Ionicons
           name={isFocused ? "newspaper" : "newspaper-outline"}
+          size={size}
+          color={iconColor}
+        />
+      );
+    case "follow":
+      return (
+        <Ionicons
+          name={isFocused ? "people" : "people-outline"}
           size={size}
           color={iconColor}
         />
@@ -61,6 +70,8 @@ const getTabLabel = (routeName: string) => {
       return "할일";
     case "stock":
       return "주가";
+    case "news":
+      return "뉴스";
     case "follow":
       return "팔로우";
     case "profile":
@@ -70,13 +81,26 @@ const getTabLabel = (routeName: string) => {
   }
 };
 
+interface CustomTabsProps extends BottomTabBarProps {
+  theme: Theme;
+}
+
 export function CustomTabs({
   state,
   descriptors,
   navigation,
-}: BottomTabBarProps) {
+  theme,
+}: CustomTabsProps) {
   return (
-    <View style={styles.tabBar}>
+    <View
+      style={[
+        styles.tabBar,
+        {
+          backgroundColor: theme.background,
+          borderTopColor: theme.neutral200,
+        },
+      ]}
+    >
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const label =
@@ -117,10 +141,10 @@ export function CustomTabs({
             onLongPress={onLongPress}
             style={styles.tabBarItem}
           >
-            {getTabIcon(route.name, isFocused)}
+            {getTabIcon(route.name, isFocused, theme)}
             <Typo
               style={{
-                color: isFocused ? colors.blue100 : colors.neutral400,
+                color: isFocused ? theme.blue100 : theme.neutral400,
                 marginTop: spacingY._3,
               }}
             >
@@ -138,13 +162,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     width: "100%",
     height: Platform.OS === "ios" ? verticalScale(80) : verticalScale(70),
-    backgroundColor: colors.white,
     justifyContent: "space-around",
     alignItems: "center",
     borderTopWidth: 1,
-    borderTopColor: colors.neutral200,
     paddingBottom: Platform.OS === "ios" ? spacingY._15 : spacingY._5,
-    shadowColor: colors.black,
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: -2,

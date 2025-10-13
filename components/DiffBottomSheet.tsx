@@ -16,65 +16,74 @@ import { verticalScale } from "@/utils/styling";
 const DiffBottomSheet = () => {
   const bottomSheetRef = React.useRef<BottomSheet>(null);
   const { editTask, changeDifficultySheetState } = useTasks();
+
+  const difficulties = [
+    { key: "easy", label: "Easy" },
+    { key: "medium", label: "Medium" },
+    { key: "hard", label: "Hard" },
+    { key: "extreme", label: "Extreme" },
+  ];
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
-      index={1}
-      snapPoints={["40%"]} // 높이 40% 정도 (예시)
+      index={0}
+      snapPoints={["45%"]}
       enablePanDownToClose
       onClose={() => changeDifficultySheetState()}
       style={{
-        width: "90%",
-        marginLeft: "5%", // X축 중앙
+        width: "94%",
+        marginLeft: "3%",
+        zIndex: 10,
       }}
       backgroundStyle={{
-        borderRadius: radius._12,
+        borderRadius: 20,
         backgroundColor: colors.white,
-        borderColor: colors.blue50,
-        borderWidth: 1,
+        shadowColor: "#000",
+        shadowOffset: {
+          width: 0,
+          height: -4,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 8,
+      }}
+      handleIndicatorStyle={{
+        backgroundColor: colors.neutral400,
+        width: 40,
+        height: 4,
       }}
     >
-      <BottomSheetView
-        style={{
-          flex: 1,
-          height: "100%",
-          justifyContent: "center", // Y축 중앙
-          alignItems: "center",
-        }}
-      >
-        <View
-          style={{
-            width: "100%",
-            height: "90%",
-          }}
-        >
-          {["easy", "medium", "hard", "extreme"].map((label, index) => (
+      <BottomSheetView style={styles.container}>
+        <View style={styles.header}>
+          <Typo size={18} fontWeight="600" style={styles.titleText}>
+            난이도 선택
+          </Typo>
+        </View>
+
+        <View style={styles.buttonContainer}>
+          {difficulties.map((difficulty) => (
             <TouchableOpacity
-              key={index}
+              key={difficulty.key}
               onPress={() => {
-                editTask("difficulty", label as keyof TasksState);
+                editTask("difficulty", difficulty.key as keyof TasksState);
                 changeDifficultySheetState();
               }}
-              style={{
-                flex: 1,
-                marginHorizontal: spacingX._10,
-                marginVertical: spacingY._5,
-                borderColor: difficultyColors(label as keyof TasksState),
-                borderWidth: 1,
-                backgroundColor: difficultyborderColor(
-                  label as keyof TasksState
-                ),
-                borderRadius: radius._10,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
+              style={styles.difficultyButton}
+              activeOpacity={0.7}
             >
-              <Typo
-                size={verticalScale(26)}
-                fontWeight={600}
-                style={{ lineHeight: verticalScale(26) }}
-              >
-                {label}
+              <View
+                style={[
+                  styles.difficultyIndicator,
+                  {
+                    backgroundColor: difficultyColors(
+                      difficulty.key as keyof TasksState
+                    ),
+                  },
+                ]}
+              />
+              <Typo size={16} fontWeight="600" style={styles.buttonLabel}>
+                {difficulty.label}
               </Typo>
             </TouchableOpacity>
           ))}
@@ -86,4 +95,54 @@ const DiffBottomSheet = () => {
 
 export default DiffBottomSheet;
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: spacingX._20,
+    paddingTop: spacingY._7,
+    backgroundColor: colors.neutral50,
+  },
+  header: {
+    paddingBottom: spacingY._20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral200,
+    marginBottom: spacingY._12,
+  },
+  titleText: {
+    color: colors.black,
+    lineHeight: verticalScale(24),
+    letterSpacing: -0.3,
+  },
+  buttonContainer: {
+    flex: 1,
+    gap: spacingY._12,
+  },
+  difficultyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    paddingVertical: spacingY._17,
+    paddingHorizontal: spacingX._17,
+    borderWidth: 1,
+    borderColor: colors.neutral200,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  difficultyIndicator: {
+    width: 8,
+    height: 40,
+    borderRadius: 4,
+    marginRight: spacingX._15,
+  },
+  buttonLabel: {
+    color: colors.black,
+    letterSpacing: -0.2,
+  },
+});

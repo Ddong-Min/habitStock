@@ -59,7 +59,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     const aggregated = aggregateData(stockData, selectedPeriod);
     setFullDataArray(aggregated);
   }, [stockData, selectedPeriod]);
-
+  console.log("Aggregated Data:", fullDataArray);
   const [visibleRange, setVisibleRange] = useState(30);
   const [scrollOffset, setScrollOffset] = useState(0);
 
@@ -356,10 +356,8 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
             {/* 캔들 차트 Y축 격자선과 가격 레이블 */}
             {Array.from({ length: numYTicks }).map((_, index) => {
               const y = candleY0 + index * (candleYAxisLength / numYTicks);
-              const scaleY = scaleLinear()
-                .domain([candleYMin, candleYMax])
-                .range([candleYAxisLength, candleY0]);
-              const yValue = Math.round(Number(scaleY.invert(y)));
+              const ratio = index / (numYTicks - 1);
+              const yValue = Math.round(candleYMax - ratio * candleYRange);
               return (
                 <G key={`candle-y-${index}`}>
                   <Line

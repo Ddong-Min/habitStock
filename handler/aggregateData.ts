@@ -6,15 +6,23 @@ export const aggregateData = (
 ): [string, number, number, number, number, number][] => {
   if (!stockData) return [];
   const stockArray = Object.values(stockData);
+
   if (selectedPeriod === "day") {
-    return stockArray.map((item) => [
-      item.date,
-      item.open,
-      item.close,
-      item.high,
-      item.low,
-      item.volume,
-    ]);
+    // day 모드에서도 날짜순 정렬 추가
+    const result = stockArray.map(
+      (item) =>
+        [
+          item.date,
+          item.open,
+          item.close,
+          item.high,
+          item.low,
+          item.volume,
+        ] as [string, number, number, number, number, number]
+    );
+
+    result.sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
+    return result;
   }
 
   //날짜별 그룹화

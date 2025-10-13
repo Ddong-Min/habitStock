@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Image } from "react-native";
 import Typo from "./Typo";
-import { colors, radius, spacingX, spacingY } from "@/constants/theme";
+import { radius, spacingX, spacingY } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
 import { useAuth } from "@/contexts/authContext";
 import { useStock } from "@/contexts/stockContext";
 import { useCalendar } from "@/contexts/calendarContext";
+import { useTheme } from "@/contexts/themeContext";
 
 interface ProfileProps {
   type: "todo" | "stocks" | "news";
 }
 
 const Profile: React.FC<ProfileProps> = ({ type }) => {
+  const { theme } = useTheme();
   const { user } = useAuth();
   const { stockData } = useStock();
   const { today } = useCalendar();
@@ -20,23 +22,24 @@ const Profile: React.FC<ProfileProps> = ({ type }) => {
   const isPositive = (todayStock?.changePrice ?? 0) > 0;
   const isZero = (todayStock?.changePrice ?? 0) === 0;
   const changeColor = isPositive
-    ? colors.red100
+    ? theme.red100
     : isZero
-    ? colors.neutral500
-    : colors.blue100;
+    ? theme.neutral500
+    : theme.blue100;
 
   return (
-    <View style={[styles.container]}>
+    <View style={[styles.container, { backgroundColor: theme.cardBackground }]}>
       <View style={styles.avatarContainer}>
         <Image
           source={require("../assets/images/tempProfile.png")}
-          style={styles.avatar}
+          style={[styles.avatar, { borderColor: theme.neutral200 }]}
         />
       </View>
       <View style={styles.userInfo}>
         <Typo
           size={type === "news" ? 26 : 20}
           fontWeight="600"
+          color={theme.text}
           style={{ lineHeight: verticalScale(24), letterSpacing: -0.3 }}
         >
           {user?.name || "사용자"}
@@ -46,13 +49,14 @@ const Profile: React.FC<ProfileProps> = ({ type }) => {
             <Typo
               size={20}
               fontWeight="600"
+              color={theme.text}
               style={{ marginRight: 6, letterSpacing: -0.2 }}
             >
               ₩{todayStock?.close!}
             </Typo>
 
             {type === "stocks" && (
-              <Typo size={15} color={colors.neutral400} fontWeight={"500"}>
+              <Typo size={15} color={theme.neutral400} fontWeight={"500"}>
                 어제보다{" "}
               </Typo>
             )}
@@ -81,7 +85,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: spacingY._15,
     paddingHorizontal: spacingX._20,
-    backgroundColor: colors.white,
     marginHorizontal: spacingX._10,
     marginVertical: spacingY._7,
     borderRadius: 16,
@@ -111,7 +114,6 @@ const styles = StyleSheet.create({
     borderRadius: radius._30,
     marginRight: spacingX._15,
     borderWidth: 2,
-    borderColor: colors.neutral100,
   },
   userInfo: {
     flex: 1,

@@ -1,4 +1,3 @@
-// TaskBottomSheet.tsx
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import React from "react";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
@@ -100,19 +99,14 @@ const TaskBottomSheet = () => {
         elevation: 8,
       }}
       handleIndicatorStyle={{
-        backgroundColor: colors.neutral400,
+        backgroundColor: colors.neutral300,
         width: 40,
         height: 4,
       }}
     >
       <BottomSheetView style={styles.container}>
         <View style={styles.header}>
-          <Typo
-            size={18}
-            fontWeight="600"
-            style={styles.titleText}
-            //numberOfLines={2}
-          >
+          <Typo size={18} fontWeight="600" style={styles.titleText}>
             {selectedText}
           </Typo>
         </View>
@@ -147,12 +141,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacingX._20,
     paddingTop: spacingY._7,
-    backgroundColor: colors.neutral50,
   },
   header: {
     paddingBottom: spacingY._20,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral200,
+    borderBottomColor: colors.neutral100,
     marginBottom: spacingY._12,
   },
   titleText: {
@@ -172,13 +165,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacingY._15,
     paddingHorizontal: spacingX._15,
     borderWidth: 1,
-    borderColor: colors.neutral200,
+    borderColor: colors.neutral100,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
     },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.03,
     shadowRadius: 4,
     elevation: 1,
   },
@@ -186,7 +179,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: colors.neutral100,
+    backgroundColor: colors.neutral50,
     justifyContent: "center",
     alignItems: "center",
     marginRight: spacingX._12,

@@ -130,6 +130,8 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       dueDate: dueDate,
       difficulty: selectedDifficulty!,
       updatedDate: new Date().toISOString(),
+      appliedPriceChange: 0,
+      appliedPercentage: 0,
     };
 
     const res = await addTaskFirebase(newTask, user.uid!, taskType);
@@ -269,7 +271,30 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       ...taskList[taskIndex],
       completed: !taskList[taskIndex].completed,
       updatedDate: new Date().toISOString().split("T")[0],
+      appliedPriceChange: taskList[taskIndex].completed
+        ? Math.round(
+            (taskList[taskIndex].appliedPriceChange -
+              taskList[taskIndex].priceChange) *
+              10
+          ) / 10
+        : Math.round(
+            (taskList[taskIndex].appliedPriceChange +
+              taskList[taskIndex].priceChange) *
+              10
+          ) / 10,
+      appliedPercentage: taskList[taskIndex].completed
+        ? Math.round(
+            (taskList[taskIndex].appliedPercentage -
+              taskList[taskIndex].percentage) *
+              10
+          ) / 10
+        : Math.round(
+            (taskList[taskIndex].appliedPercentage +
+              taskList[taskIndex].percentage) *
+              10
+          ) / 10,
     };
+
     const updatedTaskList = [...taskList];
     updatedTaskList[taskIndex] = updatedTask;
 
