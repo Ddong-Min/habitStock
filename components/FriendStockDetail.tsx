@@ -6,7 +6,6 @@ import FriendStock from "@/components/FriendStock";
 import Typo from "@/components/Typo";
 import { useState, useEffect } from "react";
 import { useStock } from "@/contexts/stockContext";
-
 import NewsDetail from "@/components/NewsDetail";
 import YearHeader from "@/components/YearHeader";
 import { verticalScale } from "@/utils/styling";
@@ -15,6 +14,7 @@ import { useFollow } from "@/contexts/followContext";
 import { spacingY, spacingX, radius } from "../constants/theme";
 import { colors } from "../constants/theme";
 import FollowingProfile from "./FollowingProfile";
+import { useTheme } from "@/contexts/themeContext";
 
 const FriendStockDetail = ({
   followId,
@@ -23,6 +23,7 @@ const FriendStockDetail = ({
   followId: string;
   onBack: () => void;
 }) => {
+  const { theme } = useTheme();
   const {
     selectedPeriod,
     changeSelectedPeriod,
@@ -31,11 +32,17 @@ const FriendStockDetail = ({
   } = useStock();
   const { loadDetailFriendInfo, selectedFollowId } = useFollow();
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
-  //처음 컴포넌트를 렌더링할때만 전체 주식 데이터를 불러옴
+
   if (!friendStockData) {
-    // stockData가 undefined일 때 렌더링을 방지하거나 대체 UI를 보여줄 수 있습니다.
-    return <Typo>No stock data available</Typo>;
+    return (
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <Typo color={theme.text}>No stock data available</Typo>
+      </View>
+    );
   }
+
   useEffect(() => {
     loadDetailFriendInfo();
   }, [selectedFollowId]);
@@ -133,86 +140,66 @@ const FriendStockDetail = ({
       fullDate: "2022-06-18",
     },
   ];
+
   const handleNewsPress = (item: any) => {
     setSelectedItem(item);
   };
 
-  // 상세화면 뒤로가기
   const handleBack = () => {
     setSelectedItem(null);
   };
-  // ✅ 선택된 아이템 있으면 상세 화면 보여주기
+
   if (selectedItem) {
     return <NewsDetail item={selectedItem} onBack={handleBack} />;
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "white" }}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme.cardBackground,
+            borderBottomColor: theme.neutral200,
+          },
+        ]}
+      >
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+          <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Typo size={18} fontWeight={"600"}>
+        <Typo size={18} fontWeight={"600"} color={theme.text}>
           친구 주식 상세
         </Typo>
         <View style={{ width: 24 }} />
       </View>
       <FollowingProfile />
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={[styles.content, { backgroundColor: theme.background }]}
+      >
         <CustomChart stockData={friendStockData[followId]} />
-        <View style={styles.periodButtonContainer}>
-          <TouchableOpacity
-            style={[
-              styles.periodButton,
-              selectedPeriod === "day" && styles.periodButtonActive,
-            ]}
-            onPress={() => changeSelectedPeriod("day")}
-          >
-            <Typo color={selectedPeriod === "day" ? colors.white : colors.text}>
-              일
-            </Typo>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.periodButton,
-              selectedPeriod === "week" && styles.periodButtonActive,
-            ]}
-            onPress={() => changeSelectedPeriod("week")}
-          >
-            <Typo
-              color={selectedPeriod === "week" ? colors.white : colors.text}
-            >
-              주
-            </Typo>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.periodButton,
-              selectedPeriod === "month" && styles.periodButtonActive,
-            ]}
-            onPress={() => changeSelectedPeriod("month")}
-          >
-            <Typo
-              color={selectedPeriod === "month" ? colors.white : colors.text}
-            >
-              월
-            </Typo>
-          </TouchableOpacity>
-        </View>
         <View style={styles.section}>
           <YearHeader year={(2025).toString()} />
           {newsItems2022.map((item, index) => (
             <TouchableOpacity
               key={`2022-${index}`}
-              style={styles.newsItem}
+              style={[styles.newsItem, { borderBottomColor: theme.neutral200 }]}
               onPress={() => handleNewsPress(item)}
+              activeOpacity={0.7}
             >
-              <Typo size={18} fontWeight="600" style={styles.newsTime}>
+              <Typo
+                size={18}
+                fontWeight="600"
+                style={styles.newsTime}
+                color={theme.textLight}
+              >
                 {item.date}
               </Typo>
-              <Typo size={20} fontWeight="600" style={styles.newsTitle}>
+              <Typo
+                size={20}
+                fontWeight="600"
+                style={styles.newsTitle}
+                color={theme.text}
+              >
                 {item.title}
               </Typo>
             </TouchableOpacity>
@@ -224,28 +211,13 @@ const FriendStockDetail = ({
 };
 
 const styles = StyleSheet.create({
-  periodButtonContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacingY._5,
-    paddingHorizontal: spacingX._25,
-    gap: spacingX._10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.sub,
-  },
-  periodButton: {
-    paddingHorizontal: spacingX._10,
-    paddingVertical: spacingY._7,
-    borderRadius: radius._10,
-    backgroundColor: colors.neutral100,
-    alignItems: "center",
-  },
-  periodButtonActive: {
-    backgroundColor: colors.blue100,
-  },
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   content: {
     flex: 1,
@@ -260,16 +232,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacingY._30,
     gap: spacingX._15,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
   },
   newsTime: {
     fontSize: verticalScale(18),
-    color: "#9CA3AF",
   },
   newsTitle: {
     flex: 1,
     fontSize: verticalScale(20),
-    color: "#374151",
     lineHeight: verticalScale(22),
   },
   header: {
@@ -279,10 +248,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacingX._15,
     paddingVertical: spacingY._15,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
   },
   backButton: {
     padding: spacingX._5,
   },
 });
+
 export default FriendStockDetail;

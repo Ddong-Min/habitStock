@@ -11,9 +11,10 @@ import {
 } from "react-native";
 import React from "react";
 import { useFollow } from "../../contexts/followContext";
-import { colors } from "@/constants/theme";
+import { useTheme } from "@/contexts/themeContext";
 
 const Search = () => {
+  const { theme } = useTheme();
   const {
     searchQuery,
     setSearchQuery,
@@ -32,7 +33,10 @@ const Search = () => {
     const following = isFollowing(item.uid);
 
     return (
-      <TouchableOpacity style={styles.userCard} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={[styles.userCard, { backgroundColor: theme.cardBackground }]}
+        activeOpacity={0.7}
+      >
         <Image
           source={{
             uri: item.photoURL || "https://via.placeholder.com/60",
@@ -40,27 +44,52 @@ const Search = () => {
           style={styles.avatar}
         />
         <View style={styles.userInfo}>
-          <Text style={styles.userName} numberOfLines={1}>
+          <Text
+            style={[styles.userName, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {item.name}
           </Text>
-          <Text style={styles.username} numberOfLines={1}>
+          <Text
+            style={[styles.username, { color: theme.textLight }]}
+            numberOfLines={1}
+          >
             @{item.email}
           </Text>
           {item.bio && (
-            <Text style={styles.bio} numberOfLines={1}>
+            <Text
+              style={[styles.bio, { color: theme.textLighter }]}
+              numberOfLines={1}
+            >
               {item.bio}
             </Text>
           )}
-          <Text style={styles.followers}>
+          <Text style={[styles.followers, { color: theme.textLighter }]}>
             {item.followersCount || 0} followers
           </Text>
         </View>
         <TouchableOpacity
-          style={[styles.followBtn, following && styles.followingBtn]}
+          style={[
+            styles.followBtn,
+            { backgroundColor: theme.blue100 },
+            following && [
+              styles.followingBtn,
+              {
+                backgroundColor: theme.neutral100,
+                borderColor: theme.neutral300,
+              },
+            ],
+          ]}
           onPress={() => toggleFollow(item.uid)}
         >
           <Text
-            style={[styles.followBtnText, following && styles.followingBtnText]}
+            style={[
+              styles.followBtnText,
+              following && [
+                styles.followingBtnText,
+                { color: theme.textLight },
+              ],
+            ]}
           >
             {following ? "Following" : "Follow"}
           </Text>
@@ -70,16 +99,23 @@ const Search = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
+      <View
+        style={[
+          styles.searchContainer,
+          {
+            backgroundColor: theme.cardBackground,
+            borderBottomColor: theme.neutral200,
+          },
+        ]}
+      >
+        <View style={[styles.searchBar, { backgroundColor: theme.neutral100 }]}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.text }]}
             placeholder="이메일과 이름으로 검색하세요."
-            placeholderTextColor="#999"
+            placeholderTextColor={theme.textLight}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
@@ -87,7 +123,9 @@ const Search = () => {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Text style={styles.clearBtn}>✕</Text>
+              <Text style={[styles.clearBtn, { color: theme.textLight }]}>
+                ✕
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -96,7 +134,7 @@ const Search = () => {
       {/* Loading Indicator */}
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.main} />
+          <ActivityIndicator size="large" color={theme.blue100} />
         </View>
       )}
 
@@ -108,23 +146,29 @@ const Search = () => {
         contentContainerStyle={styles.listContainer}
         ListHeaderComponent={
           !searchQuery ? (
-            <Text style={styles.sectionTitle}>Suggested for you</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Suggested for you
+            </Text>
           ) : null
         }
         ListEmptyComponent={
           !loading && searchQuery ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={styles.emptyText}>No users found</Text>
-              <Text style={styles.emptySubtext}>
+              <Text style={[styles.emptyText, { color: theme.text }]}>
+                No users found
+              </Text>
+              <Text style={[styles.emptySubtext, { color: theme.textLight }]}>
                 Try searching for different keywords
               </Text>
             </View>
           ) : !loading && !searchQuery ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>👥</Text>
-              <Text style={styles.emptyText}>Discover new friends</Text>
-              <Text style={styles.emptySubtext}>
+              <Text style={[styles.emptyText, { color: theme.text }]}>
+                Discover new friends
+              </Text>
+              <Text style={[styles.emptySubtext, { color: theme.textLight }]}>
                 Search for users to follow
               </Text>
             </View>
@@ -141,32 +185,15 @@ export default Search;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
-  },
-  header: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#1F2937",
   },
   searchContainer: {
-    backgroundColor: "#fff",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 48,
@@ -178,12 +205,10 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: "#1F2937",
     paddingVertical: 0,
   },
   clearBtn: {
     fontSize: 20,
-    color: "#9CA3AF",
     paddingHorizontal: 8,
   },
   loadingContainer: {
@@ -197,13 +222,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#1F2937",
     marginBottom: 16,
   },
   userCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
@@ -227,25 +250,20 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1F2937",
     marginBottom: 2,
   },
   username: {
     fontSize: 14,
-    color: "#6B7280",
     marginBottom: 4,
   },
   bio: {
     fontSize: 13,
-    color: "#9CA3AF",
     marginBottom: 4,
   },
   followers: {
     fontSize: 12,
-    color: "#9CA3AF",
   },
   followBtn: {
-    backgroundColor: "#007AFF",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -253,9 +271,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   followingBtn: {
-    backgroundColor: "#F3F4F6",
     borderWidth: 1,
-    borderColor: "#D1D5DB",
   },
   followBtnText: {
     color: "#fff",
@@ -263,7 +279,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   followingBtnText: {
-    color: "#6B7280",
+    // color는 인라인으로 적용
   },
   emptyContainer: {
     alignItems: "center",
@@ -277,12 +293,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#1F2937",
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#9CA3AF",
     textAlign: "center",
   },
 });

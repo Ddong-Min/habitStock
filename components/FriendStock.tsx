@@ -12,8 +12,10 @@ import { verticalScale } from "@/utils/styling";
 import { useFollow } from "@/contexts/followContext";
 import { useStock } from "@/contexts/stockContext";
 import { useCalendar } from "@/contexts/calendarContext";
+import { useTheme } from "@/contexts/themeContext";
 
 const FriendStock: React.FC<{}> = () => {
+  const { theme } = useTheme();
   const { followingUsers, changeSelectedFollowId } = useFollow();
   const { friendStockData } = useStock();
   const { today } = useCalendar();
@@ -33,7 +35,7 @@ const FriendStock: React.FC<{}> = () => {
         name: user!.name || "Unknown",
         price: user!.price || 0,
         percentage: stockData ? stockData.changeRate : 0,
-        avatarColor: "#E8E8E8",
+        avatarColor: theme.neutral200,
         changePrice: stockData ? stockData.changePrice : 0,
         uid: user?.uid || "",
       };
@@ -41,18 +43,20 @@ const FriendStock: React.FC<{}> = () => {
 
     setFriends(loadedFriends);
     setIsLoading(false);
-  }, [friendStockData, followingUsers, today]);
+  }, [friendStockData, followingUsers, today, theme]);
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.main} />
+      <View
+        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
+      >
+        <ActivityIndicator size="large" color={theme.blue100} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -60,19 +64,30 @@ const FriendStock: React.FC<{}> = () => {
         {friends.map((friend, index) => (
           <TouchableOpacity
             key={index}
-            style={styles.friendItem}
+            style={[
+              styles.friendItem,
+              { backgroundColor: theme.cardBackground },
+            ]}
             onPress={() => changeSelectedFollowId(friend.uid)}
             activeOpacity={0.7}
           >
             <View style={styles.leftSection}>
               <View
-                style={[styles.avatar, { backgroundColor: friend.avatarColor }]}
+                style={[
+                  styles.avatar,
+                  {
+                    backgroundColor: friend.avatarColor,
+                    borderColor: theme.neutral200,
+                  },
+                ]}
               />
-              <Typo style={styles.name}>{friend.name}</Typo>
+              <Typo color={theme.text} style={styles.name}>
+                {friend.name}
+              </Typo>
             </View>
 
             <View style={styles.rightSection}>
-              <Typo style={styles.price}>
+              <Typo color={theme.text} style={styles.price}>
                 ₩ {friend.price.toLocaleString()}
               </Typo>
               <View
@@ -81,20 +96,20 @@ const FriendStock: React.FC<{}> = () => {
                   {
                     backgroundColor:
                       friend.changePrice > 0
-                        ? `${colors.red100}15`
+                        ? `${theme.red100}20`
                         : friend.changePrice === 0
-                        ? `${colors.neutral500}15`
-                        : `${colors.blue100}15`,
+                        ? `${theme.textLight}20`
+                        : `${theme.blue100}20`,
                   },
                 ]}
               >
                 <Typo
                   color={
                     friend.changePrice > 0
-                      ? colors.red100
+                      ? theme.red100
                       : friend.changePrice === 0
-                      ? colors.neutral500
-                      : colors.blue100
+                      ? theme.textLight
+                      : theme.blue100
                   }
                   style={styles.percentage}
                 >
@@ -117,7 +132,6 @@ const FriendStock: React.FC<{}> = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
   },
   scrollView: {
     flex: 1,
@@ -130,7 +144,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacingX._20,
     marginHorizontal: spacingX._10,
     marginVertical: spacingY._5,
-    backgroundColor: colors.white,
     borderRadius: 12,
     shadowColor: "#000",
     shadowOffset: {
@@ -153,12 +166,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: colors.neutral100,
   },
   name: {
     fontSize: verticalScale(18),
     fontWeight: "600",
-    color: colors.black,
     letterSpacing: -0.3,
   },
   rightSection: {
@@ -168,7 +179,6 @@ const styles = StyleSheet.create({
   price: {
     fontSize: verticalScale(17),
     fontWeight: "600",
-    color: colors.black,
     letterSpacing: -0.2,
   },
   changeBadge: {
@@ -184,7 +194,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.white,
   },
 });
 

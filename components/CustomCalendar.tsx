@@ -37,7 +37,7 @@ const CustomCalendar = () => {
   const calendarTheme = useMemo(
     () => ({
       backgroundColor: theme.cardBackground,
-      calendarBackground: theme.cardBackground,
+      calendarBackground: theme.neutral100,
       textSectionTitleColor: theme.textLight, // 요일 (일월화수목금토)
       selectedDayBackgroundColor: theme.blue100,
       selectedDayTextColor: theme.white,
@@ -70,20 +70,16 @@ const CustomCalendar = () => {
   );
 
   useEffect(() => {
-    if (hasInitialLoadedRef.current) {
-      if (!isWeekView && calendarListRef.current) {
-        calendarListRef.current.scrollToMonth(selectedDate);
-      }
-      loadStocks();
+    if (!isWeekView && calendarListRef.current) {
+      calendarListRef.current.scrollToMonth(selectedDate);
     }
-  }, [selectedDate, isWeekView]);
 
-  useEffect(() => {
-    if (user?.uid && user.price !== undefined && !hasInitialLoadedRef.current) {
-      hasInitialLoadedRef.current = true;
+    if (user?.uid && user.price !== undefined) {
       loadStocks();
     }
-  }, [user?.uid, user?.price]);
+  }, [selectedDate, isWeekView, user?.uid, user?.price, loadStocks]);
+
+  // 두 번째 useEffect는 제거
 
   return (
     <View style={[styles.container, { backgroundColor: theme.cardBackground }]}>
@@ -133,10 +129,7 @@ const CustomCalendar = () => {
             key={`week-calendar-${user?.isDarkMode}`}
             current={selectedDate}
             onDayPress={(day) => changeSelectedDate(day.dateString)}
-            style={[
-              styles.weekCalendar,
-              { backgroundColor: theme.cardBackground },
-            ]}
+            style={[styles.weekCalendar, { backgroundColor: theme.neutral100 }]}
             theme={calendarTheme}
             dayComponent={({ date }) => (
               <CustomDay
@@ -163,10 +156,7 @@ const CustomCalendar = () => {
           pastScrollRange={12}
           futureScrollRange={12}
           showScrollIndicator={false}
-          style={[
-            styles.calendarList,
-            { backgroundColor: theme.cardBackground },
-          ]}
+          style={[styles.calendarList, { backgroundColor: theme.neutral100 }]}
           dayComponent={({ date }) => (
             <CustomDay
               date={date ? date : { dateString: "", day: 0 }}

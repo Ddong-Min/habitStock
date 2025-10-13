@@ -15,6 +15,9 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useStock } from "@/contexts/stockContext";
 import { aggregateData } from "@/handler/aggregateData";
 import { StockDataByDateType } from "@/types";
+import Typo from "./Typo";
+import { useTheme } from "@/contexts/themeContext";
+
 type ChartType = "candle" | "line";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -47,7 +50,8 @@ const calculateMovingAverage = (
 const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
   stockData,
 }) => {
-  const { selectedPeriod } = useStock();
+  const { theme } = useTheme();
+  const { selectedPeriod, changeSelectedPeriod } = useStock();
   const [chartType, setChartType] = useState<ChartType>("candle");
 
   const [fullDataArray, setFullDataArray] = useState<
@@ -59,7 +63,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     const aggregated = aggregateData(stockData, selectedPeriod);
     setFullDataArray(aggregated);
   }, [stockData, selectedPeriod]);
-  console.log("Aggregated Data:", fullDataArray);
+
   const [visibleRange, setVisibleRange] = useState(30);
   const [scrollOffset, setScrollOffset] = useState(0);
 
@@ -247,47 +251,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
   };
 
   return (
-    <View style={styles.container}>
-      {/* 차트 타입 전환 버튼 */}
-      <View style={styles.chartTypeContainer}>
-        <View style={styles.chartTypeButtonContainer}>
-          <TouchableOpacity
-            style={[
-              styles.chartTypeButton,
-              chartType === "candle" && styles.chartTypeButtonActive,
-            ]}
-            onPress={() => setChartType("candle")}
-            activeOpacity={0.7}
-          >
-            <RNText
-              style={[
-                styles.chartTypeButtonText,
-                chartType === "candle" && styles.chartTypeButtonTextActive,
-              ]}
-            >
-              캔들차트
-            </RNText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.chartTypeButton,
-              chartType === "line" && styles.chartTypeButtonActive,
-            ]}
-            onPress={() => setChartType("line")}
-            activeOpacity={0.7}
-          >
-            <RNText
-              style={[
-                styles.chartTypeButtonText,
-                chartType === "line" && styles.chartTypeButtonTextActive,
-              ]}
-            >
-              라인차트
-            </RNText>
-          </TouchableOpacity>
-        </View>
-      </View>
-
+    <View style={[styles.container, { backgroundColor: theme.cardBackground }]}>
       <GestureDetector gesture={composedGesture}>
         <View>
           <Svg height={TOTAL_HEIGHT} width={SVG_WIDTH}>
@@ -297,7 +261,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               y1={candleXAxisY}
               x2={x1}
               y2={candleXAxisY}
-              stroke={colors.neutral300}
+              stroke={theme.neutral300}
               strokeWidth="1"
             />
             {/* 캔들 차트 Y축 */}
@@ -306,7 +270,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               y1={candleY0}
               x2={x1}
               y2={candleXAxisY}
-              stroke={colors.neutral300}
+              stroke={theme.neutral300}
               strokeWidth="1"
             />
             {/* X축 격자선과 날짜 레이블 */}
@@ -322,7 +286,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                       y1={candleY0}
                       x2={x}
                       y2={candleXAxisY}
-                      stroke={colors.neutral100}
+                      stroke={theme.neutral200}
                       strokeWidth="1"
                       strokeDasharray="3,3"
                     />
@@ -331,7 +295,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                       y1={volumeY0}
                       x2={x}
                       y2={volumeXAxisY}
-                      stroke={colors.neutral100}
+                      stroke={theme.neutral200}
                       strokeWidth="1"
                       strokeDasharray="3,3"
                     />
@@ -340,7 +304,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                       y={volumeXAxisY + spacingY._15}
                       textAnchor="middle"
                       fontSize={verticalScale(10)}
-                      fill={colors.neutral500}
+                      fill={theme.textLight}
                     >
                       {dataArray[index][0]
                         .split("-")
@@ -365,7 +329,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                     y1={y}
                     x2={x0}
                     y2={y}
-                    stroke={colors.neutral100}
+                    stroke={theme.neutral200}
                     strokeWidth="1"
                     strokeDasharray="3,3"
                   />
@@ -374,7 +338,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                     y={y + spacingY._5}
                     textAnchor="start"
                     fontSize={verticalScale(11)}
-                    fill={colors.neutral500}
+                    fill={theme.textLight}
                   >
                     {yValue.toLocaleString()}
                   </Text>
@@ -388,7 +352,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               y1={volumeXAxisY}
               x2={x1}
               y2={volumeXAxisY}
-              stroke={colors.neutral300}
+              stroke={theme.neutral300}
               strokeWidth="1"
             />
 
@@ -398,7 +362,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               y1={volumeY0}
               x2={x1}
               y2={volumeXAxisY}
-              stroke={colors.neutral300}
+              stroke={theme.neutral300}
               strokeWidth="1"
             />
 
@@ -415,7 +379,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                     x2={x0}
                     y1={y}
                     y2={y}
-                    stroke={colors.neutral100}
+                    stroke={theme.neutral200}
                     strokeWidth="1"
                     strokeDasharray="3,3"
                   />
@@ -424,7 +388,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                     x={x1 + spacingX._5}
                     y={y + 5}
                     textAnchor="start"
-                    fill={colors.neutral500}
+                    fill={theme.textLight}
                   >
                     {Math.abs(yValue)}
                   </Text>
@@ -442,7 +406,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                 const scaleY = scaleLinear()
                   .domain([candleYMin, candleYMax])
                   .range([candleY0, candleYAxisLength]);
-                const fill = open > close ? colors.blue100 : colors.red100;
+                const fill = open > close ? theme.blue100 : theme.red100;
 
                 const highY = CANDLE_HEIGHT - scaleY(high) - candleY0;
                 const lowY = CANDLE_HEIGHT - scaleY(low) - candleY0;
@@ -496,14 +460,14 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                 <Polyline
                   points={createLinePoints()}
                   fill="none"
-                  stroke={colors.blue100}
+                  stroke={theme.blue100}
                   strokeWidth="2.5"
                 />
                 {dataArray.map(
                   ([day, open, close, high, low, volume], index) => {
                     const x = x0 + index * barPlotWidth;
                     const sidePadding = barPlotWidth / 6;
-                    const fill = open > close ? colors.blue100 : colors.red100;
+                    const fill = open > close ? theme.blue100 : theme.red100;
 
                     const volumeScaleY = scaleLinear()
                       .domain([volumeYMin, volumeYMax])
@@ -581,13 +545,142 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
           </Svg>
         </View>
       </GestureDetector>
+      {/* 차트 타입 전환 버튼 */}
+      <View style={styles.chartControlContainer}>
+        {/* 왼쪽: 기간 선택 (일/주/월) */}
+        <View
+          style={[
+            styles.periodButtonContainer,
+            { backgroundColor: theme.neutral100 },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.periodButton,
+              selectedPeriod === "day" && [
+                styles.periodButtonActive,
+                { backgroundColor: theme.cardBackground },
+              ],
+            ]}
+            onPress={() => changeSelectedPeriod("day")}
+            activeOpacity={0.7}
+          >
+            <Typo
+              size={14}
+              fontWeight="600"
+              color={selectedPeriod === "day" ? theme.text : theme.textLight}
+              style={{ letterSpacing: -0.2 }}
+            >
+              일
+            </Typo>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.periodButton,
+              selectedPeriod === "week" && [
+                styles.periodButtonActive,
+                { backgroundColor: theme.cardBackground },
+              ],
+            ]}
+            onPress={() => changeSelectedPeriod("week")}
+            activeOpacity={0.7}
+          >
+            <Typo
+              size={14}
+              fontWeight="600"
+              color={selectedPeriod === "week" ? theme.text : theme.textLight}
+              style={{ letterSpacing: -0.2 }}
+            >
+              주
+            </Typo>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.periodButton,
+              selectedPeriod === "month" && [
+                styles.periodButtonActive,
+                { backgroundColor: theme.cardBackground },
+              ],
+            ]}
+            onPress={() => changeSelectedPeriod("month")}
+            activeOpacity={0.7}
+          >
+            <Typo
+              size={14}
+              fontWeight="600"
+              color={selectedPeriod === "month" ? theme.text : theme.textLight}
+              style={{ letterSpacing: -0.2 }}
+            >
+              월
+            </Typo>
+          </TouchableOpacity>
+        </View>
+
+        {/* 오른쪽: 차트 타입 선택 (캔들/라인) */}
+        <View
+          style={[
+            styles.chartTypeButtonContainer,
+            { backgroundColor: theme.neutral100 },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              styles.chartTypeButton,
+              chartType === "candle" && [
+                styles.chartTypeButtonActive,
+                { backgroundColor: theme.cardBackground },
+              ],
+            ]}
+            onPress={() => setChartType("candle")}
+            activeOpacity={0.7}
+          >
+            <RNText
+              style={[
+                styles.chartTypeButtonText,
+                { color: theme.textLight },
+                chartType === "candle" && [
+                  styles.chartTypeButtonTextActive,
+                  { color: theme.text },
+                ],
+              ]}
+            >
+              캔들차트
+            </RNText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.chartTypeButton,
+              chartType === "line" && [
+                styles.chartTypeButtonActive,
+                { backgroundColor: theme.cardBackground },
+              ],
+            ]}
+            onPress={() => setChartType("line")}
+            activeOpacity={0.7}
+          >
+            <RNText
+              style={[
+                styles.chartTypeButtonText,
+                { color: theme.textLight },
+                chartType === "line" && [
+                  styles.chartTypeButtonTextActive,
+                  { color: theme.text },
+                ],
+              ]}
+            >
+              라인차트
+            </RNText>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.white,
     marginHorizontal: spacingX._10,
     marginVertical: spacingY._7,
     borderRadius: 16,
@@ -601,25 +694,26 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  chartTypeContainer: {
+  chartControlContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: spacingX._20,
     paddingBottom: spacingY._15,
   },
   chartTypeButtonContainer: {
     flexDirection: "row",
-    backgroundColor: colors.neutral100,
     borderRadius: 10,
     padding: 4,
   },
   chartTypeButton: {
-    flex: 1,
+    paddingHorizontal: 12,
     paddingVertical: spacingY._7,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 8,
   },
   chartTypeButtonActive: {
-    backgroundColor: colors.white,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -631,13 +725,33 @@ const styles = StyleSheet.create({
   },
   chartTypeButtonText: {
     fontSize: verticalScale(13),
-    color: colors.neutral500,
     fontWeight: "500",
     letterSpacing: -0.2,
   },
   chartTypeButtonTextActive: {
-    color: colors.black,
     fontWeight: "600",
+  },
+  periodButtonContainer: {
+    flexDirection: "row",
+    borderRadius: 10,
+    padding: 4,
+  },
+  periodButton: {
+    width: 38,
+    paddingVertical: spacingY._7,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+  },
+  periodButtonActive: {
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
   },
 });
 

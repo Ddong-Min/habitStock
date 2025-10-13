@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
-import { radius, spacingX, spacingY } from "@/constants/theme";
+import { colors, radius, spacingX, spacingY } from "@/constants/theme";
 import DifficultyHeader from "./DifficultyHeader";
 import { useTasks } from "@/contexts/taskContext";
 import { scale, verticalScale } from "@/utils/styling";
@@ -119,7 +119,10 @@ const TaskList: React.FC<{
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
-        style={[styles.container, { backgroundColor: theme.background }]}
+        style={[
+          styles.container,
+          { backgroundColor: theme.background, borderColor: theme.neutral200 },
+        ]}
         contentContainerStyle={{
           paddingBottom:
             Platform.OS === "ios" ? verticalScale(150) : verticalScale(140),
@@ -258,6 +261,7 @@ const TaskList: React.FC<{
 
 const styles = StyleSheet.create({
   container: {
+    borderTopWidth: 1,
     flex: 1,
     paddingHorizontal: spacingX._20,
   },

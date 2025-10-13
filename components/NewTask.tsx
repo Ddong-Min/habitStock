@@ -4,8 +4,10 @@ import { useTasks } from "@/contexts/taskContext";
 import { useCalendar } from "@/contexts/calendarContext";
 import { Feather } from "@expo/vector-icons";
 import { verticalScale } from "@/utils/styling";
-import { colors, radius, spacingX, spacingY } from "@/constants/theme";
+import { radius, spacingX, spacingY } from "@/constants/theme";
 import { difficultyColors } from "@/constants/theme";
+import { useTheme } from "@/contexts/themeContext";
+
 const NewTask = () => {
   const {
     taskType,
@@ -22,19 +24,22 @@ const NewTask = () => {
     selectedDifficulty,
   } = useTasks();
   const { selectedDate } = useCalendar();
+  const { theme, isDarkMode } = useTheme();
 
   return (
     <View style={styles.container}>
       <View style={styles.taskRow}>
-        <View style={styles.emptyCheckBox} />
+        <View
+          style={[styles.emptyCheckBox, { borderColor: theme.neutral200 }]}
+        />
 
         <View style={styles.inputWrapper}>
           <TextInput
             placeholder="할 일 입력"
-            placeholderTextColor={colors.neutral300}
+            placeholderTextColor={theme.neutral300}
             value={newTaskText}
             onChangeText={putTaskText}
-            style={styles.textInput}
+            style={[styles.textInput, { color: theme.text }]}
             autoFocus
             onSubmitEditing={() =>
               isEditText
@@ -48,7 +53,10 @@ const NewTask = () => {
             style={[
               styles.underline,
               {
-                backgroundColor: difficultyColors(selectedDifficulty ?? "easy"),
+                backgroundColor: difficultyColors(
+                  selectedDifficulty ?? "easy",
+                  isDarkMode
+                ),
               },
             ]}
           />
@@ -66,7 +74,7 @@ const NewTask = () => {
             style={styles.actionButton}
             activeOpacity={0.6}
           >
-            <Feather name="check" size={18} color={colors.neutral600} />
+            <Feather name="check" size={18} color={theme.neutral600} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -78,7 +86,7 @@ const NewTask = () => {
             style={styles.actionButton}
             activeOpacity={0.6}
           >
-            <Feather name="x" size={18} color={colors.neutral600} />
+            <Feather name="x" size={18} color={theme.neutral600} />
           </TouchableOpacity>
         </View>
       </View>
@@ -103,7 +111,6 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: colors.neutral200,
     marginRight: spacingX._12,
   },
   inputWrapper: {
@@ -111,14 +118,12 @@ const styles = StyleSheet.create({
   },
   textInput: {
     fontSize: verticalScale(15),
-    color: colors.black,
     padding: 0,
     margin: 0,
     paddingBottom: spacingY._5,
   },
   underline: {
     height: 1,
-
     marginTop: spacingY._2,
   },
   rightActions: {

@@ -10,8 +10,10 @@ import { useNews } from "@/contexts/newsContext";
 import NewsDetail from "@/components/NewsDetail";
 import { useStock } from "@/contexts/stockContext";
 import Profile from "@/components/Profile";
+import { useTheme } from "@/contexts/themeContext";
 
 const news = () => {
+  const { theme } = useTheme();
   const [selectedYear, setSelectedYear] = useState(2025);
   const { myNews, loadMyNews, selectNews, selectedNews } = useNews();
   const { loadAllStocks } = useStock();
@@ -36,10 +38,10 @@ const news = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Profile type="news" />
       <ScrollView
-        style={styles.content}
+        style={[styles.content, { backgroundColor: theme.background }]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingBottom: verticalScale(140), // TabBar + 광고 공간
@@ -51,15 +53,28 @@ const news = () => {
           {myNews.map((item, index) => (
             <TouchableOpacity
               key={`news-${item.id}`}
-              style={styles.newsItem}
+              style={[
+                styles.newsItem,
+                { backgroundColor: theme.cardBackground },
+              ]}
               onPress={() => handleNewsPress(item)}
               activeOpacity={0.7}
             >
               <View style={styles.newsContent}>
-                <Typo size={14} fontWeight="500" style={styles.newsTime}>
+                <Typo
+                  size={14}
+                  fontWeight="500"
+                  style={styles.newsTime}
+                  color={theme.textLight}
+                >
                   {item.date}
                 </Typo>
-                <Typo size={16} fontWeight="600" style={styles.newsTitle}>
+                <Typo
+                  size={16}
+                  fontWeight="600"
+                  style={styles.newsTitle}
+                  color={theme.text}
+                >
                   {item.title}
                 </Typo>
               </View>
@@ -68,7 +83,7 @@ const news = () => {
 
           {myNews.length === 0 && (
             <View style={{ paddingVertical: 60, alignItems: "center" }}>
-              <Typo color={colors.neutral400} size={15}>
+              <Typo color={theme.textLight} size={15}>
                 아직 뉴스가 없습니다
               </Typo>
             </View>
@@ -84,18 +99,15 @@ export default news;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral50,
   },
   content: {
     flex: 1,
-    backgroundColor: colors.neutral50,
   },
   section: {
     paddingHorizontal: spacingX._20,
     paddingVertical: spacingY._12,
   },
   newsItem: {
-    backgroundColor: colors.white,
     borderRadius: 12,
     paddingVertical: spacingY._15,
     paddingHorizontal: spacingX._15,
@@ -113,11 +125,9 @@ const styles = StyleSheet.create({
     gap: spacingY._7,
   },
   newsTime: {
-    color: colors.neutral400,
     letterSpacing: -0.2,
   },
   newsTitle: {
-    color: colors.black,
     lineHeight: verticalScale(20),
     letterSpacing: -0.3,
   },
