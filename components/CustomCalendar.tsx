@@ -26,7 +26,6 @@ const CustomCalendar = () => {
     onVisibleMonthsChange,
     changeSelectedDate,
   } = useCalendar();
-  const { loadStocks } = useStock();
   const calendarListRef = useRef<{ scrollToMonth: (date: string) => void }>(
     null
   );
@@ -73,11 +72,7 @@ const CustomCalendar = () => {
     if (!isWeekView && calendarListRef.current) {
       calendarListRef.current.scrollToMonth(selectedDate);
     }
-
-    if (user?.uid && user.price !== undefined) {
-      loadStocks();
-    }
-  }, [selectedDate, isWeekView, user?.uid, user?.price, loadStocks]);
+  }, [selectedDate, user?.uid, user?.price]);
 
   // 두 번째 useEffect는 제거
 

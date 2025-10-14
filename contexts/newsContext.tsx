@@ -10,6 +10,8 @@ import * as newsApi from "../api/newsApi";
 import { useAuth } from "./authContext";
 import { Alert } from "react-native";
 import { getAuth } from "firebase/auth";
+import { useFollow } from "./followContext";
+
 interface NewsContextType {
   // 상태
   currentUserId: string | null;
@@ -18,10 +20,13 @@ interface NewsContextType {
   selectedNews: newsApi.NewsItem | null;
   comments: newsApi.Comment[];
   loading: boolean;
+  selectedYear: number;
+  followingSelectedYear: number; // 팔로잉 뉴스용 년도
+  years: number[];
 
   // 함수
   loadMyNews: (year?: number) => Promise<void>;
-  loadFollowingNews: () => Promise<void>;
+  loadFollowingNews: (year?: number) => Promise<void>;
   createNews: (
     taskId: string,
     dueDate: string,
@@ -40,6 +45,8 @@ interface NewsContextType {
     commentId: string
   ) => Promise<void>;
   loadComments: (newsUserId: string, newsId: string) => Promise<void>;
+  setSelectedYear: (year: number) => void;
+  setFollowingSelectedYear: (year: number) => void; // 팔로잉 년도 선택
 }
 
 const NewsContext = createContext<NewsContextType | undefined>(undefined);
@@ -54,7 +61,18 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
   );
   const [comments, setComments] = useState<newsApi.Comment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number>(
+    new Date().getFullYear()
+  );
+  const [followingSelectedYear, setFollowingSelectedYear] = useState<number>(
+    new Date().getFullYear()
+  );
   const { user } = useAuth();
+  const { selectedFollowId } = useFollow();
+
+  const years = Array.from([
+    2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030,
+  ]);
 
   // 현재 사용자 정보 가져오기
   useEffect(() => {
@@ -70,8 +88,10 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       try {
         let news;
-        if (year) {
-          news = await newsApi.getUserNewsByYear(currentUserId, year);
+        const targetYear = year ?? selectedYear;
+
+        if (targetYear) {
+          news = await newsApi.getUserNewsByYear(currentUserId, targetYear);
         } else {
           news = await newsApi.getUserNews(currentUserId);
         }
@@ -82,23 +102,50 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
       }
     },
-    [currentUserId]
+    [currentUserId, selectedYear]
   );
 
-  // 팔로잉 뉴스 로드
-  const loadFollowingNews = useCallback(async () => {
-    if (!currentUserId) return;
-
-    setLoading(true);
-    try {
-      const news = await newsApi.getFollowingNewsFeed(currentUserId, 50);
-      setFollowingNews(news);
-    } catch (error) {
-      console.error("팔로잉 뉴스 로드 실패:", error);
-    } finally {
-      setLoading(false);
+  // selectedYear가 변경되면 자동으로 뉴스 로드
+  useEffect(() => {
+    if (currentUserId) {
+      loadMyNews();
     }
-  }, [currentUserId]);
+  }, [selectedYear, currentUserId]);
+
+  // 팔로잉 뉴스 로드 (년도 지원)
+  const loadFollowingNews = useCallback(
+    async (year?: number) => {
+      if (!currentUserId) return;
+      if (!selectedFollowId) return;
+      setLoading(true);
+      try {
+        let news;
+        const targetYear = year ?? followingSelectedYear;
+        if (targetYear) {
+          news = await newsApi.getFollowingNewsFeed(
+            selectedFollowId,
+            targetYear
+          );
+        } else {
+          news = await newsApi.getFollowingNewsFeed(selectedFollowId);
+        }
+
+        setFollowingNews(news);
+      } catch (error) {
+        console.error("팔로잉 뉴스 로드 실패:", error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentUserId, followingSelectedYear, selectedFollowId]
+  );
+
+  // followingSelectedYear가 변경되면 자동으로 팔로잉 뉴스 로드
+  useEffect(() => {
+    if (selectedFollowId && currentUserId) {
+      loadFollowingNews();
+    }
+  }, [followingSelectedYear, currentUserId, selectedFollowId]);
 
   // 뉴스 생성
   const createNews = useCallback(
@@ -106,7 +153,6 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
       if (!currentUserId || !currentUserData) return;
 
       try {
-        // AI로 뉴스 생성
         if (useAI) {
           const auth = getAuth();
           const user = auth.currentUser;
@@ -116,10 +162,7 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
             return;
           }
 
-          // ID 토큰 가져오기
           const token = await user.getIdToken();
-
-          // Functions URL 구성
           const functionsUrl = `https://asia-northeast3-habitstock-618dd.cloudfunctions.net/manualGenerateNews`;
           const params = new URLSearchParams({
             userId: currentUserId,
@@ -127,7 +170,6 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
             date: dueDate,
           });
 
-          // API 호출
           const response = await fetch(`${functionsUrl}?${params.toString()}`, {
             method: "GET",
             headers: {
@@ -146,7 +188,6 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
           Alert.alert("오류", "아직 구현되지 않은 기능입니다.");
         }
 
-        // 뉴스 목록 새로고침
         await loadMyNews();
       } catch (error) {
         console.error("뉴스 생성 실패:", error);
@@ -206,7 +247,6 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
           content,
         });
 
-        // 댓글 목록 새로고침
         await loadComments(newsUserId, newsId);
       } catch (error) {
         console.error("댓글 작성 실패:", error);
@@ -237,6 +277,9 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     selectedNews,
     comments,
     loading,
+    selectedYear,
+    followingSelectedYear,
+    years,
     loadMyNews,
     loadFollowingNews,
     createNews,
@@ -245,6 +288,8 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     addComment,
     deleteComment,
     loadComments,
+    setSelectedYear,
+    setFollowingSelectedYear,
   };
 
   return <NewsContext.Provider value={value}>{children}</NewsContext.Provider>;

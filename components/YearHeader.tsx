@@ -13,16 +13,12 @@ import Typo from "./Typo";
 import { colors, spacingY, spacingX } from "@/constants/theme";
 import { verticalScale } from "@/utils/styling";
 import { useTheme } from "@/contexts/themeContext";
+import { useNews } from "@/contexts/newsContext";
 
 const YearHeader = ({ year, style }: { year: string; style?: ViewStyle }) => {
   const { theme } = useTheme();
   const [expanded, setExpanded] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(parseInt(year));
-
-  const years = Array.from([
-    2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030,
-  ]);
-  const { changeSelectedDate } = useCalendar();
+  const { selectedYear, setSelectedYear, years } = useNews();
 
   return (
     <View style={{ position: "relative", ...style }}>
@@ -88,7 +84,6 @@ const YearHeader = ({ year, style }: { year: string; style?: ViewStyle }) => {
                     },
                   ]}
                   onPress={() => {
-                    changeSelectedDate(`${y}`);
                     setSelectedYear(y);
                     setExpanded(false);
                   }}

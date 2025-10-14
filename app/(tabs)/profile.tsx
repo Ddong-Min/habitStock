@@ -6,16 +6,16 @@ import {
   Image,
   Switch,
   Alert,
-  TextInput,
   StyleSheet,
   Text,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/authContext";
 import { doc, updateDoc } from "firebase/firestore";
 import { firestore } from "@/config/firebase";
-import { colors } from "@/constants/theme";
 import { useTheme } from "@/contexts/themeContext";
+import { router } from "expo-router";
 
 const Profile: React.FC = () => {
   const { theme } = useTheme();
@@ -38,8 +38,10 @@ const Profile: React.FC = () => {
   const [bio, setBio] = useState(user?.bio || "");
   const [darkMode, setDarkMode] = useState(user?.isDarkMode || false);
   const [notifications, setNotifications] = useState(user?.allowAlarm || false);
-  const [deadlineTime, setDeadlineTime] = useState(user?.duetime || "00:00");
+  const [deadlineTime, setDeadlineTime] = useState(user?.duetime || "24:00");
   const [words, setWords] = useState(user?.words || "한국어");
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [selectedHour, setSelectedHour] = useState(24);
 
   // Firebase에 설정 저장하는 공통 함수
   const updateUserSettings = async (field: string, value: any) => {
@@ -119,26 +121,29 @@ const Profile: React.FC = () => {
     await updateUserSettings("allowAlarm", value);
   };
 
-  // 마감시간 변경
+  // 마감시간 변경 - 모달 열기
   const handleDeadlineChange = () => {
-    Alert.prompt(
-      "마감 시간 설정",
-      "시간을 입력하세요 (예: 23:59)",
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "변경",
-          onPress: async (newTime) => {
-            if (newTime) {
-              setDeadlineTime(newTime);
-              await updateUserSettings("duetime", newTime);
-            }
-          },
-        },
-      ],
-      "plain-text",
-      deadlineTime
-    );
+    const hour = parseInt(deadlineTime.split(":")[0]);
+    setSelectedHour(hour);
+    setShowTimePicker(true);
+  };
+
+  // 시간 선택 확인
+  const handleTimeConfirm = async () => {
+    const timeString = `${selectedHour.toString().padStart(2, "0")}:00`;
+    setDeadlineTime(timeString);
+    await updateUserSettings("duetime", timeString);
+    setShowTimePicker(false);
+  };
+
+  // 시간 증가
+  const handleIncreaseHour = () => {
+    setSelectedHour((prev) => (prev === 24 ? 0 : prev + 1));
+  };
+
+  // 시간 감소
+  const handleDecreaseHour = () => {
+    setSelectedHour((prev) => (prev === 0 ? 24 : prev - 1));
   };
 
   // 언어 변경
@@ -170,6 +175,7 @@ const Profile: React.FC = () => {
         style: "destructive",
         onPress: () => {
           logout();
+          router.replace("/login");
         },
       },
     ]);
@@ -362,6 +368,79 @@ const Profile: React.FC = () => {
           </View>
         </TouchableOpacity>
       </View>
+
+      {/* 시간 선택 모달 */}
+      <Modal
+        visible={showTimePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTimePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardBackground },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              마감 시간 설정
+            </Text>
+
+            {/* 디지털 시계 스타일 */}
+            <View style={styles.clockContainer}>
+              <TouchableOpacity
+                style={styles.arrowButton}
+                onPress={handleIncreaseHour}
+              >
+                <Ionicons name="chevron-up" size={40} color={theme.blue100} />
+              </TouchableOpacity>
+
+              <View
+                style={[
+                  styles.timeDisplay,
+                  { backgroundColor: theme.background },
+                ]}
+              >
+                <Text style={[styles.timeText, { color: theme.text }]}>
+                  {selectedHour.toString().padStart(2, "0")}:00
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.arrowButton}
+                onPress={handleDecreaseHour}
+              >
+                <Ionicons name="chevron-down" size={40} color={theme.blue100} />
+              </TouchableOpacity>
+            </View>
+
+            {/* 버튼 */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: theme.neutral200 },
+                ]}
+                onPress={() => setShowTimePicker(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.text }]}>
+                  취소
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: theme.blue100 }]}
+                onPress={handleTimeConfirm}
+              >
+                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                  확인
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -446,6 +525,55 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "80%",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 24,
+  },
+  clockContainer: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  arrowButton: {
+    padding: 8,
+  },
+  timeDisplay: {
+    paddingVertical: 20,
+    paddingHorizontal: 40,
+    borderRadius: 16,
+    marginVertical: 16,
+  },
+  timeText: {
+    fontSize: 48,
+    fontWeight: "bold",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
 

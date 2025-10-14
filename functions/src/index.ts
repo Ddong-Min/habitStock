@@ -18,26 +18,60 @@ setGlobalOptions({
 // 주가 하락 계산 및 적용
 async function calculateStockPenalty(
   userId: string,
-  date: string,
+  date: string, // YYYY-MM-DD 형식의 날짜
   incompleteTasks: any[],
   completedTasks: any[],
   currentPrice: number
 ) {
   try {
-    // 각 미완료 할일의 changePrice와 changeRate 합산
+    const todoUpdates: { [key: string]: any } = {};
     let totalChangePrice = 0;
     let totalChangeRate = 0;
 
+    // 1. 미완료 할 일을 순회하며 페널티 총합 계산 및 업데이트 내용 준비
     incompleteTasks.forEach((task: any) => {
       totalChangePrice += task.priceChange || 0;
       totalChangeRate += task.percentage || 0;
+
+      // task 객체에 id가 있을 경우, 업데이트할 내용을 준비합니다.
+      if (task.id) {
+        // 점 표기법을 사용하여 'todos' 문서 내의 정확한 필드 경로를 지정합니다.
+        // 예: '2025-10-13.task-abc-123.appliedPriceChange'
+        const priceFieldPath = `${date}.${task.id}.appliedPriceChange`;
+        const percentFieldPath = `${date}.${task.id}.appliedPercentage`;
+
+        // FieldValue.increment를 사용해 기존 값에서 안전하게 값을 차감합니다.
+        todoUpdates[priceFieldPath] = FieldValue.increment(
+          -(task.priceChange || 0)
+        );
+        todoUpdates[percentFieldPath] = FieldValue.increment(
+          -(task.percentage || 0)
+        );
+      }
     });
 
+    // 2. 'todos' 문서에 미완료 할 일들의 변경사항을 한 번에 적용
+    if (Object.keys(todoUpdates).length > 0) {
+      const todosDocRef = db
+        .collection("users")
+        .doc(userId)
+        .collection("data")
+        .doc("todos");
+      await todosDocRef.update(todoUpdates);
+      console.log(
+        `✅ [${userId}] ${incompleteTasks.length}개 할일 페널티 필드 적용 완료`
+      );
+    }
+
+    // --- 이하 주식 데이터 업데이트 로직은 기존과 거의 동일 ---
+
+    // 3. 페널티가 적용된 새 주가 계산
     const newPrice = Math.max(
       1,
       Math.round((currentPrice - totalChangePrice) * 10) / 10
-    ); // 최소 1원
-    // 주식 데이터 업데이트
+    );
+
+    // 4. 'stocks' 문서 업데이트
     const stocksDocRef = db
       .collection("users")
       .doc(userId)
@@ -46,6 +80,7 @@ async function calculateStockPenalty(
     const stocksDoc = await stocksDocRef.get();
     const stocksData = stocksDoc.exists ? stocksDoc.data() || {} : {};
     const previousStock = stocksData[date] || {};
+
     const low = previousStock.low
       ? Math.min(previousStock.low, newPrice)
       : newPrice;
@@ -58,19 +93,20 @@ async function calculateStockPenalty(
     const open = previousStock.open ? previousStock.open : currentPrice;
     const volume =
       changePrice >= 0 ? completedTasks.length : incompleteTasks.length;
+
     stocksData[date] = {
       date: date,
       changePrice: changePrice,
       changeRate: changeRate,
       open: open,
       close: newPrice,
-      high: currentPrice,
+      high: previousStock.high || currentPrice, // high는 기존 값과 현재가 중 높은 값
       low: low,
-      volume: volume,
+      volume: (previousStock.volume || 0) + volume, // volume은 누적
     };
     await stocksDocRef.set(stocksData, { merge: true });
 
-    // 유저 프로필의 price 업데이트
+    // 5. 유저 프로필의 price 업데이트
     await db.collection("users").doc(userId).update({
       price: newPrice,
       lastUpdated: FieldValue.serverTimestamp(),
@@ -79,12 +115,13 @@ async function calculateStockPenalty(
     console.log(
       `📉 ${userId}: ${currentPrice} → ${newPrice} ` +
         `(changePrice: ${totalChangePrice}, ` +
-        `changeRate: ${(totalChangeRate * 100).toFixed(2)}%)`
+        `changeRate: ${totalChangeRate.toFixed(2)}%)`
     );
   } catch (error) {
-    console.error(`❌ ${userId} 주가 업데이트 실패:`, error);
+    console.error(`❌ ${userId} 주가 및 할일 업데이트 실패:`, error);
   }
 }
+
 // 특정 유저의 duetime에 맞춰 체크하는 함수 (매시간 실행)
 export const checkUserTasksByTime = onSchedule(
   {

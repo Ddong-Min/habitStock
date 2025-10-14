@@ -1,19 +1,11 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { firestore } from "@/config/firebase";
 import { Task } from "@/types";
 
-// 새로운 구조:
-// users/{userId}/data/todos (문서)
-// users/{userId}/data/buckets (문서)
-
 // ✅ Add Task (either bucket or task)
-export const addTaskFirebase = async (
-  task: Task,
-  userId: string,
-  type: "buckets" | "todos"
-) => {
+export const addTaskFirebase = async (task: Task, userId: string) => {
   try {
-    const docRef = doc(firestore, "users", userId, "data", type);
+    const docRef = doc(firestore, "users", userId, "data", "todos");
     const docSnap = await getDoc(docRef);
 
     const currentData = docSnap.exists() ? docSnap.data() : {};
@@ -37,19 +29,18 @@ export const addTaskFirebase = async (
 
     return { success: true, taskId: task.id };
   } catch (error) {
-    console.error(`Error adding ${type}: `, error);
-    return { success: false, msg: `Failed to add ${type}.` };
+    console.error(`Error adding todos: `, error);
+    return { success: false, msg: `Failed to add todos.` };
   }
 };
 
 // ✅ Load Tasks (filter by dueDate or by year)
 export const loadTasksFirebase = async (
   userId: string,
-  type: "buckets" | "todos",
   dueDate?: string
 ): Promise<Task[]> => {
   try {
-    const docRef = doc(firestore, "users", userId, "data", type);
+    const docRef = doc(firestore, "users", userId, "data", "todos");
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
@@ -59,19 +50,7 @@ export const loadTasksFirebase = async (
     const allData = docSnap.data();
     const tasks: Task[] = [];
 
-    if (type === "buckets" && dueDate) {
-      // Year filter
-      const year = parseInt(dueDate, 10);
-
-      Object.keys(allData).forEach((dateKey) => {
-        if (dateKey.startsWith(String(year))) {
-          const dateTasks = allData[dateKey];
-          Object.values(dateTasks).forEach((task) => {
-            tasks.push(task as Task);
-          });
-        }
-      });
-    } else if (dueDate) {
+    if (dueDate) {
       // Exact dueDate filter
       const dateTasks = allData[dueDate];
       if (dateTasks) {
@@ -99,7 +78,7 @@ export const loadTasksFirebase = async (
 
     return tasks;
   } catch (error) {
-    console.error(`Error loading ${type}:`, error);
+    console.error(`Error loading todos:`, error);
     return [];
   }
 };
@@ -107,12 +86,11 @@ export const loadTasksFirebase = async (
 // ✅ Delete Task
 export const deleteTaskFirebase = async (
   userId: string,
-  type: "buckets" | "todos",
   taskId: string,
   dueDate: string
 ) => {
   try {
-    const docRef = doc(firestore, "users", userId, "data", type);
+    const docRef = doc(firestore, "users", userId, "data", "todos");
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
@@ -138,8 +116,8 @@ export const deleteTaskFirebase = async (
 
     return { success: false, msg: `Task not found.` };
   } catch (error) {
-    console.error(`Error deleting ${type}:`, error);
-    return { success: false, msg: `Failed to delete ${type}.` };
+    console.error(`Error deleting todos:`, error);
+    return { success: false, msg: `Failed to delete todos.` };
   }
 };
 
@@ -147,11 +125,10 @@ export const deleteTaskFirebase = async (
 export const updateTaskFirebase = async (
   task: Task,
   userId: string,
-  type: "buckets" | "todos",
   oldDueDate?: string
 ) => {
   try {
-    const docRef = doc(firestore, "users", userId, "data", type);
+    const docRef = doc(firestore, "users", userId, "data", "todos");
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) {
@@ -179,7 +156,77 @@ export const updateTaskFirebase = async (
     await setDoc(docRef, currentData);
     return { success: true };
   } catch (error) {
-    console.error(`Error updating ${type}:`, error);
-    return { success: false, msg: `Failed to update ${type}.` };
+    console.error(`Error updating todos:`, error);
+    return { success: false, msg: `Failed to update todos.` };
   }
+};
+
+// ✅ 🔥 NEW: 실시간 Task 구독 (특정 날짜)
+export const subscribeToTasksByDate = (
+  userId: string,
+  dueDate: string,
+  onUpdate: (tasks: Task[]) => void
+) => {
+  const docRef = doc(firestore, "users", userId, "data", "todos");
+
+  return onSnapshot(docRef, (docSnap) => {
+    if (!docSnap.exists()) {
+      onUpdate([]);
+      return;
+    }
+
+    const allData = docSnap.data();
+    const tasks: Task[] = [];
+
+    // Exact date filter for todos
+    const dateTasks = allData[dueDate];
+    if (dateTasks) {
+      Object.values(dateTasks).forEach((task) => {
+        tasks.push(task as Task);
+      });
+    }
+
+    // Sort by dueDate and id
+    tasks.sort((a, b) => {
+      if (a.dueDate === b.dueDate) {
+        return a.id.localeCompare(b.id);
+      }
+      return a.dueDate.localeCompare(b.dueDate);
+    });
+
+    onUpdate(tasks);
+  });
+};
+
+// ✅ 🔥 NEW: 전체 Task 문서 실시간 구독
+export const subscribeToAllTasks = (
+  userId: string,
+  onUpdate: (tasksByDate: { [date: string]: Task[] }) => void
+) => {
+  const docRef = doc(firestore, "users", userId, "data", "todos");
+
+  return onSnapshot(docRef, (docSnap) => {
+    if (!docSnap.exists()) {
+      onUpdate({});
+      return;
+    }
+
+    const allData = docSnap.data();
+    const tasksByDate: { [date: string]: Task[] } = {};
+
+    Object.keys(allData).forEach((dateKey) => {
+      const dateTasks = allData[dateKey];
+      tasksByDate[dateKey] = Object.values(dateTasks) as Task[];
+
+      // Sort tasks
+      tasksByDate[dateKey].sort((a, b) => {
+        if (a.dueDate === b.dueDate) {
+          return a.id.localeCompare(b.id);
+        }
+        return a.dueDate.localeCompare(b.dueDate);
+      });
+    });
+
+    onUpdate(tasksByDate);
+  });
 };

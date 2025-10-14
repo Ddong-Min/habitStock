@@ -10,10 +10,11 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   onAuthStateChanged,
-  User, // Firebase User 타입을 import하는 것이 좋습니다.
+  User,
 } from "firebase/auth";
 import { auth, firestore } from "@/config/firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { router } from "expo-router";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -21,36 +22,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<UserType>(null);
-  // 1. 초기 인증 상태를 확인하는 동안 사용할 로딩 상태를 추가합니다.
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(
       auth,
       async (firebaseUser: User | null) => {
-        console.log("Auth State Changed: ", firebaseUser);
+        console.log("Auth State Changed: ", firebaseUser?.uid || "null");
         if (firebaseUser) {
-          // Firestore에서 최신 사용자 정보를 가져옵니다.
           await updateUserData(firebaseUser.uid);
-          // 라우팅은 _layout.tsx에서 처리하므로 여기서는 주석 처리합니다.
-          // router.replace("/(tabs)");
         } else {
           setUser(null);
-          // 라우팅은 _layout.tsx에서 처리하므로 여기서는 주석 처리합니다.
-          // router.replace("/(auth)/welcome");
         }
-        // 2. 사용자 인증 상태 확인이 완료되면 로딩 상태를 false로 변경합니다.
         setIsAuthLoading(false);
       }
     );
 
-    // 컴포넌트가 언마운트될 때 구독을 해제합니다.
     return () => unsub();
   }, []);
 
   const login = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      // 사용자 데이터를 먼저 가져온 후 라우팅
+      await updateUserData(userCredential.user.uid);
+      router.replace("/(tabs)");
       return { success: true };
     } catch (error: any) {
       let msg = error.message;
@@ -87,6 +87,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         words: "한국어",
         registerDate: new Date().toISOString().split("T")[0],
       });
+      // 사용자 데이터를 먼저 가져온 후 라우팅
+      await updateUserData(response.user.uid);
+      router.replace("/(tabs)");
       return { success: true };
     } catch (error: any) {
       let msg = error.message;
@@ -119,6 +122,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           allowAlarm: data.allowAlarm || false,
           duetime: data.duetime || "00:00",
           words: data.words || "korean",
+          registerDate: data.registerDate || null,
         };
         setUser(userData);
       }
@@ -143,7 +147,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const logout = async () => {
     try {
       await auth.signOut();
-      // setUser(null); // onAuthStateChanged가 자동으로 처리해줍니다.
+      router.replace("/(auth)/welcome");
     } catch (error) {
       console.log("Logout Error: ", error);
     }
@@ -157,7 +161,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     updateUserData,
     changeUserStock,
     logout,
-    // 3. isAuthLoading을 context 값에 추가합니다.
   };
 
   return (

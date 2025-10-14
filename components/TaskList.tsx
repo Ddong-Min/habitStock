@@ -45,7 +45,6 @@ const TaskList: React.FC<{
     isEditText,
     selectedTaskId,
     chooseDifficulty,
-    loadTasks,
     changeAddTaskState,
     completedTask,
     startModify,
@@ -58,10 +57,6 @@ const TaskList: React.FC<{
   const [newsGeneratedTasks, setNewsGeneratedTasks] = useState<Set<string>>(
     new Set()
   );
-
-  useEffect(() => {
-    loadTasks(selectedDate);
-  }, [selectedDate]);
 
   const flatData = useMemo(() => {
     const tasksForSelectedDate = taskByDate[selectedDate] || [];

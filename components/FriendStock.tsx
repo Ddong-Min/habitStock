@@ -24,9 +24,13 @@ const FriendStock: React.FC<{}> = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    // 2초 후에 로딩 상태 해제
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
     if (!friendStockData || !followingUsers.length) {
-      setIsLoading(true);
-      return;
+      return () => clearTimeout(timer);
     }
 
     const loadedFriends = followingUsers.map((user) => {
@@ -42,7 +46,10 @@ const FriendStock: React.FC<{}> = () => {
     });
 
     setFriends(loadedFriends);
+    clearTimeout(timer);
     setIsLoading(false);
+
+    return () => clearTimeout(timer);
   }, [friendStockData, followingUsers, today, theme]);
 
   if (isLoading) {
@@ -51,6 +58,27 @@ const FriendStock: React.FC<{}> = () => {
         style={[styles.loadingContainer, { backgroundColor: theme.background }]}
       >
         <ActivityIndicator size="large" color={theme.blue100} />
+      </View>
+    );
+  }
+
+  // 팔로워가 없는 경우
+  if (!friends.length) {
+    return (
+      <View
+        style={[styles.emptyContainer, { backgroundColor: theme.background }]}
+      >
+        <View style={styles.emptyContent}>
+          <Typo color={theme.textLight} style={styles.emptyIcon}>
+            👥
+          </Typo>
+          <Typo color={theme.text} style={styles.emptyTitle}>
+            팔로워가 없습니다
+          </Typo>
+          <Typo color={theme.textLight} style={styles.emptyDescription}>
+            친구를 팔로우하고{"\n"}주가 변동을 확인해보세요
+          </Typo>
+        </View>
       </View>
     );
   }
@@ -194,6 +222,31 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyContent: {
+    alignItems: "center",
+    paddingHorizontal: spacingX._40,
+  },
+  emptyIcon: {
+    fontSize: verticalScale(64),
+    marginBottom: spacingY._20,
+  },
+  emptyTitle: {
+    fontSize: verticalScale(20),
+    fontWeight: "700",
+    marginBottom: spacingY._10,
+    letterSpacing: -0.5,
+  },
+  emptyDescription: {
+    fontSize: verticalScale(15),
+    textAlign: "center",
+    lineHeight: verticalScale(22),
+    letterSpacing: -0.3,
   },
 });
 

@@ -1,23 +1,32 @@
-// contexts/TasksContext.tsx
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { Task, TasksByDate, TasksContextType, TasksState } from "../types";
 import {
   addTaskFirebase,
   deleteTaskFirebase,
   loadTasksFirebase,
   updateTaskFirebase,
+  subscribeToTasksByDate, // 🔥 NEW
 } from "@/api/taskApi";
 import { useAuth } from "@/contexts/authContext";
 import randomPriceGenerator from "@/handler/randomPriceGenerator";
 import { useCalendar } from "./calendarContext";
 import { useStock } from "./stockContext";
+
 const TasksContext = createContext<TasksContextType | undefined>(undefined);
+
 const initialTasksState: TasksState = {
   easy: [],
   medium: [],
   hard: [],
   extreme: [],
 };
+
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [newTaskText, setNewTaskText] = useState("");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -32,6 +41,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [selectedText, setSelectedText] = useState("");
   const [taskType, setTaskType] = useState<"todos" | "buckets">("todos");
   const { user } = useAuth();
+
   const initialTaskTypeByDate: { todos: TasksByDate; buckets: TasksByDate } = {
     todos: {},
     buckets: {},
@@ -42,31 +52,38 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 
   const { selectedDate, changeSelectedDate } = useCalendar();
   const { changeStockData } = useStock();
-  // ✅ load tasks from firestore
-  const loadTasks = async (dueDate: string) => {
-    if (taskByDate[dueDate]) {
-      return; // 이미 로드된 경우, 다시 로드하지 않음
-    }
-    //load the tododatawhich
-    await loadTasksFirebase(user?.uid!, taskType, dueDate).then(
-      (loadedTasks) => {
-        //initialize the date group if not exists, which type is TasksByDate
-        const groupedTasks: TasksByDate = {
-          [dueDate]: {
-            easy: [],
-            medium: [],
-            hard: [],
-            extreme: [],
-          },
+
+  // 🔥 NEW: 실시간 구독 추가 - Firebase Functions가 수정하면 즉시 UI 업데이트!
+  useEffect(() => {
+    console.log(user?.uid, selectedDate);
+    if (!user?.uid || !selectedDate) return;
+
+    const unsubscribe = subscribeToTasksByDate(
+      user.uid,
+      selectedDate,
+      (tasks) => {
+        // tasks를 difficulty별로 그룹화
+        const grouped: TasksState = {
+          easy: [],
+          medium: [],
+          hard: [],
+          extreme: [],
         };
 
-        loadedTasks.forEach((task) => {
-          groupedTasks[dueDate][task.difficulty].push(task);
+        tasks.forEach((task) => {
+          grouped[task.difficulty].push(task);
         });
-        setTaskByDate((prev) => ({ ...prev, ...groupedTasks }));
+
+        setTaskByDate((prev) => ({
+          ...prev,
+          [selectedDate]: grouped,
+        }));
+        console.log("Tasks updated from subscription:", tasks);
       }
     );
-  };
+
+    return () => unsubscribe();
+  }, [user?.uid, selectedDate]);
 
   const chooseTaskId = (taskId: string | null) => {
     setSelectedTaskId(taskId);
@@ -80,15 +97,13 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     setSelectedDifficulty(difficulty);
   };
 
-  //function using when user inut text for make new task or edit task
   const putTaskText = (text: string) => setNewTaskText(text);
 
-  // find the index of selected task in tasks state
   const findIndex = () => {
     if (!selectedDate || !selectedDifficulty || !user) return [-1, []];
     const newTaskByDate = JSON.parse(JSON.stringify(taskByDate));
     console.log(selectedDate);
-    const taskList = newTaskByDate[selectedDate][selectedDifficulty]; //cf) shallow copy
+    const taskList = newTaskByDate[selectedDate][selectedDifficulty];
     const taskIndex = taskList.findIndex(
       (task: Task) => task.id === selectedTaskId
     );
@@ -113,7 +128,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     setSelectedText("");
     setNewTaskText("");
   };
-  //add new task to firestore and localState
+
   const addNewTask = async (dueDate: string) => {
     if (!newTaskText.trim() || !user) return;
     const { randomPrice, randomPercent, priceChange } = randomPriceGenerator(
@@ -134,28 +149,12 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       appliedPercentage: 0,
     };
 
-    const res = await addTaskFirebase(newTask, user.uid!, taskType);
+    const res = await addTaskFirebase(newTask, user.uid);
 
-    //cut only year for buckets
-    if (taskType === "buckets") {
-      dueDate = dueDate.slice(0, 4);
-    }
-    if (res.success) {
-      setTaskByDate((prev) => {
-        const prevTasks = prev[dueDate] ?? initialTasksState;
+    // 🔥 onSnapshot이 자동으로 UI 업데이트하므로 수동 업데이트 제거!
+    // setTaskByDate 호출 삭제됨
 
-        return {
-          ...prev,
-          [dueDate]: {
-            ...prevTasks,
-            [newTask.difficulty]: [
-              ...(prevTasks[newTask.difficulty] ?? []),
-              newTask,
-            ],
-          },
-        };
-      });
-    } else {
+    if (!res.success) {
       console.error(res.msg);
     }
     finishModify();
@@ -167,30 +166,23 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       return;
     const [newTaskByDate, taskIndex] = findIndex();
     if (taskIndex === -1) return;
-    // if taskIndex is found
+
     const updatedData =
       newTaskByDate[selectedDate][selectedDifficulty][taskIndex];
     if (updatedData.completed) {
       updatedData.updatedDate = new Date().toISOString().split("T")[0];
-      updatedData.completed = false; // mark as not completed to reverse the stock change
+      updatedData.completed = false;
       changeStockData(updatedData).then((result) => {
         if (result && !result.success) {
           console.error(result.msg);
         }
       });
     }
-    let taskList = newTaskByDate[selectedDate][selectedDifficulty];
-    taskList.splice(taskIndex, 1);
 
-    setTaskByDate((prev) => ({
-      ...prev,
-      [selectedDate]: {
-        ...prev[selectedDate],
-        [selectedDifficulty!]: taskList,
-      },
-    }));
-    // 3. Delete from Firestore
-    await deleteTaskFirebase(user.uid!, taskType, selectedTaskId, selectedDate);
+    // 🔥 onSnapshot이 자동으로 UI 업데이트하므로 수동 업데이트 제거!
+    // setTaskByDate 호출 삭제됨
+
+    await deleteTaskFirebase(user.uid!, selectedTaskId, selectedDate);
     finishModify();
   };
 
@@ -211,49 +203,25 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       updatedTask.text = edit;
       updatedTask.updatedAt = new Date().toISOString();
       changeEditTextState();
-      taskList[taskIndex] = updatedTask;
     } else if (mode === "difficulty") {
       const { randomPrice, randomPercent, priceChange } = randomPriceGenerator(
         updatedTask.difficulty,
         user.price ?? 100
       );
-      const oldDifficulty = updatedTask.difficulty;
       updatedTask.difficulty = edit as keyof TasksState;
       updatedTask.updatedAt = new Date().toISOString();
       updatedTask.percentage = randomPercent;
       updatedTask.priceChange = priceChange;
-      // remove from old list
-      taskList.splice(taskIndex, 1);
-
-      // add to new difficulty list
-      if (!newTaskByDate[selectedDate][updatedTask.difficulty]) {
-        newTaskByDate[selectedDate][updatedTask.difficulty] = [];
-      }
-      newTaskByDate[selectedDate][updatedTask.difficulty].push(updatedTask);
     } else if (mode === "dueDate") {
-      const oldDate = selectedDate;
       const newDate = edit;
       updatedTask.dueDate = newDate;
       updatedTask.updatedAt = new Date().toISOString();
-
-      // remove from old date list
-      taskList.splice(taskIndex, 1);
-
-      // create new date if missing
-      if (!newTaskByDate[newDate]) {
-        newTaskByDate[newDate] = { ...initialTasksState };
-      }
-
-      // push task to new date
-      newTaskByDate[newDate][updatedTask.difficulty].push(updatedTask);
       changeSelectedDate(newDate);
     }
 
-    // Call API
-    await updateTaskFirebase(updatedTask, user.uid!, taskType);
+    // 🔥 onSnapshot이 자동으로 UI 업데이트하므로 수동 업데이트 제거!
+    await updateTaskFirebase(updatedTask, user.uid!);
 
-    // Update state
-    setTaskByDate(newTaskByDate);
     setNewTaskText("");
     finishModify();
   };
@@ -295,10 +263,10 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
           ) / 10,
     };
 
+    // 🔥 Optimistic UI Update는 유지 (즉각 반응을 위해)
     const updatedTaskList = [...taskList];
     updatedTaskList[taskIndex] = updatedTask;
 
-    // Update state optimistically
     setTaskByDate((prev) => ({
       ...prev,
       [selectedDate]: {
@@ -307,7 +275,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       },
     }));
 
-    // Call API
+    // API 호출 - onSnapshot이 다시 한번 업데이트하지만 같은 데이터라 문제없음
     await updateTaskFirebase(updatedTask, user.uid!, taskType);
     changeStockData(updatedTask).then((result) => {
       if (result && !result.success) {
@@ -319,6 +287,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const changeBottomSheetState = () => {
     setIsBottomSheetOpen((prev) => !prev);
   };
+
   const changeShowDatePicker = () => {
     setShowDatePicker((prev) => !prev);
   };
@@ -356,7 +325,6 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         chooseTaskId,
         chooseDueDate,
         chooseDifficulty,
-        loadTasks,
         putTaskText,
         startModify,
         finishModify,

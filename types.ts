@@ -286,7 +286,6 @@ export type TasksContextType = {
   chooseTaskId: (taskId: string | null) => void;
   chooseDueDate: (date: string) => void;
   chooseDifficulty: (difficulty: keyof TasksState) => void;
-  loadTasks: (dueDate: string) => Promise<void>;
   putTaskText: (text: string) => void;
   startModify: (
     taskId: string,

@@ -149,17 +149,15 @@ export const getUserNewsByYear = async (
 
 // 팔로우한 유저들의 최신 뉴스 가져오기 (피드)
 export const getFollowingNewsFeed = async (
-  followingIds: string,
+  followingId: string,
   limitCount: number = 50
 ): Promise<NewsItem[]> => {
   try {
-    if (followingIds.length === 0) {
-      return [];
-    }
+    console.log("Fetching news for following IDs:", followingId);
 
     const allNews: NewsItem[] = [];
 
-    const docRef = doc(firestore, "users", followingIds, "data", "news");
+    const docRef = doc(firestore, "users", followingId, "data", "news");
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {

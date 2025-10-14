@@ -1,45 +1,38 @@
 import { TasksState } from "@/types";
-import normal from "@stdlib/random-base-normal";
 
 const randomPriceGenerator = (mode: keyof TasksState, currentPrice: number) => {
-  // 난이도별 평균 상승률 (task 1개 기준)
-  let meanGrowthPerTask: number;
-  let volatility: number;
+  // 난이도별 변동률 범위 설정
+  let minPercent: number;
+  let maxPercent: number;
+
   if (mode === "easy") {
-    meanGrowthPerTask = 0.002; // 0.2%
-    volatility = 0.001;
+    minPercent = 0.1; // 0.1%
+    maxPercent = 0.2; // 0.2%
   } else if (mode === "medium") {
-    meanGrowthPerTask = 0.003; // 0.3%
-    volatility = 0.0015;
+    minPercent = 0.15; // 0.15%
+    maxPercent = 0.4; // 0.4%
   } else if (mode === "hard") {
-    meanGrowthPerTask = 0.005; // 0.5%
-    volatility = 0.002;
+    minPercent = 0.3; // 0.3%
+    maxPercent = 0.6; // 0.6%
   } else {
     // extreme
-    meanGrowthPerTask = 0.007; // 0.7%
-    volatility = 0.003;
+    minPercent = 0.4; // 0.4%
+    maxPercent = 1.0; // 1.0%
   }
 
-  // 정규분포 랜덤값 생성
-  const growthGenerator = normal.factory(meanGrowthPerTask, volatility);
+  // 범위 내에서 랜덤 % 생성
+  const randomPercent = minPercent + Math.random() * (maxPercent - minPercent);
 
-  // 1) 랜덤 % 생성 (음수 방지)
-  let randomPercent = growthGenerator();
-  randomPercent = Math.abs(randomPercent); // 음수일 경우 절댓값으로 변환
+  // 금액 변화 계산 (소수점 1자리까지 반올림)
+  const rawChange = currentPrice * (randomPercent / 100);
+  const priceChange = Math.round(rawChange * 10) / 10;
 
-  // 2) 금액 변화 (소수점 1자리까지 반올림)
-  const rawChange = currentPrice * randomPercent;
-  const priceChange = Math.round(rawChange * 10) / 10; // 소수점 첫째자리 반올림
-
-  // 3) 다시 %로 환산
-  randomPercent = priceChange / currentPrice;
-
-  // 4) 최종 가격
+  // 최종 가격
   const randomPrice = currentPrice + priceChange;
 
   return {
     randomPrice: Math.max(0.1, parseFloat(randomPrice.toFixed(1))), // 최소 0.1 이상
-    randomPercent: parseFloat((randomPercent * 100).toFixed(2)), // %
+    randomPercent: parseFloat(randomPercent.toFixed(2)), // %
     priceChange: priceChange, // 금액 변화
   };
 };

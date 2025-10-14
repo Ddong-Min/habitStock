@@ -5,6 +5,7 @@ import Typo from "./Typo";
 import { verticalScale } from "@/utils/styling";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import { CustomDatePickerProps } from "@/types";
+import { useCalendar } from "@/contexts/calendarContext";
 
 const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   onConfirm,
@@ -13,7 +14,8 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
-  const [day, setDay] = useState(today.getDate());
+  const { selectedDate } = useCalendar();
+  const [day, setDay] = useState(new Date(selectedDate).getDate());
 
   const getDaysInMonth = (year: number, month: number): number => {
     return new Date(year, month, 0).getDate();

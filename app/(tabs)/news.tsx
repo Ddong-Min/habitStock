@@ -5,22 +5,18 @@ import { ScrollView } from "react-native-gesture-handler";
 import YearHeader from "../../components/YearHeader";
 import Typo from "../../components/Typo";
 import { verticalScale } from "@/utils/styling";
-import { useCalendar } from "@/contexts/calendarContext";
 import { useNews } from "@/contexts/newsContext";
 import NewsDetail from "@/components/NewsDetail";
-import { useStock } from "@/contexts/stockContext";
 import Profile from "@/components/Profile";
 import { useTheme } from "@/contexts/themeContext";
 
 const news = () => {
   const { theme } = useTheme();
-  const [selectedYear, setSelectedYear] = useState(2025);
+  const [selectedYear] = useState(2025);
   const { myNews, loadMyNews, selectNews, selectedNews } = useNews();
-  const { loadAllStocks } = useStock();
 
   // 모든 Hook을 최상단에 배치
   useEffect(() => {
-    loadAllStocks();
     loadMyNews(selectedYear);
   }, [selectedYear]);
 
@@ -39,14 +35,11 @@ const news = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Profile type="news" />
       <ScrollView
         style={[styles.content, { backgroundColor: theme.background }]}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingBottom: verticalScale(140), // TabBar + 광고 공간
-        }}
       >
+        <Profile type="news" />
         <View style={styles.section}>
           <YearHeader year={selectedYear.toString()} />
 
