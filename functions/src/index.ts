@@ -63,8 +63,6 @@ async function calculateStockPenalty(
       );
     }
 
-    // --- 이하 주식 데이터 업데이트 로직은 기존과 거의 동일 ---
-
     // 3. 페널티가 적용된 새 주가 계산
     const newPrice = Math.max(
       1,
@@ -100,9 +98,9 @@ async function calculateStockPenalty(
       changeRate: changeRate,
       open: open,
       close: newPrice,
-      high: previousStock.high || currentPrice, // high는 기존 값과 현재가 중 높은 값
+      high: previousStock.high || currentPrice,
       low: low,
-      volume: (previousStock.volume || 0) + volume, // volume은 누적
+      volume: (previousStock.volume || 0) + volume,
     };
     await stocksDocRef.set(stocksData, { merge: true });
 
@@ -117,12 +115,79 @@ async function calculateStockPenalty(
         `(changePrice: ${totalChangePrice}, ` +
         `changeRate: ${totalChangeRate.toFixed(2)}%)`
     );
+
+    return {
+      success: true,
+      incompleteTasks: incompleteTasks.length,
+      totalChangePrice,
+      totalChangeRate,
+    };
   } catch (error) {
     console.error(`❌ ${userId} 주가 및 할일 업데이트 실패:`, error);
+    return {
+      success: false,
+      error,
+    };
   }
 }
 
-// 특정 유저의 duetime에 맞춰 체크하는 함수 (매시간 실행)
+// 🔥 NEW: 특정 날짜의 할일을 체크하는 공통 함수
+async function checkTasksForDate(
+  userId: string,
+  date: string,
+  currentPrice: number
+): Promise<void> {
+  try {
+    // 해당 날짜의 할일 가져오기
+    const todosDoc = await db
+      .collection("users")
+      .doc(userId)
+      .collection("data")
+      .doc("todos")
+      .get();
+
+    if (!todosDoc.exists) {
+      return;
+    }
+
+    const todosData = todosDoc.data();
+    const dateTodos = todosData?.[date];
+
+    if (!dateTodos) {
+      console.log(`📭 ${userId}: ${date} 할일 없음`);
+      return;
+    }
+
+    // 미완료 할일 수집
+    const incompleteTasks = Object.values(dateTodos).filter(
+      (task: any) => !task.completed
+    );
+    const completedTasks = Object.values(dateTodos).filter(
+      (task: any) => task.completed
+    );
+
+    if (incompleteTasks.length === 0) {
+      console.log(`✅ ${userId}: ${date} 모든 할일 완료`);
+      return;
+    }
+
+    console.log(
+      `❌ ${userId}: ${date} ${incompleteTasks.length}개 미완료 (${completedTasks.length}개 완료)`
+    );
+
+    await calculateStockPenalty(
+      userId,
+      date,
+      incompleteTasks,
+      completedTasks,
+      currentPrice
+    );
+  } catch (error) {
+    console.error(`❌ ${userId} ${date} 할일 체크 실패:`, error);
+  }
+}
+
+// 🔥 FIX: 특정 유저의 duetime에 맞춰 체크하는 함수 (매시간 실행)
 export const checkUserTasksByTime = onSchedule(
   {
     schedule: "0 * * * *", // 매시간 정각
@@ -157,133 +222,144 @@ export const checkUserTasksByTime = onSchedule(
         return;
       }
 
-      const today = koreaTime.toISOString().split("T")[0]; // 한국 시간 기준 날짜
+      // 🔥 FIX: duetime이 00:00~07:00 사이면 어제 날짜, 그 외는 오늘 날짜
+      let targetDate: string;
+      if (currentHour >= 0 && currentHour < 7) {
+        // 새벽 시간대 (00:00 ~ 06:59) → 어제 날짜
+        const yesterday = new Date(koreaTime);
+        yesterday.setDate(yesterday.getDate() - 1);
+        targetDate = yesterday.toISOString().split("T")[0];
+        console.log(`🌙 새벽 시간대 - 어제(${targetDate}) 할일 체크`);
+      } else {
+        // 일반 시간대 (07:00 ~ 23:59) → 오늘 날짜
+        targetDate = koreaTime.toISOString().split("T")[0];
+        console.log(`☀️ 일반 시간대 - 오늘(${targetDate}) 할일 체크`);
+      }
 
       const promises = usersSnapshot.docs.map(async (userDoc) => {
         const userId = userDoc.id;
         const userData = userDoc.data();
 
-        // 오늘의 할일 가져오기
-        const todosDoc = await db
-          .collection("users")
-          .doc(userId)
-          .collection("data")
-          .doc("todos")
-          .get();
-
-        if (!todosDoc.exists) {
-          return;
-        }
-
-        const todosData = todosDoc.data();
-        const todayTodos = todosData?.[today];
-
-        if (!todayTodos) {
-          console.log(`📭 ${userId}: 오늘 할일 없음`);
-          return;
-        }
-
-        // 미완료 할일 수집
-        const incompleteTasks = Object.values(todayTodos).filter(
-          (task: any) => !task.completed
-        );
-        const completedTasks = Object.values(todayTodos).filter(
-          (task: any) => task.completed
+        console.log(
+          `👤 ${userId}: duetime ${currentTime} → ${targetDate} 체크`
         );
 
-        if (incompleteTasks.length === 0) {
-          console.log(`✅ ${userId}: 모든 할일 완료`);
-          return;
-        }
-
-        console.log(`❌ ${userId}: ${incompleteTasks.length}개 미완료`);
-
-        await calculateStockPenalty(
-          userId,
-          today,
-          incompleteTasks,
-          completedTasks,
-          userData.price || 100
-        );
+        await checkTasksForDate(userId, targetDate, userData.price || 100);
       });
 
       await Promise.all(promises);
-      console.log(`✅ ${currentTime} 체크 완료`);
+      console.log(`✅ ${currentTime} 체크 완료 (대상 날짜: ${targetDate})`);
     } catch (error) {
       console.error("❌ 에러 발생:", error);
     }
   }
 );
 
-// 수동 트리거용 HTTP 함수 (테스트용)
-export const manualCheckTasks = onRequest(async (req, res) => {
-  const userId = req.query.userId as string;
+// 🗑️ 안전망 함수 삭제 - duetime으로만 체크
+// (필요하면 주석 해제해서 사용)
 
-  if (!userId) {
-    res.status(400).send("userId 파라미터가 필요합니다");
-    return;
+// 🔥 NEW: 수동으로 특정 유저의 특정 날짜 할일 체크 (테스트/관리용)
+export const manualCheckUserTasks = onRequest(
+  {
+    cors: true,
+  },
+  async (req, res) => {
+    try {
+      const { userId, date } = req.body;
+
+      if (!userId) {
+        res.status(400).json({ error: "userId는 필수입니다" });
+        return;
+      }
+
+      // 날짜가 없으면 오늘 날짜 사용
+      const targetDate =
+        date ||
+        new Date()
+          .toLocaleString("en-US", { timeZone: "Asia/Seoul" })
+          .split(",")[0];
+
+      console.log(`🔧 수동 체크: ${userId} - ${targetDate}`);
+
+      // 유저 정보 가져오기
+      const userDoc = await db.collection("users").doc(userId).get();
+
+      if (!userDoc.exists) {
+        res.status(404).json({ error: "유저를 찾을 수 없습니다" });
+        return;
+      }
+
+      const userData = userDoc.data();
+      await checkTasksForDate(userId, targetDate, userData?.price || 100);
+
+      res.json({
+        success: true,
+        message: `${userId}의 ${targetDate} 할일 체크 완료`,
+      });
+    } catch (error: any) {
+      console.error("❌ 수동 체크 에러:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
+);
 
-  try {
-    const userDoc = await db.collection("users").doc(userId).get();
+// 🔥 NEW: 특정 기간의 모든 유저 할일 일괄 체크 (관리자용)
+export const batchCheckTasks = onRequest(
+  {
+    cors: true,
+  },
+  async (req, res) => {
+    try {
+      const { startDate, endDate } = req.body;
 
-    if (!userDoc.exists) {
-      res.status(404).send("유저를 찾을 수 없습니다");
-      return;
+      if (!startDate || !endDate) {
+        res
+          .status(400)
+          .json({ error: "startDate와 endDate는 필수입니다 (YYYY-MM-DD)" });
+        return;
+      }
+
+      console.log(`📦 일괄 체크: ${startDate} ~ ${endDate}`);
+
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const dates: string[] = [];
+
+      // 날짜 범위 생성
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split("T")[0]);
+      }
+
+      // 모든 유저 가져오기
+      const usersSnapshot = await db.collection("users").get();
+      let totalChecked = 0;
+
+      for (const date of dates) {
+        console.log(`📅 ${date} 체크 시작...`);
+
+        const promises = usersSnapshot.docs.map(async (userDoc) => {
+          const userId = userDoc.id;
+          const userData = userDoc.data();
+          await checkTasksForDate(userId, date, userData.price || 100);
+        });
+
+        await Promise.all(promises);
+        totalChecked += usersSnapshot.size;
+        console.log(`✅ ${date} 체크 완료`);
+      }
+
+      res.json({
+        success: true,
+        message: `${dates.length}일 * ${usersSnapshot.size}명 = 총 ${totalChecked}건 체크 완료`,
+        dates,
+        userCount: usersSnapshot.size,
+      });
+    } catch (error: any) {
+      console.error("❌ 일괄 체크 에러:", error);
+      res.status(500).json({ error: error.message });
     }
-
-    const userData = userDoc.data()!;
-    const today = new Date().toISOString().split("T")[0];
-
-    const todosDoc = await db
-      .collection("users")
-      .doc(userId)
-      .collection("data")
-      .doc("todos")
-      .get();
-
-    if (!todosDoc.exists) {
-      res.send({ message: "할일이 없습니다" });
-      return;
-    }
-
-    const todosData = todosDoc.data();
-    const todayTodos = todosData?.[today];
-
-    if (!todayTodos) {
-      res.send({ message: "오늘 할일이 없습니다" });
-      return;
-    }
-
-    const incompleteTasks = Object.values(todayTodos).filter(
-      (task: any) => !task.completed
-    );
-    const completedTasks = Object.values(todayTodos).filter(
-      (task: any) => task.completed
-    );
-
-    if (incompleteTasks.length === 0) {
-      res.send({ message: "모든 할일 완료!" });
-      return;
-    }
-
-    await calculateStockPenalty(
-      userId,
-      today,
-      incompleteTasks,
-      completedTasks,
-      userData.price || 100
-    );
-
-    res.send({
-      message: "주가 업데이트 완료",
-      incompletedCount: incompleteTasks.length,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("에러 발생: " + error);
   }
-});
+);
 
 /**
  * 단일 Task에 대한 AI 뉴스 생성 (프롬프트 및 파싱 로직 개선)

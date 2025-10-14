@@ -19,6 +19,7 @@ const Button = ({
       </View>
     );
   }
+
   return (
     <TouchableOpacity
       onPress={onPress}

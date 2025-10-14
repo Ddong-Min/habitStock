@@ -55,6 +55,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
 
   // 🔥 NEW: 실시간 구독 추가 - 선택된 날짜 범위의 주식 데이터 자동 업데이트
   useEffect(() => {
+    console.log("Subscribing to stock data updates...");
     if (!user?.uid) return;
     if (!user?.registerDate) return;
     const startDate = user.registerDate;
@@ -69,19 +70,20 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
           ...prev,
           ...updatedStockData,
         }));
+        console.log("stockData", stockData);
       }
     );
 
     return () => unsubscribe();
-  }, [user?.uid, today, user?.price, user?.registerDate, user]);
+  }, [user?.uid, today, user?.price, user?.registerDate]);
 
   const changeStockData = async (task: Task) => {
     if (!user?.uid || !stockData) return;
 
-    const date = task.updatedDate || today;
+    const date = today;
     const existingData = stockData[date];
 
-    const updatedStockData: StockDataType = existingData;
+    const updatedStockData: StockDataType = { ...existingData };
 
     // task's effect on stock
     if (task.completed) {
