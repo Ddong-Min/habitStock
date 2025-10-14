@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, TouchableOpacity } from "react-native";
-import Picker, { PickerItem } from "@quidone/react-native-wheel-picker";
+import React, { useState } from "react";
+import { View, StyleSheet, TouchableOpacity, Platform } from "react-native";
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
 import Typo from "./Typo";
-import { verticalScale } from "@/utils/styling";
 import { colors, spacingX, spacingY } from "@/constants/theme";
 import { CustomDatePickerProps } from "@/types";
 import { useCalendar } from "@/contexts/calendarContext";
@@ -11,138 +12,107 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({
   onConfirm,
   onCancel,
 }) => {
-  const today = new Date();
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1);
   const { selectedDate } = useCalendar();
-  const [day, setDay] = useState(new Date(selectedDate).getDate());
+  // --- 변경점 1: 여러 개의 state를 하나의 Date 객체로 관리 ---
+  const [date, setDate] = useState(new Date(selectedDate));
 
-  const getDaysInMonth = (year: number, month: number): number => {
-    return new Date(year, month, 0).getDate();
+  // --- 변경점 2: 날짜 변경 핸들러 로직 수정 ---
+  const onChange = (
+    event: DateTimePickerEvent,
+    selectedDate: Date | undefined
+  ) => {
+    // 안드로이드에서는 날짜 선택 후 모달이 바로 닫히므로,
+    // 이벤트 유형에 따라 확인/취소를 바로 처리합니다.
+    if (Platform.OS === "android") {
+      if (event.type === "set" && selectedDate) {
+        onConfirm &&
+          onConfirm({
+            year: selectedDate.getFullYear(),
+            month: selectedDate.getMonth() + 1,
+            day: selectedDate.getDate(),
+          });
+      } else {
+        onCancel && onCancel();
+      }
+      return;
+    }
+
+    // iOS에서는 피커가 화면에 계속 떠 있으므로,
+    // 날짜가 변경될 때마다 state만 업데이트합니다.
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
   };
 
-  const years: PickerItem<number>[] = Array.from({ length: 10 }, (_, i) => {
-    const y = 2020 + i;
-    return { value: y, label: `${y.toString()}년` };
-  });
-
-  const months: PickerItem<number>[] = [
-    { value: 1, label: "1월" },
-    { value: 2, label: "2월" },
-    { value: 3, label: "3월" },
-    { value: 4, label: "4월" },
-    { value: 5, label: "5월" },
-    { value: 6, label: "6월" },
-    { value: 7, label: "7월" },
-    { value: 8, label: "8월" },
-    { value: 9, label: "9월" },
-    { value: 10, label: "10월" },
-    { value: 11, label: "11월" },
-    { value: 12, label: "12월" },
-  ];
-
-  const maxDays = getDaysInMonth(year, month);
-  const days: PickerItem<number>[] = Array.from({ length: maxDays }, (_, i) => {
-    const d = i + 1;
-    return { value: d, label: d.toString() };
-  });
-
-  useEffect(() => {
-    const maxDaysInMonth = getDaysInMonth(year, month);
-    if (day > maxDaysInMonth) {
-      setDay(maxDaysInMonth);
-    }
-  }, [year, month]);
-
+  // iOS용 확인 핸들러
   const handleConfirm = () => {
     if (onConfirm) {
-      console.log("Calling onConfirm...");
-      onConfirm({ year, month, day });
-    }
-  };
-
-  const handleCancel = () => {
-    console.log("Canceling date picker");
-    if (onCancel) {
-      onCancel();
+      onConfirm({
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        day: date.getDate(),
+      });
     }
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Typo size={18} fontWeight="600" style={styles.titleText}>
-          날짜 선택
-        </Typo>
-      </View>
-
-      <View style={styles.pickerContainer}>
-        <Picker
-          style={styles.picker}
-          value={year}
-          onValueChanged={(event) => {
-            const selectedYear = years[event.index]?.value;
-            if (selectedYear) {
-              setYear(selectedYear);
-            }
-          }}
-          data={years}
-        />
-        <Picker
-          style={styles.picker}
-          value={month}
-          onValueChanged={(event) => {
-            const selectedMonth = months[event.index]?.value;
-            if (selectedMonth) {
-              setMonth(selectedMonth);
-            }
-          }}
-          data={months}
-        />
-        <Picker
-          style={styles.picker}
-          value={day}
-          onValueChanged={(event) => {
-            const selectedDay = days[event.index]?.value;
-            if (selectedDay) {
-              setDay(selectedDay);
-            }
-          }}
-          data={days}
-        />
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.button, styles.cancelButton]}
-          onPress={handleCancel}
-          activeOpacity={0.7}
-        >
-          <Typo size={16} fontWeight="600" style={styles.cancelButtonText}>
-            취소
+      {/* --- 변경점 3: iOS에서만 헤더와 버튼이 보이도록 처리 --- */}
+      {Platform.OS === "ios" && (
+        <View style={styles.header}>
+          <Typo size={18} fontWeight="600" style={styles.titleText}>
+            날짜 선택
           </Typo>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.confirmButton]}
-          onPress={handleConfirm}
-          activeOpacity={0.7}
-        >
-          <Typo size={16} fontWeight="600" style={styles.confirmButtonText}>
-            확인
-          </Typo>
-        </TouchableOpacity>
-      </View>
+        </View>
+      )}
+
+      {/* --- 변경점 4: 세 개의 Picker를 하나의 DateTimePicker로 교체 --- */}
+      <DateTimePicker
+        testID="dateTimePicker"
+        value={date}
+        mode="date"
+        display={Platform.OS === "ios" ? "spinner" : "default"} // iOS는 휠, Android는 기본 달력
+        onChange={onChange}
+        locale="ko-KR" // 한국어 설정
+      />
+
+      {/* iOS에서만 확인/취소 버튼을 렌더링합니다. */}
+      {Platform.OS === "ios" && (
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, styles.cancelButton]}
+            onPress={onCancel}
+            activeOpacity={0.7}
+          >
+            <Typo size={16} fontWeight="600" style={styles.cancelButtonText}>
+              취소
+            </Typo>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.confirmButton]}
+            onPress={handleConfirm}
+            activeOpacity={0.7}
+          >
+            <Typo size={16} fontWeight="600" style={styles.confirmButtonText}>
+              확인
+            </Typo>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
 
+// 스타일은 기존과 거의 동일하게 유지합니다.
+// 단, 안드로이드에서는 배경 컨테이너가 필요 없을 수 있으므로
+// 부모 컴포넌트에서 이 컴포넌트를 호출하는 방식을 조절해야 할 수 있습니다.
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.white,
     borderRadius: 20,
-    paddingTop: spacingY._20,
-    paddingHorizontal: spacingX._20,
-    paddingBottom: spacingY._15,
+    paddingTop: Platform.OS === "ios" ? spacingY._20 : 0,
+    paddingHorizontal: Platform.OS === "ios" ? spacingX._20 : 0,
+    paddingBottom: Platform.OS === "ios" ? spacingY._15 : 0,
     width: "90%",
     shadowColor: "#000",
     shadowOffset: {
@@ -164,20 +134,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     textAlign: "center",
   },
-  pickerContainer: {
-    flexDirection: "row",
-    width: "100%",
-    justifyContent: "space-between",
-    marginBottom: spacingY._20,
-  },
-  picker: {
-    flex: 1,
-  },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
     gap: spacingX._10,
+    marginTop: spacingY._20,
   },
   button: {
     flex: 1,

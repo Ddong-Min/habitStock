@@ -1,7 +1,7 @@
 import CustomChart from "@/components/CustomChart";
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import Profile from "@/components/Profile";
+import UserProfile from "@/components/UserProfile";
 import FriendStock from "@/components/FriendStock";
 import Typo from "@/components/Typo";
 import { useStock } from "@/contexts/stockContext";
@@ -36,7 +36,7 @@ const Stock = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Profile type={stockTabType} />
+      <UserProfile type={stockTabType} />
       <CustomChart stockData={stockData} />
       <FriendStock />
     </View>

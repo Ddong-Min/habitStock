@@ -12,7 +12,7 @@ interface ProfileProps {
   type: "todo" | "stocks" | "news";
 }
 
-const Profile: React.FC<ProfileProps> = ({ type }) => {
+const UserProfile: React.FC<ProfileProps> = ({ type }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { stockData } = useStock();
@@ -31,7 +31,7 @@ const Profile: React.FC<ProfileProps> = ({ type }) => {
     <View style={[styles.container, { backgroundColor: theme.cardBackground }]}>
       <View style={styles.avatarContainer}>
         <Image
-          source={require("../assets/images/tempProfile.png")}
+          source={{ uri: user?.image || "https://via.placeholder.com/100" }}
           style={[styles.avatar, { borderColor: theme.neutral200 }]}
         />
       </View>
@@ -98,20 +98,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   avatarContainer: {
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
-    borderRadius: radius._30,
+    borderRadius: radius._100,
   },
   avatar: {
-    width: spacingX._50,
-    height: spacingX._50,
-    borderRadius: radius._30,
+    width: spacingX._60,
+    height: spacingX._60,
+    borderRadius: radius._100,
     marginRight: spacingX._15,
     borderWidth: 2,
   },
@@ -131,4 +123,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Profile;
+export default UserProfile;

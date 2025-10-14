@@ -7,7 +7,7 @@ import Typo from "../../components/Typo";
 import { verticalScale } from "@/utils/styling";
 import { useNews } from "@/contexts/newsContext";
 import NewsDetail from "@/components/NewsDetail";
-import Profile from "@/components/Profile";
+import UserProfile from "@/components/UserProfile";
 import { useTheme } from "@/contexts/themeContext";
 
 const news = () => {
@@ -39,7 +39,7 @@ const news = () => {
         style={[styles.content, { backgroundColor: theme.background }]}
         showsVerticalScrollIndicator={false}
       >
-        <Profile type="news" />
+        <UserProfile type="news" />
         <View style={styles.section}>
           <YearHeader year={selectedYear.toString()} />
 

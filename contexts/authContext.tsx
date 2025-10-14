@@ -4,6 +4,8 @@ import React, {
   useEffect,
   useState,
   ReactNode,
+  useCallback,
+  useRef,
 } from "react";
 import { AuthContextType, UserType } from "@/types";
 import {
@@ -23,12 +25,50 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<UserType>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const authListenerSetup = useRef(false); // 중복 실행 방지
+
+  const updateUserData = useCallback(async (uid: string) => {
+    try {
+      const docRef = doc(firestore, "users", uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const userData: UserType = {
+          uid: data.uid,
+          email: data.email || null,
+          name: data.name || null,
+          image: data.image || null,
+          price: data.price,
+          quantity: data.quantity,
+          lastUpdated: data.lastUpdated,
+          followersCount: data.followersCount || 0,
+          followingCount: data.followingCount || 0,
+          bio: data.bio || "",
+          isDarkMode: data.isDarkMode || false,
+          allowAlarm: data.allowAlarm || false,
+          duetime: data.duetime || "00:00",
+          words: data.words || "korean",
+          registerDate: data.registerDate || null,
+        };
+        setUser(userData);
+      }
+    } catch (error: any) {
+      console.log("Error fetching user data:", error.message);
+    }
+  }, []);
 
   useEffect(() => {
+    // 이미 설정되었으면 무시
+    if (authListenerSetup.current) return;
+
+    console.log("🔧 Setting up auth listener...");
+    authListenerSetup.current = true;
+
     const unsub = onAuthStateChanged(
       auth,
       async (firebaseUser: User | null) => {
-        console.log("Auth State Changed: ", firebaseUser?.uid || "null");
+        console.log("🔐 Auth State Changed:", firebaseUser?.uid || "null");
+
         if (firebaseUser) {
           await updateUserData(firebaseUser.uid);
         } else {
@@ -38,8 +78,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       }
     );
 
-    return () => unsub();
-  }, []);
+    return () => {
+      console.log("🧹 Cleaning up auth listener");
+      authListenerSetup.current = false;
+      unsub();
+    };
+  }, [updateUserData]); // updateUserData를 dependency에 추가
 
   const login = async (email: string, password: string) => {
     try {
@@ -48,7 +92,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         email,
         password
       );
-      // 사용자 데이터를 먼저 가져온 후 라우팅
       await updateUserData(userCredential.user.uid);
       router.replace("/(tabs)");
       return { success: true };
@@ -87,7 +130,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         words: "한국어",
         registerDate: new Date().toISOString().split("T")[0],
       });
-      // 사용자 데이터를 먼저 가져온 후 라우팅
       await updateUserData(response.user.uid);
       router.replace("/(tabs)");
       return { success: true };
@@ -98,36 +140,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       else if (msg.includes("(auth/invalid-email)"))
         msg = "이메일 형식이 올바르지 않습니다.";
       return { success: false, msg };
-    }
-  };
-
-  const updateUserData = async (uid: string) => {
-    try {
-      const docRef = doc(firestore, "users", uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const userData: UserType = {
-          uid: data.uid,
-          email: data.email || null,
-          name: data.name || null,
-          image: data.image || null,
-          price: data.price,
-          quantity: data.quantity,
-          lastUpdated: data.lastUpdated,
-          followersCount: data.followersCount || 0,
-          followingCount: data.followingCount || 0,
-          bio: data.bio || "",
-          isDarkMode: data.isDarkMode || false,
-          allowAlarm: data.allowAlarm || false,
-          duetime: data.duetime || "00:00",
-          words: data.words || "korean",
-          registerDate: data.registerDate || null,
-        };
-        setUser(userData);
-      }
-    } catch (error: any) {
-      console.log("Error fetching user data:", error.message);
     }
   };
 

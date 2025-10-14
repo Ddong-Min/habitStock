@@ -8,7 +8,7 @@ import {
   Text,
 } from "react-native";
 import { colors, radius, spacingX, spacingY } from "../../constants/theme";
-import Profile from "../../components/Profile";
+import Profile from "../../components/UserProfile";
 import CustomCalendar from "../../components/CustomCalendar";
 import TaskList from "../../components/TaskList";
 import Toggle from "@/components/Toggle";
@@ -19,6 +19,7 @@ import CustomDatePicker from "@/components/CustomDatePicker";
 import YearHeader from "@/components/YearHeader";
 import { useCalendar } from "@/contexts/calendarContext";
 import { useTheme } from "@/contexts/themeContext";
+import UserProfile from "../../components/UserProfile";
 const TodoScreen = () => {
   const {
     taskType,
@@ -49,7 +50,7 @@ const TodoScreen = () => {
       style={[styles.container, { backgroundColor: theme.background }]}
     >
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Profile type="todo" />
+        <UserProfile type="todo" />
         {/* <Toggle /> */}
 
         <CustomCalendar />

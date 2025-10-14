@@ -9,6 +9,8 @@ import {
   StyleSheet,
   Text,
   Modal,
+  TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/authContext";
@@ -16,6 +18,8 @@ import { doc, updateDoc } from "firebase/firestore";
 import { firestore } from "@/config/firebase";
 import { useTheme } from "@/contexts/themeContext";
 import { router } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const Profile: React.FC = () => {
   const { theme } = useTheme();
@@ -42,6 +46,15 @@ const Profile: React.FC = () => {
   const [words, setWords] = useState(user?.words || "한국어");
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedHour, setSelectedHour] = useState(24);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // 이름 수정 모달
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [tempName, setTempName] = useState(userName);
+
+  // 소개 수정 모달
+  const [showBioModal, setShowBioModal] = useState(false);
+  const [tempBio, setTempBio] = useState(bio);
 
   // Firebase에 설정 저장하는 공통 함수
   const updateUserSettings = async (field: string, value: any) => {
@@ -53,7 +66,6 @@ const Profile: React.FC = () => {
         [field]: value,
       });
 
-      // 로컬 user 상태도 업데이트
       await updateUserData(user.uid);
       console.log(`✅ ${field} 업데이트 완료:`, value);
     } catch (error) {
@@ -62,51 +74,85 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleImagePicker = () => {
-    Alert.alert("프로필 사진", "프로필 사진을 변경하시겠습니까?");
+  // 이미지 업로드 함수
+  const uploadImageToFirebase = async (uri: string) => {
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      const storage = getStorage();
+      const filename = `profile_${user.uid}_${Date.now()}.jpg`;
+      const storageRef = ref(storage, `profiles/${filename}`);
+
+      await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      return downloadURL;
+    } catch (error) {
+      console.error("이미지 업로드 실패:", error);
+      throw error;
+    }
   };
 
-  const handleEditName = () => {
-    Alert.prompt(
-      "이름 변경",
-      "새로운 이름을 입력하세요",
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "변경",
-          onPress: async (newName) => {
-            if (newName && newName.trim()) {
-              setUserName(newName);
-              await updateUserSettings("name", newName);
-            }
-          },
-        },
-      ],
-      "plain-text",
-      userName
-    );
+  // 이미지 선택 및 업로드
+  const handleImagePicker = async () => {
+    try {
+      // 권한 요청
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert("권한 필요", "사진 라이브러리 접근 권한이 필요합니다.");
+        return;
+      }
+
+      // 이미지 선택
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setIsUploading(true);
+
+        // Firebase Storage에 업로드
+        const imageUrl = await uploadImageToFirebase(result.assets[0].uri);
+
+        // Firestore에 URL 저장
+        await updateUserSettings("image", imageUrl);
+
+        setIsUploading(false);
+        Alert.alert("성공", "프로필 사진이 변경되었습니다.");
+      }
+    } catch (error) {
+      setIsUploading(false);
+      Alert.alert("오류", "이미지 업로드에 실패했습니다.");
+      console.error(error);
+    }
   };
 
-  const handleEditBio = () => {
-    Alert.prompt(
-      "소개 변경",
-      "새로운 소개를 입력하세요 (최대 150자)",
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "변경",
-          onPress: async (newBio) => {
-            if (newBio !== null) {
-              const trimmedBio = newBio!.substring(0, 150);
-              setBio(trimmedBio);
-              await updateUserSettings("bio", trimmedBio);
-            }
-          },
-        },
-      ],
-      "plain-text",
-      bio
-    );
+  // 이름 변경 확인
+  const handleNameConfirm = async () => {
+    if (!tempName.trim()) {
+      Alert.alert("오류", "이름을 입력해주세요.");
+      return;
+    }
+
+    setUserName(tempName);
+    await updateUserSettings("name", tempName);
+    setShowNameModal(false);
+    Alert.alert("성공", "이름이 변경되었습니다.");
+  };
+
+  // 소개 변경 확인
+  const handleBioConfirm = async () => {
+    const trimmedBio = tempBio.substring(0, 150);
+    setBio(trimmedBio);
+    await updateUserSettings("bio", trimmedBio);
+    setShowBioModal(false);
+    Alert.alert("성공", "소개가 변경되었습니다.");
   };
 
   // 다크모드 토글
@@ -175,7 +221,7 @@ const Profile: React.FC = () => {
         style: "destructive",
         onPress: () => {
           logout();
-          router.replace("/login");
+          router.replace("/(auth)/welcome");
         },
       },
     ]);
@@ -212,11 +258,17 @@ const Profile: React.FC = () => {
         <TouchableOpacity
           style={styles.profileImageContainer}
           onPress={handleImagePicker}
+          disabled={isUploading}
         >
           <Image
             source={{ uri: user?.image || "https://via.placeholder.com/100" }}
             style={styles.profileImage}
           />
+          {isUploading && (
+            <View style={styles.uploadingOverlay}>
+              <ActivityIndicator size="large" color="#fff" />
+            </View>
+          )}
           <View
             style={[
               styles.cameraIconContainer,
@@ -235,11 +287,21 @@ const Profile: React.FC = () => {
             <Text style={[styles.nameText, { color: theme.text }]}>
               {userName}
             </Text>
-            <TouchableOpacity onPress={handleEditName}>
+            <TouchableOpacity
+              onPress={() => {
+                setTempName(userName);
+                setShowNameModal(true);
+              }}
+            >
               <Ionicons name="pencil" size={20} color={theme.blue100} />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={handleEditBio}>
+          <TouchableOpacity
+            onPress={() => {
+              setTempBio(bio);
+              setShowBioModal(true);
+            }}
+          >
             <Text style={[styles.bioText, { color: theme.textLight }]}>
               {bio || "소개를 입력하세요"}
             </Text>
@@ -369,6 +431,132 @@ const Profile: React.FC = () => {
         </TouchableOpacity>
       </View>
 
+      {/* 이름 변경 모달 */}
+      <Modal
+        visible={showNameModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowNameModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardBackground },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              이름 변경
+            </Text>
+
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.background,
+                  color: theme.text,
+                  borderColor: theme.neutral200,
+                },
+              ]}
+              value={tempName}
+              onChangeText={setTempName}
+              placeholder="새로운 이름을 입력하세요"
+              placeholderTextColor={theme.textLight}
+              maxLength={30}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: theme.neutral200 },
+                ]}
+                onPress={() => setShowNameModal(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.text }]}>
+                  취소
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: theme.blue100 }]}
+                onPress={handleNameConfirm}
+              >
+                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                  확인
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 소개 변경 모달 */}
+      <Modal
+        visible={showBioModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowBioModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.cardBackground },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              소개 변경
+            </Text>
+
+            <TextInput
+              style={[
+                styles.textArea,
+                {
+                  backgroundColor: theme.background,
+                  color: theme.text,
+                  borderColor: theme.neutral200,
+                },
+              ]}
+              value={tempBio}
+              onChangeText={setTempBio}
+              placeholder="소개를 입력하세요 (최대 150자)"
+              placeholderTextColor={theme.textLight}
+              multiline
+              maxLength={150}
+              numberOfLines={4}
+            />
+
+            <Text style={[styles.charCount, { color: theme.textLight }]}>
+              {tempBio.length}/150
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: theme.neutral200 },
+                ]}
+                onPress={() => setShowBioModal(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: theme.text }]}>
+                  취소
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: theme.blue100 }]}
+                onPress={handleBioConfirm}
+              >
+                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                  확인
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* 시간 선택 모달 */}
       <Modal
         visible={showTimePicker}
@@ -387,7 +575,6 @@ const Profile: React.FC = () => {
               마감 시간 설정
             </Text>
 
-            {/* 디지털 시계 스타일 */}
             <View style={styles.clockContainer}>
               <TouchableOpacity
                 style={styles.arrowButton}
@@ -415,7 +602,6 @@ const Profile: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {/* 버튼 */}
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[
@@ -462,6 +648,15 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
+  },
+  uploadingOverlay: {
+    position: "absolute",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   cameraIconContainer: {
     position: "absolute",
@@ -542,6 +737,31 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     marginBottom: 24,
+  },
+  input: {
+    width: "100%",
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    marginBottom: 24,
+  },
+  textArea: {
+    width: "100%",
+    height: 120,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    textAlignVertical: "top",
+    marginBottom: 8,
+  },
+  charCount: {
+    alignSelf: "flex-end",
+    fontSize: 12,
+    marginBottom: 16,
   },
   clockContainer: {
     alignItems: "center",

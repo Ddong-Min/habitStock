@@ -1,7 +1,7 @@
 import CustomChart from "@/components/CustomChart";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View, ScrollView } from "react-native";
-import Profile from "@/components/Profile";
+import UserProfile from "@/components/UserProfile";
 import FriendStock from "@/components/FriendStock";
 import Typo from "@/components/Typo";
 import { useState, useEffect } from "react";

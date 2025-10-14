@@ -78,6 +78,9 @@ export const spacingX = {
   _35: scale(35),
   _40: scale(40),
   _50: scale(50),
+  _60: scale(60),
+  _70: scale(70),
+  _100: scale(100),
 };
 
 export const spacingY = {
@@ -111,6 +114,8 @@ export const radius = {
   _30: verticalScale(30),
   _40: verticalScale(40),
   _50: verticalScale(50),
+  _70: verticalScale(70),
+  _100: verticalScale(100),
 };
 
 // 테마 타입

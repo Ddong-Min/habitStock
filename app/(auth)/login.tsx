@@ -75,9 +75,15 @@ const Login = () => {
               />
             }
           />
-          <Typo size={14} color={colors.text} style={{ alignSelf: "flex-end" }}>
-            비밀번호를 잊으셨나요?
-          </Typo>
+          <Pressable onPress={() => router.push("/(auth)/forgotPassword")}>
+            <Typo
+              size={14}
+              color={colors.text}
+              style={{ alignSelf: "flex-end" }}
+            >
+              비밀번호를 잊으셨나요?
+            </Typo>
+          </Pressable>
         </View>
 
         <Button
