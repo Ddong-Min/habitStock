@@ -13,8 +13,19 @@ import { StockProvider } from "@/contexts/stockContext";
 import { TasksProvider } from "@/contexts/taskContext";
 import { FollowProvider } from "@/contexts/followContext";
 import { NewsProvider } from "@/contexts/newsContext";
+import { NotificationProvider } from "@/contexts/notificationContext";
 import "react-native-url-polyfill/auto";
+import * as Notifications from "expo-notifications";
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 // 앱이 시작될 때 스플래시 스크린이 자동으로 사라지지 않도록 합니다.
 SplashScreen.preventAutoHideAsync();
 
@@ -68,11 +79,13 @@ function AppContent() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <ThemeProvider>
-          <AppContent />
-        </ThemeProvider>
-      </AuthProvider>
+      <NotificationProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <AppContent />
+          </ThemeProvider>
+        </AuthProvider>
+      </NotificationProvider>
     </GestureHandlerRootView>
   );
 }

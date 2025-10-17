@@ -4,21 +4,361 @@ import { onRequest } from "firebase-functions/v2/https";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { FieldValue } from "firebase-admin/firestore";
+import { Expo, ExpoPushMessage } from "expo-server-sdk";
 
 admin.initializeApp();
 const db = admin.firestore();
+const expo = new Expo();
 
-// 글로벌 옵션 설정 (모든 함수에 적용)
 setGlobalOptions({
-  region: "asia-northeast3", // 서울 리전
+  region: "asia-northeast3",
   maxInstances: 10,
-  secrets: ["GEMINI_API_KEY"], // 모든 함수에서 Gemini API 키 사용 명시
+  secrets: ["GEMINI_API_KEY"],
 });
 
-// 주가 하락 계산 및 적용
+// ==================== 푸시 알림 관련 함수 ====================
+
+/**
+ * 푸시 알림 전송 헬퍼 함수
+ */
+async function sendPushNotification(
+  expoPushToken: string,
+  title: string,
+  body: string,
+  data?: any
+): Promise<boolean> {
+  if (!Expo.isExpoPushToken(expoPushToken)) {
+    console.error(`❌ 유효하지 않은 푸시 토큰: ${expoPushToken}`);
+    return false;
+  }
+
+  try {
+    const message: ExpoPushMessage = {
+      to: expoPushToken,
+      sound: "default",
+      title,
+      body,
+      data: data || {},
+      priority: "high",
+    };
+
+    const chunks = expo.chunkPushNotifications([message]);
+    const tickets = [];
+
+    for (const chunk of chunks) {
+      const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+      tickets.push(...ticketChunk);
+    }
+
+    console.log(`✅ 푸시 알림 전송 성공: ${title}`);
+    return true;
+  } catch (error) {
+    console.error("❌ 푸시 알림 전송 실패:", error);
+    return false;
+  }
+}
+
+/**
+ * 유저의 푸시 토큰 가져오기
+ */
+async function getUserPushToken(userId: string): Promise<string | null> {
+  try {
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) return null;
+
+    const userData = userDoc.data();
+    return userData?.expoPushToken || null;
+  } catch (error) {
+    console.error(`❌ ${userId} 푸시 토큰 조회 실패:`, error);
+    return null;
+  }
+}
+
+// ==================== 1시간 전 알림 ====================
+
+/**
+ * 매시 정각 실행 - 1시간 전 알림 체크
+ */
+export const check1HourBeforeDeadline = onSchedule(
+  {
+    schedule: "0 * * * *", // 매시 0분에 실행
+    timeZone: "Asia/Seoul",
+  },
+  async () => {
+    const now = new Date();
+    const koreaTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Seoul" })
+    );
+    const currentHour = koreaTime.getHours();
+
+    console.log(`⏰ 1시간 전 알림 체크 시작: ${now.toISOString()}`);
+
+    try {
+      const usersSnapshot = await db.collection("users").get();
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id;
+        const userData = userDoc.data();
+        const pushToken = userData.expoPushToken;
+
+        if (!pushToken) continue;
+
+        const duetime = userData.duetime; // "HH:00" 형식
+        if (!duetime) continue;
+
+        const [dueHour] = duetime.split(":").map(Number);
+
+        if (
+          currentHour === dueHour - 1 ||
+          (dueHour === 0 && currentHour === 23)
+        ) {
+          let targetDate: string;
+          if (dueHour >= 0 && dueHour < 7) {
+            const yesterday = new Date(koreaTime);
+            yesterday.setDate(yesterday.getDate() - 1);
+            targetDate = yesterday.toISOString().split("T")[0];
+          } else {
+            targetDate = koreaTime.toISOString().split("T")[0];
+          }
+
+          const todosDoc = await db
+            .collection("users")
+            .doc(userId)
+            .collection("data")
+            .doc("todos")
+            .get();
+
+          if (!todosDoc.exists) continue;
+
+          const todosData = todosDoc.data();
+          const dateTodos = todosData?.[targetDate];
+
+          if (!dateTodos) continue;
+
+          const incompleteTasks = Object.values(dateTodos).filter(
+            (task: any) => !task.completed
+          ).length;
+
+          if (incompleteTasks === 0) continue;
+
+          await sendPushNotification(
+            pushToken,
+            "⏰ 1시간 남았어요!",
+            `마감까지 1시간! 미완료 할일 ${incompleteTasks}개가 남았습니다.`,
+            {
+              type: "1hour_before",
+              incompleteTasks,
+              date: targetDate,
+            }
+          );
+
+          console.log(
+            `✅ ${userId}: 1시간 전 알림 전송 (${incompleteTasks}개 할일, 날짜: ${targetDate})`
+          );
+        }
+      }
+
+      console.log("✅ 1시간 전 알림 체크 완료");
+    } catch (error) {
+      console.error("❌ 1시간 전 알림 체크 에러:", error);
+    }
+  }
+);
+
+// ==================== 10분 전 알림 ====================
+
+/**
+ * 매시 50분에 실행 - 10분 전 알림 체크
+ */
+export const check10MinutesBeforeDeadline = onSchedule(
+  {
+    schedule: "50 * * * *", // 매시 50분에 실행
+    timeZone: "Asia/Seoul",
+  },
+  async () => {
+    const now = new Date();
+    const koreaTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Seoul" })
+    );
+    const currentHour = koreaTime.getHours();
+
+    console.log(`🚨 10분 전 알림 체크 시작: ${now.toISOString()}`);
+
+    try {
+      const usersSnapshot = await db.collection("users").get();
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id;
+        const userData = userDoc.data();
+        const pushToken = userData.expoPushToken;
+
+        if (!pushToken) continue;
+
+        const duetime = userData.duetime;
+        if (!duetime) continue;
+
+        const [dueHour] = duetime.split(":").map(Number);
+
+        const nextHour = (currentHour + 1) % 24;
+        if (nextHour === dueHour) {
+          let targetDate: string;
+          if (dueHour >= 0 && dueHour < 7) {
+            const yesterday = new Date(koreaTime);
+            yesterday.setDate(yesterday.getDate() - 1);
+            targetDate = yesterday.toISOString().split("T")[0];
+          } else {
+            targetDate = koreaTime.toISOString().split("T")[0];
+          }
+
+          const todosDoc = await db
+            .collection("users")
+            .doc(userId)
+            .collection("data")
+            .doc("todos")
+            .get();
+
+          if (!todosDoc.exists) continue;
+
+          const todosData = todosDoc.data();
+          const dateTodos = todosData?.[targetDate];
+
+          if (!dateTodos) continue;
+
+          const tasks = Object.values(dateTodos);
+          const incompleteTasks = tasks.filter((task: any) => !task.completed);
+          const totalTasks = tasks.length;
+
+          if (incompleteTasks.length === 0) continue;
+
+          const completionRate = Math.round(
+            ((totalTasks - incompleteTasks.length) / totalTasks) * 100
+          );
+
+          await sendPushNotification(
+            pushToken,
+            "🚨 10분 남았어요!",
+            `마감 임박! ${incompleteTasks.length}개 할일 남음 (진행률: ${completionRate}%)`,
+            {
+              type: "10min_before",
+              incompleteTasks: incompleteTasks.length,
+              completionRate,
+              date: targetDate,
+            }
+          );
+
+          console.log(`✅ ${userId}: 10분 전 알림 전송 (날짜: ${targetDate})`);
+        }
+      }
+
+      console.log("✅ 10분 전 알림 체크 완료");
+    } catch (error) {
+      console.error("❌ 10분 전 알림 체크 에러:", error);
+    }
+  }
+);
+
+// ==================== 마감 후 처리 ====================
+
+/**
+ * 🔥 MODIFIED: 할일이 하나도 없을 때 주가 하락, 알림, 주가 데이터 생성을 모두 처리
+ */
+async function applyNoTaskPenalty(
+  userId: string,
+  date: string,
+  userData: admin.firestore.DocumentData
+) {
+  try {
+    const currentPrice = userData.price || 100;
+    const consecutiveNoTaskDays = (userData.consecutiveNoTaskDays || 0) + 1;
+
+    let minRate: number;
+    let maxRate: number;
+    if (consecutiveNoTaskDays === 1) {
+      minRate = 0.5;
+      maxRate = 1.0;
+    } else if (consecutiveNoTaskDays === 2) {
+      minRate = 0.7;
+      maxRate = 1.3;
+    } else {
+      minRate = 1.0;
+      maxRate = 2.0;
+    }
+
+    const penaltyRate = minRate + Math.random() * (maxRate - minRate);
+    const priceChange = currentPrice * (penaltyRate / 100);
+    const newPrice = Math.max(
+      1,
+      Math.round((currentPrice - priceChange) * 10) / 10
+    );
+
+    // 주가 데이터 생성
+    const stocksDocRef = db
+      .collection("users")
+      .doc(userId)
+      .collection("data")
+      .doc("stocks");
+    const stocksDoc = await stocksDocRef.get();
+    const stocksData = stocksDoc.exists ? stocksDoc.data() || {} : {};
+
+    const stockUpdate = {
+      date: date,
+      changePrice: -(Math.round(priceChange * 10) / 10),
+      changeRate: -penaltyRate,
+      open: currentPrice,
+      close: newPrice,
+      high: currentPrice,
+      low: newPrice,
+      volume: 0, // 할일이 없었으므로 거래량은 0
+    };
+
+    stocksData[date] = stockUpdate;
+    await stocksDocRef.set(stocksData, { merge: true });
+
+    // 사용자 정보 업데이트
+    await db
+      .collection("users")
+      .doc(userId)
+      .update({
+        price: newPrice,
+        consecutiveNoTaskDays: FieldValue.increment(1),
+        lastUpdated: FieldValue.serverTimestamp(),
+      });
+
+    console.log(
+      `😴 ${userId}: 할일 없음. ${consecutiveNoTaskDays}일 연속. 주가 ${penaltyRate.toFixed(
+        2
+      )}% 하락. ${currentPrice} -> ${newPrice}`
+    );
+
+    // 푸시 알림 전송
+    const pushToken = userData.expoPushToken;
+    if (pushToken) {
+      await sendPushNotification(
+        pushToken,
+        "😴 할 일을 추가하지 않으셨네요!",
+        `연속 ${consecutiveNoTaskDays}일째 할 일이 없어 주가가 ${penaltyRate.toFixed(
+          2
+        )}% 하락했습니다.`,
+        {
+          type: "no_task_penalty",
+          date,
+          consecutiveNoTaskDays,
+          penaltyRate,
+          newPrice,
+        }
+      );
+    }
+  } catch (error) {
+    console.error(`❌ ${userId} 할일 없음 페널티 적용 실패:`, error);
+  }
+}
+
+/**
+ * 주가 하락 계산 및 푸시 알림 전송 (미완료 할일 있을 때)
+ */
 async function calculateStockPenalty(
   userId: string,
-  date: string, // YYYY-MM-DD 형식의 날짜
+  date: string,
   incompleteTasks: any[],
   completedTasks: any[],
   currentPrice: number
@@ -28,19 +368,14 @@ async function calculateStockPenalty(
     let totalChangePrice = 0;
     let totalChangeRate = 0;
 
-    // 1. 미완료 할 일을 순회하며 페널티 총합 계산 및 업데이트 내용 준비
     incompleteTasks.forEach((task: any) => {
       totalChangePrice += task.priceChange || 0;
       totalChangeRate += task.percentage || 0;
 
-      // task 객체에 id가 있을 경우, 업데이트할 내용을 준비합니다.
       if (task.id) {
-        // 점 표기법을 사용하여 'todos' 문서 내의 정확한 필드 경로를 지정합니다.
-        // 예: '2025-10-13.task-abc-123.appliedPriceChange'
         const priceFieldPath = `${date}.${task.id}.appliedPriceChange`;
         const percentFieldPath = `${date}.${task.id}.appliedPercentage`;
 
-        // FieldValue.increment를 사용해 기존 값에서 안전하게 값을 차감합니다.
         todoUpdates[priceFieldPath] = FieldValue.increment(
           -(task.priceChange || 0)
         );
@@ -50,7 +385,6 @@ async function calculateStockPenalty(
       }
     });
 
-    // 2. 'todos' 문서에 미완료 할 일들의 변경사항을 한 번에 적용
     if (Object.keys(todoUpdates).length > 0) {
       const todosDocRef = db
         .collection("users")
@@ -58,18 +392,13 @@ async function calculateStockPenalty(
         .collection("data")
         .doc("todos");
       await todosDocRef.update(todoUpdates);
-      console.log(
-        `✅ [${userId}] ${incompleteTasks.length}개 할일 페널티 필드 적용 완료`
-      );
     }
 
-    // 3. 페널티가 적용된 새 주가 계산
     const newPrice = Math.max(
       1,
       Math.round((currentPrice - totalChangePrice) * 10) / 10
     );
 
-    // 4. 'stocks' 문서 업데이트
     const stocksDocRef = db
       .collection("users")
       .doc(userId)
@@ -104,11 +433,37 @@ async function calculateStockPenalty(
     };
     await stocksDocRef.set(stocksData, { merge: true });
 
-    // 5. 유저 프로필의 price 업데이트
     await db.collection("users").doc(userId).update({
       price: newPrice,
       lastUpdated: FieldValue.serverTimestamp(),
     });
+
+    // 마감 후 푸시 알림 전송
+    const pushToken = await getUserPushToken(userId);
+    if (pushToken) {
+      const totalTasks = incompleteTasks.length + completedTasks.length;
+      const completionRate = Math.round(
+        (completedTasks.length / totalTasks) * 100
+      );
+
+      await sendPushNotification(
+        pushToken,
+        "📉 주가가 하락했습니다",
+        `${incompleteTasks.length}개 할일 미완료로 -${Math.abs(
+          changeRate
+        ).toFixed(2)}% 하락 (진행률: ${completionRate}%)`,
+        {
+          type: "deadline_passed",
+          incompleteTasks: incompleteTasks.length,
+          completedTasks: completedTasks.length,
+          priceChange: changePrice,
+          changeRate: changeRate,
+          newPrice: newPrice,
+          completionRate,
+          date,
+        }
+      );
+    }
 
     console.log(
       `📉 ${userId}: ${currentPrice} → ${newPrice} ` +
@@ -123,7 +478,7 @@ async function calculateStockPenalty(
       totalChangeRate,
     };
   } catch (error) {
-    console.error(`❌ ${userId} 주가 및 할일 업데이트 실패:`, error);
+    console.error(`❌ ${userId} 주가 업데이트 실패:`, error);
     return {
       success: false,
       error,
@@ -131,14 +486,15 @@ async function calculateStockPenalty(
   }
 }
 
-// 🔥 NEW: 특정 날짜의 할일을 체크하는 공통 함수
+/**
+ * 🔥 MODIFIED: 특정 날짜의 할일 체크 및 분기 처리
+ */
 async function checkTasksForDate(
   userId: string,
   date: string,
-  currentPrice: number
+  userData: admin.firestore.DocumentData
 ): Promise<void> {
   try {
-    // 해당 날짜의 할일 가져오기
     const todosDoc = await db
       .collection("users")
       .doc(userId)
@@ -146,56 +502,63 @@ async function checkTasksForDate(
       .doc("todos")
       .get();
 
-    if (!todosDoc.exists) {
-      return;
-    }
-
-    const todosData = todosDoc.data();
+    const todosData = todosDoc.exists ? todosDoc.data() : null;
     const dateTodos = todosData?.[date];
+    const totalTasks = dateTodos ? Object.keys(dateTodos).length : 0;
 
-    if (!dateTodos) {
-      console.log(`📭 ${userId}: ${date} 할일 없음`);
-      return;
+    if (totalTasks > 0) {
+      // --- 분기 1: 오늘 할일이 있는 경우 (완료/미완료 무관) ---
+      // 할일이 하나라도 등록되었으므로, 연속 할일 없음 카운트를 0으로 초기화합니다.
+      if (
+        userData.consecutiveNoTaskDays &&
+        userData.consecutiveNoTaskDays > 0
+      ) {
+        await db
+          .collection("users")
+          .doc(userId)
+          .update({ consecutiveNoTaskDays: 0 });
+        console.log(`🔄 ${userId}: 할일 등록 확인, 연속 카운트 초기화.`);
+      }
+
+      const allTasks = Object.values(dateTodos);
+      const incompleteTasks = allTasks.filter((task: any) => !task.completed);
+      const completedTasks = allTasks.filter((task: any) => task.completed);
+
+      if (incompleteTasks.length > 0) {
+        // 미완료 할일이 있는 경우, 페널티 적용
+        console.log(
+          `❌ ${userId}: ${date} ${incompleteTasks.length}개 미완료 (${completedTasks.length}개 완료)`
+        );
+        await calculateStockPenalty(
+          userId,
+          date,
+          incompleteTasks,
+          completedTasks,
+          userData.price || 100
+        );
+      } else {
+        // 모든 할일을 완료한 경우
+        console.log(`✅ ${userId}: ${date} 모든 할일 완료`);
+      }
+    } else {
+      // --- 분기 2: 오늘 할일이 아예 없는 경우 ---
+      console.log(`📭 ${userId}: ${date} 할일 없음. 페널티 적용.`);
+      await applyNoTaskPenalty(userId, date, userData);
     }
-
-    // 미완료 할일 수집
-    const incompleteTasks = Object.values(dateTodos).filter(
-      (task: any) => !task.completed
-    );
-    const completedTasks = Object.values(dateTodos).filter(
-      (task: any) => task.completed
-    );
-
-    if (incompleteTasks.length === 0) {
-      console.log(`✅ ${userId}: ${date} 모든 할일 완료`);
-      return;
-    }
-
-    console.log(
-      `❌ ${userId}: ${date} ${incompleteTasks.length}개 미완료 (${completedTasks.length}개 완료)`
-    );
-
-    await calculateStockPenalty(
-      userId,
-      date,
-      incompleteTasks,
-      completedTasks,
-      currentPrice
-    );
   } catch (error) {
     console.error(`❌ ${userId} ${date} 할일 체크 실패:`, error);
   }
 }
 
-// 🔥 FIX: 특정 유저의 duetime에 맞춰 체크하는 함수 (매시간 실행)
+// ==================== 기존 스케줄링 함수 (수정됨) ====================
+
 export const checkUserTasksByTime = onSchedule(
   {
-    schedule: "0 * * * *", // 매시간 정각
+    schedule: "0 * * * *",
     timeZone: "Asia/Seoul",
   },
-  async () => {
-    // 한국 시간으로 변환
-    const now = new Date();
+  async (event) => {
+    const now = new Date(event.scheduleTime);
     const koreaTime = new Date(
       now.toLocaleString("en-US", {
         timeZone: "Asia/Seoul",
@@ -203,15 +566,11 @@ export const checkUserTasksByTime = onSchedule(
     );
 
     const currentHour = koreaTime.getHours();
-    const currentMinute = koreaTime.getMinutes();
-    const currentTime = `${String(currentHour).padStart(2, "0")}:${String(
-      currentMinute
-    ).padStart(2, "0")}`;
+    const currentTime = `${String(currentHour).padStart(2, "0")}:00`;
 
     console.log(`🕐 ${currentTime} 체크 시작 (한국 시간)`);
 
     try {
-      // duetime이 현재 시간인 유저들 찾기
       const usersSnapshot = await db
         .collection("users")
         .where("duetime", "==", currentTime)
@@ -222,16 +581,13 @@ export const checkUserTasksByTime = onSchedule(
         return;
       }
 
-      // 🔥 FIX: duetime이 00:00~07:00 사이면 어제 날짜, 그 외는 오늘 날짜
       let targetDate: string;
       if (currentHour >= 0 && currentHour < 7) {
-        // 새벽 시간대 (00:00 ~ 06:59) → 어제 날짜
         const yesterday = new Date(koreaTime);
         yesterday.setDate(yesterday.getDate() - 1);
         targetDate = yesterday.toISOString().split("T")[0];
         console.log(`🌙 새벽 시간대 - 어제(${targetDate}) 할일 체크`);
       } else {
-        // 일반 시간대 (07:00 ~ 23:59) → 오늘 날짜
         targetDate = koreaTime.toISOString().split("T")[0];
         console.log(`☀️ 일반 시간대 - 오늘(${targetDate}) 할일 체크`);
       }
@@ -243,8 +599,8 @@ export const checkUserTasksByTime = onSchedule(
         console.log(
           `👤 ${userId}: duetime ${currentTime} → ${targetDate} 체크`
         );
-
-        await checkTasksForDate(userId, targetDate, userData.price || 100);
+        // userData 전체를 전달하도록 수정
+        await checkTasksForDate(userId, targetDate, userData);
       });
 
       await Promise.all(promises);
@@ -255,33 +611,29 @@ export const checkUserTasksByTime = onSchedule(
   }
 );
 
-// 🗑️ 안전망 함수 삭제 - duetime으로만 체크
-// (필요하면 주석 해제해서 사용)
-
-// 🔥 NEW: 수동으로 특정 유저의 특정 날짜 할일 체크 (테스트/관리용)
 export const manualCheckUserTasks = onRequest(
   {
     cors: true,
   },
   async (req, res) => {
     try {
-      const { userId, date } = req.body;
+      // --- FIX: req.body -> req.query로 변경 ---
+      const userId = req.query.userId as string;
+      const date = req.query.date as string;
 
       if (!userId) {
         res.status(400).json({ error: "userId는 필수입니다" });
         return;
       }
 
-      // 날짜가 없으면 오늘 날짜 사용
       const targetDate =
         date ||
-        new Date()
-          .toLocaleString("en-US", { timeZone: "Asia/Seoul" })
-          .split(",")[0];
+        new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }))
+          .toISOString()
+          .split("T")[0];
 
       console.log(`🔧 수동 체크: ${userId} - ${targetDate}`);
 
-      // 유저 정보 가져오기
       const userDoc = await db.collection("users").doc(userId).get();
 
       if (!userDoc.exists) {
@@ -290,7 +642,12 @@ export const manualCheckUserTasks = onRequest(
       }
 
       const userData = userDoc.data();
-      await checkTasksForDate(userId, targetDate, userData?.price || 100);
+      if (!userData) {
+        res.status(404).json({ error: "유저 데이터를 찾을 수 없습니다" });
+        return;
+      }
+      // userData 전체를 전달하도록 수정
+      await checkTasksForDate(userId, targetDate, userData);
 
       res.json({
         success: true,
@@ -303,7 +660,6 @@ export const manualCheckUserTasks = onRequest(
   }
 );
 
-// 🔥 NEW: 특정 기간의 모든 유저 할일 일괄 체크 (관리자용)
 export const batchCheckTasks = onRequest(
   {
     cors: true,
@@ -325,12 +681,10 @@ export const batchCheckTasks = onRequest(
       const end = new Date(endDate);
       const dates: string[] = [];
 
-      // 날짜 범위 생성
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         dates.push(d.toISOString().split("T")[0]);
       }
 
-      // 모든 유저 가져오기
       const usersSnapshot = await db.collection("users").get();
       let totalChecked = 0;
 
@@ -340,7 +694,7 @@ export const batchCheckTasks = onRequest(
         const promises = usersSnapshot.docs.map(async (userDoc) => {
           const userId = userDoc.id;
           const userData = userDoc.data();
-          await checkTasksForDate(userId, date, userData.price || 100);
+          await checkTasksForDate(userId, date, userData);
         });
 
         await Promise.all(promises);
@@ -361,33 +715,19 @@ export const batchCheckTasks = onRequest(
   }
 );
 
-/**
- * 단일 Task에 대한 AI 뉴스 생성 (프롬프트 및 파싱 로직 개선)
- */
+// ==================== AI 뉴스 생성 (기존 코드 유지) ====================
+
 async function generateNewsForTask(
   userName: string,
   task: any,
   currentPrice: number
 ): Promise<{ title: string; content: string } | null> {
-  console.log("🔍 generateNewsForTask 시작");
-  console.log("userName:", userName);
-  console.log("task:", JSON.stringify(task));
-  console.log("currentPrice:", currentPrice);
-
   const apiKey = process.env.GEMINI_API_KEY;
-  console.log("API Key exists:", !!apiKey);
-  console.log("API Key length:", apiKey?.length);
-
-  if (!apiKey) {
-    console.error("❌ API Key not found in environment variables.");
-    return null;
-  }
+  if (!apiKey) return null;
 
   try {
-    console.log("✅ GoogleGenerativeAI 초기화 중...");
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
-    console.log("✅ 모델 로드 완료");
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const taskText = task.text || "a specified task";
     const priceChange = task.priceChange || 0;
@@ -395,16 +735,9 @@ async function generateNewsForTask(
     const newPrice = currentPrice + priceChange;
 
     const didRise = priceChange >= 0;
-    const direction = didRise ? "rose" : "fell";
-    const modifier =
-      Math.abs(percentValue) < 0.5
-        ? "slightly"
-        : Math.abs(percentValue) < 2
-        ? "moderately"
-        : "sharply";
 
     const prompt = `
-You are a professional financial news reporter. Write a short, formal, and slightly humorous Korean stock market news article based on the following data.
+You are a professional financial news reporter. Write a short, formal, and slightly humorous Korean stock market news article.
 
 **Data:**
 - User Name: "${userName}"
@@ -414,69 +747,39 @@ You are a professional financial news reporter. Write a short, formal, and sligh
     }${percentValue.toFixed(2)}%)
 
 **Instructions:**
-1.  **Title:** Create a concise title (under 40 characters, no emojis) in Korean (but Username remains the same ). It should state that the user's stock price ${direction} after completing the task.
-2.  **Content:** Write a 4-5 sentence article in Korean.
-    - Start by mentioning that "${userName}" has completed the task "${taskText}".
-    - State that the stock price ${modifier} ${direction} by ${percentValue.toFixed(
-      2
-    )}%, closing at ${newPrice} KRW.
-    - Describe investor reactions: ${
-      didRise
-        ? "positive, with high expectations for future performance"
-        : "cautious, expressing concerns but hoping for a recovery"
-    }.
-    - Conclude with a brief future outlook.
+1. **Title:** Concise title (under 40 characters, no emojis) in Korean.
+2. **Content:** 4-5 sentences in Korean describing the task completion and stock movement.
 
-**Required Output Format (Strictly follow this):**
-**title:** (Your generated title here)
-**content:** (Your generated content here)
+**Output Format:**
+**title:** (Your title)
+**content:** (Your content)
 `;
 
-    console.log("📤 Gemini API 요청 중...");
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        maxOutputTokens: 300,
-        temperature: 0.7,
-      },
-    });
-    console.log("✅ Gemini API 응답 받음");
+    const result = await model.generateContent(prompt);
 
     const response = result.response;
     const text = response.text();
-    console.log("📄 응답 텍스트:", text);
-
-    if (!text) {
-      console.warn("⚠️ Gemini API returned an empty response.");
-      return null;
-    }
 
     const titleMatch = text.match(/\*\*title:\*\*\s*(.+)/);
     const contentMatch = text.match(/\*\*content:\*\*\s*([\s\S]+)/);
 
     if (titleMatch && contentMatch) {
-      console.log("✅ 파싱 성공");
       return {
         title: titleMatch[1].trim(),
         content: contentMatch[1].trim(),
       };
     }
 
-    console.warn("⚠️ Could not parse title/content from Gemini response.");
     return {
       title: `${userName}, '${taskText}' 완료`,
       content: text,
     };
   } catch (error) {
     console.error("❌ AI 뉴스 생성 실패:", error);
-    console.error("Error details:", JSON.stringify(error, null, 2));
     return null;
   }
 }
 
-/**
- * 뉴스를 Firestore에 저장
- */
 async function saveNewsToFirestore(
   userId: string,
   userName: string,
@@ -521,14 +824,10 @@ async function saveNewsToFirestore(
   }
 }
 
-/**
- * 수동으로 특정 할일의 뉴스 생성 (토큰 인증 추가)
- */
 export const manualGenerateNews = onRequest(
   { cors: true },
   async (req, res) => {
     try {
-      // Authorization 헤더에서 토큰 추출
       const authHeader = req.headers.authorization;
       if (!authHeader?.startsWith("Bearer ")) {
         res.status(401).send("Unauthorized");
@@ -536,12 +835,9 @@ export const manualGenerateNews = onRequest(
       }
 
       const token = authHeader.split("Bearer ")[1];
-
-      // 토큰 검증
       const decodedToken = await admin.auth().verifyIdToken(token);
       const authenticatedUserId = decodedToken.uid;
 
-      // 요청한 userId와 인증된 userId 비교
       const requestedUserId = req.query.userId as string;
 
       if (!requestedUserId) {
@@ -550,11 +846,10 @@ export const manualGenerateNews = onRequest(
       }
 
       if (authenticatedUserId !== requestedUserId) {
-        res.status(403).send("Forbidden: Cannot access other user data");
+        res.status(403).send("Forbidden");
         return;
       }
 
-      // ✅ 검증 통과, 뉴스 생성 진행
       const taskId = req.query.taskId as string;
       const date =
         (req.query.date as string) || new Date().toISOString().split("T")[0];
@@ -568,7 +863,6 @@ export const manualGenerateNews = onRequest(
 
       const userData = userDoc.data()!;
 
-      // 할일 가져오기
       const todosDoc = await db
         .collection("users")
         .doc(requestedUserId)
@@ -592,14 +886,12 @@ export const manualGenerateNews = onRequest(
       let targetTask = null;
 
       if (taskId) {
-        // 특정 Task
         targetTask = dateTodos[taskId];
         if (!targetTask) {
           res.status(404).send("해당 할일을 찾을 수 없습니다");
           return;
         }
       } else {
-        // 완료된 할일 중 첫 번째
         const tasks = Object.values(dateTodos);
         const completedTasks = tasks.filter((task: any) => task.completed);
         if (completedTasks.length === 0) {
@@ -609,7 +901,6 @@ export const manualGenerateNews = onRequest(
         targetTask = completedTasks[0];
       }
 
-      // AI 뉴스 생성
       const newsContent = await generateNewsForTask(
         userData.name || "사용자",
         targetTask,

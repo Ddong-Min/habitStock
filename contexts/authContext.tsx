@@ -17,7 +17,7 @@ import {
 import { auth, firestore } from "@/config/firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { router } from "expo-router";
-
+import { useNotification } from "./notificationContext";
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
@@ -112,6 +112,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         email,
         password
       );
+
+      const { expoPushToken, notification, error } = useNotification();
+
       await setDoc(doc(firestore, "users", response.user.uid), {
         name,
         email,
@@ -125,10 +128,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         followingCount: 0,
         bio: "",
         isDarkMode: false,
-        allowAlarm: true,
+        allowAlarm: expoPushToken ? true : false,
         duetime: "00:00",
         words: "한국어",
         registerDate: new Date().toISOString().split("T")[0],
+        expoPushToken: expoPushToken || null,
+        consecutiveNoTaskDays: 0,
       });
       await updateUserData(response.user.uid);
       router.replace("/(tabs)");

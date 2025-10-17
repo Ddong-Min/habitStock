@@ -11,6 +11,7 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/authContext";
@@ -20,10 +21,13 @@ import { useTheme } from "@/contexts/themeContext";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { useNotification } from "@/contexts/notificationContext";
+import { registerForPushNotificationsAsync } from "../../utils/registerForPushNotificationsAsync";
 
 const Profile: React.FC = () => {
   const { theme } = useTheme();
   const { logout, user, updateUserData } = useAuth();
+  const { expoPushToken } = useNotification();
 
   if (!user) {
     return (
@@ -47,25 +51,16 @@ const Profile: React.FC = () => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedHour, setSelectedHour] = useState(24);
   const [isUploading, setIsUploading] = useState(false);
-
-  // 이름 수정 모달
   const [showNameModal, setShowNameModal] = useState(false);
   const [tempName, setTempName] = useState(userName);
-
-  // 소개 수정 모달
   const [showBioModal, setShowBioModal] = useState(false);
   const [tempBio, setTempBio] = useState(bio);
 
-  // Firebase에 설정 저장하는 공통 함수
   const updateUserSettings = async (field: string, value: any) => {
     if (!user?.uid) return;
-
     try {
       const userRef = doc(firestore, "users", user.uid);
-      await updateDoc(userRef, {
-        [field]: value,
-      });
-
+      await updateDoc(userRef, { [field]: value });
       await updateUserData(user.uid);
       console.log(`✅ ${field} 업데이트 완료:`, value);
     } catch (error) {
@@ -74,19 +69,15 @@ const Profile: React.FC = () => {
     }
   };
 
-  // 이미지 업로드 함수
   const uploadImageToFirebase = async (uri: string) => {
     try {
       const response = await fetch(uri);
       const blob = await response.blob();
-
       const storage = getStorage();
       const filename = `profile_${user.uid}_${Date.now()}.jpg`;
       const storageRef = ref(storage, `profiles/${filename}`);
-
       await uploadBytes(storageRef, blob);
       const downloadURL = await getDownloadURL(storageRef);
-
       return downloadURL;
     } catch (error) {
       console.error("이미지 업로드 실패:", error);
@@ -94,19 +85,15 @@ const Profile: React.FC = () => {
     }
   };
 
-  // 이미지 선택 및 업로드
   const handleImagePicker = async () => {
     try {
-      // 권한 요청
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
-
       if (status !== "granted") {
         Alert.alert("권한 필요", "사진 라이브러리 접근 권한이 필요합니다.");
         return;
       }
 
-      // 이미지 선택
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -116,13 +103,8 @@ const Profile: React.FC = () => {
 
       if (!result.canceled && result.assets[0]) {
         setIsUploading(true);
-
-        // Firebase Storage에 업로드
         const imageUrl = await uploadImageToFirebase(result.assets[0].uri);
-
-        // Firestore에 URL 저장
         await updateUserSettings("image", imageUrl);
-
         setIsUploading(false);
         Alert.alert("성공", "프로필 사진이 변경되었습니다.");
       }
@@ -133,20 +115,17 @@ const Profile: React.FC = () => {
     }
   };
 
-  // 이름 변경 확인
   const handleNameConfirm = async () => {
     if (!tempName.trim()) {
       Alert.alert("오류", "이름을 입력해주세요.");
       return;
     }
-
     setUserName(tempName);
     await updateUserSettings("name", tempName);
     setShowNameModal(false);
     Alert.alert("성공", "이름이 변경되었습니다.");
   };
 
-  // 소개 변경 확인
   const handleBioConfirm = async () => {
     const trimmedBio = tempBio.substring(0, 150);
     setBio(trimmedBio);
@@ -155,26 +134,50 @@ const Profile: React.FC = () => {
     Alert.alert("성공", "소개가 변경되었습니다.");
   };
 
-  // 다크모드 토글
   const handleDarkModeToggle = async (value: boolean) => {
     setDarkMode(value);
     await updateUserSettings("isDarkMode", value);
   };
 
-  // 알림 토글
   const handleNotificationToggle = async (value: boolean) => {
-    setNotifications(value);
-    await updateUserSettings("allowAlarm", value);
+    if (value === true) {
+      if (!expoPushToken) {
+        const newPushToken = await registerForPushNotificationsAsync();
+        if (newPushToken) {
+          setNotifications(true);
+          const userRef = doc(firestore, "users", user.uid);
+          await updateDoc(userRef, {
+            allowAlarm: true,
+            expoPushToken: newPushToken,
+          });
+          await updateUserData(user.uid);
+          Alert.alert("성공", "알림 설정이 켜졌습니다.");
+        } else {
+          Alert.alert(
+            "알림을 켤 수 없음",
+            "알림을 받으려면 기기의 설정 메뉴에서 알림 권한을 직접 허용해주셔야 합니다.",
+            [
+              { text: "취소", style: "cancel" },
+              { text: "설정으로 이동", onPress: () => Linking.openSettings() },
+            ]
+          );
+        }
+      } else {
+        setNotifications(true);
+        await updateUserSettings("allowAlarm", true);
+      }
+    } else {
+      setNotifications(false);
+      await updateUserSettings("allowAlarm", false);
+    }
   };
 
-  // 마감시간 변경 - 모달 열기
   const handleDeadlineChange = () => {
     const hour = parseInt(deadlineTime.split(":")[0]);
     setSelectedHour(hour);
     setShowTimePicker(true);
   };
 
-  // 시간 선택 확인
   const handleTimeConfirm = async () => {
     const timeString = `${selectedHour.toString().padStart(2, "0")}:00`;
     setDeadlineTime(timeString);
@@ -182,17 +185,14 @@ const Profile: React.FC = () => {
     setShowTimePicker(false);
   };
 
-  // 시간 증가
   const handleIncreaseHour = () => {
     setSelectedHour((prev) => (prev === 24 ? 0 : prev + 1));
   };
 
-  // 시간 감소
   const handleDecreaseHour = () => {
     setSelectedHour((prev) => (prev === 0 ? 24 : prev - 1));
   };
 
-  // 언어 변경
   const handleLanguageChange = () => {
     Alert.alert("언어 선택", "언어를 선택하세요", [
       {
@@ -253,7 +253,6 @@ const Profile: React.FC = () => {
     <ScrollView
       style={[styles.container, { backgroundColor: theme.background }]}
     >
-      {/* 프로필 헤더 */}
       <View style={[styles.header, { borderBottomColor: theme.neutral200 }]}>
         <TouchableOpacity
           style={styles.profileImageContainer}
@@ -281,7 +280,6 @@ const Profile: React.FC = () => {
             <Ionicons name="camera" size={20} color="#fff" />
           </View>
         </TouchableOpacity>
-
         <View style={styles.profileInfo}>
           <View style={styles.nameRow}>
             <Text style={[styles.nameText, { color: theme.text }]}>
@@ -309,13 +307,10 @@ const Profile: React.FC = () => {
         </View>
       </View>
 
-      {/* 설정 섹션 */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>
           일반 설정
         </Text>
-
-        {/* 다크모드 */}
         <View style={styles.settingItem}>
           <View style={styles.settingLeft}>
             <Ionicons name="moon" size={24} color={theme.text} />
@@ -330,8 +325,6 @@ const Profile: React.FC = () => {
             thumbColor="#fff"
           />
         </View>
-
-        {/* 알림 설정 */}
         <View style={styles.settingItem}>
           <View style={styles.settingLeft}>
             <Ionicons name="notifications" size={24} color={theme.text} />
@@ -346,8 +339,6 @@ const Profile: React.FC = () => {
             thumbColor="#fff"
           />
         </View>
-
-        {/* 마감 시간 설정 */}
         <TouchableOpacity
           style={styles.settingItem}
           onPress={handleDeadlineChange}
@@ -369,8 +360,6 @@ const Profile: React.FC = () => {
             />
           </View>
         </TouchableOpacity>
-
-        {/* 언어 설정 */}
         <TouchableOpacity
           style={styles.settingItem}
           onPress={handleLanguageChange}
@@ -394,12 +383,10 @@ const Profile: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* 계정 관리 */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>
           계정 관리
         </Text>
-
         <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
           <View style={styles.settingLeft}>
             <Ionicons name="log-out" size={24} color={theme.red100} />
@@ -408,7 +395,6 @@ const Profile: React.FC = () => {
             </Text>
           </View>
         </TouchableOpacity>
-
         <TouchableOpacity style={styles.settingItem} onPress={handleResetData}>
           <View style={styles.settingLeft}>
             <Ionicons name="refresh" size={24} color="#FF9500" />
@@ -417,7 +403,6 @@ const Profile: React.FC = () => {
             </Text>
           </View>
         </TouchableOpacity>
-
         <TouchableOpacity
           style={styles.settingItem}
           onPress={handleDeleteAccount}
@@ -431,7 +416,6 @@ const Profile: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* 이름 변경 모달 */}
       <Modal
         visible={showNameModal}
         transparent={true}
@@ -448,7 +432,6 @@ const Profile: React.FC = () => {
             <Text style={[styles.modalTitle, { color: theme.text }]}>
               이름 변경
             </Text>
-
             <TextInput
               style={[
                 styles.input,
@@ -464,7 +447,6 @@ const Profile: React.FC = () => {
               placeholderTextColor={theme.textLight}
               maxLength={30}
             />
-
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[
@@ -477,7 +459,6 @@ const Profile: React.FC = () => {
                   취소
                 </Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: theme.blue100 }]}
                 onPress={handleNameConfirm}
@@ -491,7 +472,6 @@ const Profile: React.FC = () => {
         </View>
       </Modal>
 
-      {/* 소개 변경 모달 */}
       <Modal
         visible={showBioModal}
         transparent={true}
@@ -508,7 +488,6 @@ const Profile: React.FC = () => {
             <Text style={[styles.modalTitle, { color: theme.text }]}>
               소개 변경
             </Text>
-
             <TextInput
               style={[
                 styles.textArea,
@@ -526,11 +505,9 @@ const Profile: React.FC = () => {
               maxLength={150}
               numberOfLines={4}
             />
-
             <Text style={[styles.charCount, { color: theme.textLight }]}>
               {tempBio.length}/150
             </Text>
-
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[
@@ -543,7 +520,6 @@ const Profile: React.FC = () => {
                   취소
                 </Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: theme.blue100 }]}
                 onPress={handleBioConfirm}
@@ -557,7 +533,6 @@ const Profile: React.FC = () => {
         </View>
       </Modal>
 
-      {/* 시간 선택 모달 */}
       <Modal
         visible={showTimePicker}
         transparent={true}
@@ -574,7 +549,6 @@ const Profile: React.FC = () => {
             <Text style={[styles.modalTitle, { color: theme.text }]}>
               마감 시간 설정
             </Text>
-
             <View style={styles.clockContainer}>
               <TouchableOpacity
                 style={styles.arrowButton}
@@ -582,7 +556,6 @@ const Profile: React.FC = () => {
               >
                 <Ionicons name="chevron-up" size={40} color={theme.blue100} />
               </TouchableOpacity>
-
               <View
                 style={[
                   styles.timeDisplay,
@@ -593,7 +566,6 @@ const Profile: React.FC = () => {
                   {selectedHour.toString().padStart(2, "0")}:00
                 </Text>
               </View>
-
               <TouchableOpacity
                 style={styles.arrowButton}
                 onPress={handleDecreaseHour}
@@ -601,7 +573,6 @@ const Profile: React.FC = () => {
                 <Ionicons name="chevron-down" size={40} color={theme.blue100} />
               </TouchableOpacity>
             </View>
-
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[
@@ -614,7 +585,6 @@ const Profile: React.FC = () => {
                   취소
                 </Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: theme.blue100 }]}
                 onPress={handleTimeConfirm}

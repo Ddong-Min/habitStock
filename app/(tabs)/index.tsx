@@ -34,6 +34,7 @@ const TodoScreen = () => {
   } = useTasks();
   const { selectedDate } = useCalendar();
   const { theme } = useTheme();
+
   // 뉴스 생성 모드 상태
   const [isNewsMode, setIsNewsMode] = useState(false);
 

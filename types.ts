@@ -145,6 +145,8 @@ export type UserType = {
   duetime?: string;
   words?: string;
   registerDate?: string;
+  consecutiveNoTaskDays?: number;
+  expoPushToken?: string | null;
 } | null;
 
 export type UserDataType = {

@@ -23,8 +23,8 @@ export interface NewsItem {
   userPhotoURL?: string;
   title: string;
   content: string;
-  date: string; // "06-30" 형식
-  fullDate: string; // "2025-06-30" 형식
+  date: string;
+  fullDate: string;
   createdAt: Timestamp;
   likesCount?: number;
   commentsCount?: number;
@@ -38,13 +38,9 @@ export interface Comment {
   userPhotoURL?: string;
   content: string;
   createdAt: Timestamp;
+  likesCount?: number;
+  dislikesCount?: number;
 }
-
-// 새로운 구조:
-// users/{userId}/data/news (문서)
-// 문서 내부: { "newsId1": { ...newsData }, "newsId2": { ...newsData } }
-// users/{userId}/data/comments (문서)
-// 문서 내부: { "newsId1": { "commentId1": {...}, "commentId2": {...} } }
 
 // 뉴스 생성
 export const createNews = async (
@@ -93,6 +89,42 @@ export const createNews = async (
   }
 };
 
+// 뉴스 수정
+export const updateNews = async (
+  userId: string,
+  newsId: string,
+  updates: {
+    title?: string;
+    content?: string;
+  }
+): Promise<void> => {
+  try {
+    const docRef = doc(firestore, "users", userId, "data", "news");
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      throw new Error("News document not found");
+    }
+
+    const currentData = docSnap.data();
+
+    if (!currentData[newsId]) {
+      throw new Error("News item not found");
+    }
+
+    currentData[newsId] = {
+      ...currentData[newsId],
+      ...updates,
+    };
+
+    await setDoc(docRef, currentData, { merge: true });
+    console.log("✅ 뉴스 수정 완료:", newsId);
+  } catch (error) {
+    console.error("❌ 뉴스 수정 실패:", error);
+    throw error;
+  }
+};
+
 // 특정 유저의 뉴스 전체 가져오기
 export const getUserNews = async (userId: string): Promise<NewsItem[]> => {
   try {
@@ -106,7 +138,6 @@ export const getUserNews = async (userId: string): Promise<NewsItem[]> => {
     const allData = docSnap.data();
     const newsArray = Object.values(allData) as NewsItem[];
 
-    // createdAt 기준 내림차순 정렬
     return newsArray.sort((a, b) => {
       const timeA = a.createdAt?.toMillis() || 0;
       const timeB = b.createdAt?.toMillis() || 0;
@@ -139,7 +170,6 @@ export const getUserNewsByYear = async (
       return news.fullDate >= startDate && news.fullDate <= endDate;
     }) as NewsItem[];
 
-    // fullDate 기준 내림차순 정렬
     return newsArray.sort((a, b) => b.fullDate.localeCompare(a.fullDate));
   } catch (error) {
     console.error("❌ 연도별 뉴스 가져오기 실패:", error);
@@ -147,14 +177,12 @@ export const getUserNewsByYear = async (
   }
 };
 
-// 팔로우한 유저들의 최신 뉴스 가져오기 (피드)
+// 팔로우한 유저들의 최신 뉴스 가져오기
 export const getFollowingNewsFeed = async (
   followingId: string,
   limitCount: number = 50
 ): Promise<NewsItem[]> => {
   try {
-    console.log("Fetching news for following IDs:", followingId);
-
     const allNews: NewsItem[] = [];
 
     const docRef = doc(firestore, "users", followingId, "data", "news");
@@ -166,7 +194,6 @@ export const getFollowingNewsFeed = async (
       allNews.push(...newsArray);
     }
 
-    // 시간순 정렬 및 제한
     return allNews
       .sort((a, b) => {
         const timeA = a.createdAt?.toMillis() || 0;
@@ -199,7 +226,6 @@ export const deleteNews = async (
       delete currentData[newsId];
       await setDoc(docRef, currentData);
 
-      // 해당 뉴스의 댓글도 삭제
       const commentsDocRef = doc(
         firestore,
         "users",
@@ -225,9 +251,98 @@ export const deleteNews = async (
   }
 };
 
-// ============================================
-// 댓글 CRUD
-// ============================================
+// 뉴스 좋아요 토글
+export const toggleNewsLike = async (
+  newsUserId: string,
+  newsId: string,
+  likingUserId: string
+): Promise<void> => {
+  try {
+    const newsLikesDocRef = doc(
+      firestore,
+      "users",
+      newsUserId,
+      "data",
+      "newsLikes"
+    );
+    const newsLikesSnap = await getDoc(newsLikesDocRef);
+    const newsLikesData = newsLikesSnap.exists() ? newsLikesSnap.data() : {};
+
+    if (!newsLikesData[newsId]) {
+      newsLikesData[newsId] = {};
+    }
+
+    const newsDocRef = doc(firestore, "users", newsUserId, "data", "news");
+    const newsSnap = await getDoc(newsDocRef);
+
+    if (!newsSnap.exists()) {
+      throw new Error("News document not found");
+    }
+    const newsData = newsSnap.data();
+
+    if (!newsData[newsId]) {
+      throw new Error("News item not found");
+    }
+
+    const isLiked = newsLikesData[newsId][likingUserId];
+
+    if (isLiked) {
+      // 좋아요 취소
+      delete newsLikesData[newsId][likingUserId];
+      newsData[newsId].likesCount = Math.max(
+        0,
+        (newsData[newsId].likesCount || 0) - 1
+      );
+      console.log(`✅ 뉴스 좋아요 취소: ${newsId} by ${likingUserId}`);
+    } else {
+      // 좋아요
+      newsLikesData[newsId][likingUserId] = true;
+      newsData[newsId].likesCount = (newsData[newsId].likesCount || 0) + 1;
+      console.log(`✅ 뉴스 좋아요 완료: ${newsId} by ${likingUserId}`);
+    }
+
+    await setDoc(newsLikesDocRef, newsLikesData, { merge: true });
+    await setDoc(newsDocRef, newsData, { merge: true });
+  } catch (error) {
+    console.error("❌ 뉴스 좋아요 토글 실패:", error);
+    throw error;
+  }
+};
+
+// 특정 유저가 좋아요한 뉴스 목록 가져오기
+export const getUserNewsLikes = async (
+  newsUserId: string,
+  likingUserId: string
+): Promise<Record<string, boolean>> => {
+  try {
+    const newsLikesDocRef = doc(
+      firestore,
+      "users",
+      newsUserId,
+      "data",
+      "newsLikes"
+    );
+    const newsLikesSnap = await getDoc(newsLikesDocRef);
+
+    if (!newsLikesSnap.exists()) {
+      return {};
+    }
+
+    const newsLikesData = newsLikesSnap.data();
+    const userLikes: Record<string, boolean> = {};
+
+    Object.keys(newsLikesData).forEach((newsId) => {
+      if (newsLikesData[newsId][likingUserId]) {
+        userLikes[newsId] = true;
+      }
+    });
+
+    return userLikes;
+  } catch (error) {
+    console.error("❌ 유저의 뉴스 좋아요 가져오기 실패:", error);
+    return {};
+  }
+};
 
 // 댓글 작성
 export const addComment = async (
@@ -245,7 +360,6 @@ export const addComment = async (
       .toString(36)
       .substr(2, 9)}`;
 
-    // 댓글 추가
     const commentsDocRef = doc(
       firestore,
       "users",
@@ -268,12 +382,13 @@ export const addComment = async (
       userPhotoURL: commentData.userPhotoURL || null,
       content: commentData.content,
       createdAt: Timestamp.now(),
+      likesCount: 0,
+      dislikesCount: 0,
     };
 
     commentsData[newsId][commentId] = newComment;
     await setDoc(commentsDocRef, commentsData, { merge: true });
 
-    // 댓글 카운트 증가
     const newsDocRef = doc(firestore, "users", newsUserId, "data", "news");
     const newsSnap = await getDoc(newsDocRef);
 
@@ -310,7 +425,6 @@ export const getComments = async (
     const newsComments = docSnap.data()[newsId];
     const commentsArray = Object.values(newsComments) as Comment[];
 
-    // createdAt 기준 오름차순 정렬
     return commentsArray.sort((a, b) => {
       const timeA = a.createdAt?.toMillis() || 0;
       const timeB = b.createdAt?.toMillis() || 0;
@@ -339,7 +453,6 @@ export const subscribeToComments = (
     const newsComments = docSnap.data()[newsId];
     const commentsArray = Object.values(newsComments) as Comment[];
 
-    // createdAt 기준 오름차순 정렬
     const sortedComments = commentsArray.sort((a, b) => {
       const timeA = a.createdAt?.toMillis() || 0;
       const timeB = b.createdAt?.toMillis() || 0;
@@ -357,7 +470,6 @@ export const deleteComment = async (
   commentId: string
 ): Promise<void> => {
   try {
-    // 댓글 삭제
     const commentsDocRef = doc(
       firestore,
       "users",
@@ -373,7 +485,6 @@ export const deleteComment = async (
       if (commentsData[newsId] && commentsData[newsId][commentId]) {
         delete commentsData[newsId][commentId];
 
-        // 해당 뉴스에 댓글이 더 이상 없으면 newsId 키도 삭제
         if (Object.keys(commentsData[newsId]).length === 0) {
           delete commentsData[newsId];
         }
@@ -382,7 +493,6 @@ export const deleteComment = async (
       }
     }
 
-    // 댓글 카운트 감소
     const newsDocRef = doc(firestore, "users", newsUserId, "data", "news");
     const newsSnap = await getDoc(newsDocRef);
 
@@ -399,5 +509,118 @@ export const deleteComment = async (
   } catch (error) {
     console.error("❌ 댓글 삭제 실패:", error);
     throw error;
+  }
+};
+
+// 댓글 좋아요/싫어요 토글
+export const toggleCommentReaction = async (
+  newsUserId: string,
+  newsId: string,
+  commentId: string,
+  userId: string,
+  reactionType: "like" | "dislike"
+): Promise<void> => {
+  try {
+    const reactionsDocRef = doc(
+      firestore,
+      "users",
+      newsUserId,
+      "data",
+      "commentReactions"
+    );
+    const reactionsSnap = await getDoc(reactionsDocRef);
+    const reactionsData = reactionsSnap.exists() ? reactionsSnap.data() : {};
+
+    if (!reactionsData[newsId]) {
+      reactionsData[newsId] = {};
+    }
+    if (!reactionsData[newsId][commentId]) {
+      reactionsData[newsId][commentId] = {};
+    }
+
+    const userReaction = reactionsData[newsId][commentId][userId];
+    const commentsDocRef = doc(
+      firestore,
+      "users",
+      newsUserId,
+      "data",
+      "comments"
+    );
+    const commentsSnap = await getDoc(commentsDocRef);
+    const commentsData = commentsSnap.data() || {};
+
+    if (!commentsData[newsId] || !commentsData[newsId][commentId]) {
+      throw new Error("Comment not found");
+    }
+
+    const comment = commentsData[newsId][commentId];
+
+    if (userReaction === reactionType) {
+      delete reactionsData[newsId][commentId][userId];
+      if (reactionType === "like") {
+        comment.likesCount = Math.max(0, (comment.likesCount || 0) - 1);
+      } else {
+        comment.dislikesCount = Math.max(0, (comment.dislikesCount || 0) - 1);
+      }
+    } else {
+      if (userReaction) {
+        if (userReaction === "like") {
+          comment.likesCount = Math.max(0, (comment.likesCount || 0) - 1);
+        } else {
+          comment.dislikesCount = Math.max(0, (comment.dislikesCount || 0) - 1);
+        }
+      }
+
+      reactionsData[newsId][commentId][userId] = reactionType;
+      if (reactionType === "like") {
+        comment.likesCount = (comment.likesCount || 0) + 1;
+      } else {
+        comment.dislikesCount = (comment.dislikesCount || 0) + 1;
+      }
+    }
+
+    await setDoc(reactionsDocRef, reactionsData, { merge: true });
+    await setDoc(commentsDocRef, commentsData, { merge: true });
+
+    console.log("✅ 댓글 반응 업데이트 완료");
+  } catch (error) {
+    console.error("❌ 댓글 반응 업데이트 실패:", error);
+    throw error;
+  }
+};
+
+// 사용자의 댓글 반응 가져오기
+export const getUserCommentReactions = async (
+  newsUserId: string,
+  newsId: string,
+  userId: string
+): Promise<Record<string, "like" | "dislike">> => {
+  try {
+    const docRef = doc(
+      firestore,
+      "users",
+      newsUserId,
+      "data",
+      "commentReactions"
+    );
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists() || !docSnap.data()[newsId]) {
+      return {};
+    }
+
+    const newsReactions = docSnap.data()[newsId];
+    const userReactions: Record<string, "like" | "dislike"> = {};
+
+    Object.keys(newsReactions).forEach((commentId) => {
+      if (newsReactions[commentId][userId]) {
+        userReactions[commentId] = newsReactions[commentId][userId];
+      }
+    });
+
+    return userReactions;
+  } catch (error) {
+    console.error("❌ 사용자 댓글 반응 가져오기 실패:", error);
+    return {};
   }
 };

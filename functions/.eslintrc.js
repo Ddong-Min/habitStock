@@ -22,10 +22,12 @@ module.exports = {
   rules: {
     quotes: ["error", "double"],
     "import/no-unresolved": 0,
+    indent: ["error", 2],
     "quote-props": "off",
     "object-curly-spacing": "off",
     "max-len": "off",
     "require-jsdoc": "off",
+    "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/no-unused-vars": [
       "warn",
       { argsIgnorePattern: "^_|event" },
@@ -35,8 +37,5 @@ module.exports = {
     "no-trailing-spaces": "off",
     "spaced-comment": "off",
     "valid-jsdoc": "off",
-    "linebreak-style": ["error", "windows"], // Change "unix" to "windows" or add this line
-    "@typescript-eslint/no-explicit-any": "off",
-    indent: "off",
   },
 };

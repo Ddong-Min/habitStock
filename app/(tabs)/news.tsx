@@ -13,9 +13,9 @@ import { useTheme } from "@/contexts/themeContext";
 const news = () => {
   const { theme } = useTheme();
   const [selectedYear] = useState(2025);
-  const { myNews, loadMyNews, selectNews, selectedNews } = useNews();
+  const { myNews, loadMyNews, selectNews, selectedNews, currentUserId } =
+    useNews();
 
-  // 모든 Hook을 최상단에 배치
   useEffect(() => {
     loadMyNews(selectedYear);
   }, [selectedYear]);
@@ -28,7 +28,6 @@ const news = () => {
     selectNews(null);
   };
 
-  // Hook 호출 이후에 조건부 렌더링
   if (selectedNews) {
     return <NewsDetail item={selectedNews} onBack={handleBack} />;
   }

@@ -13,7 +13,6 @@ import { getAuth } from "firebase/auth";
 import { useFollow } from "./followContext";
 
 interface NewsContextType {
-  // 상태
   currentUserId: string | null;
   myNews: newsApi.NewsItem[];
   followingNews: newsApi.NewsItem[];
@@ -21,10 +20,11 @@ interface NewsContextType {
   comments: newsApi.Comment[];
   loading: boolean;
   selectedYear: number;
-  followingSelectedYear: number; // 팔로잉 뉴스용 년도
+  followingSelectedYear: number;
   years: number[];
+  myNewsLikes: Record<string, boolean>;
+  followingNewsLikes: Record<string, boolean>;
 
-  // 함수
   loadMyNews: (year?: number) => Promise<void>;
   loadFollowingNews: (year?: number) => Promise<void>;
   createNews: (
@@ -32,6 +32,7 @@ interface NewsContextType {
     dueDate: string,
     useAI?: boolean
   ) => Promise<void>;
+  updateNews: (newsId: string, title: string, content: string) => Promise<void>;
   deleteNews: (newsId: string) => Promise<void>;
   selectNews: (news: newsApi.NewsItem | null) => void;
   addComment: (
@@ -46,7 +47,8 @@ interface NewsContextType {
   ) => Promise<void>;
   loadComments: (newsUserId: string, newsId: string) => Promise<void>;
   setSelectedYear: (year: number) => void;
-  setFollowingSelectedYear: (year: number) => void; // 팔로잉 년도 선택
+  setFollowingSelectedYear: (year: number) => void;
+  toggleNewsLike: (newsUserId: string, newsId: string) => Promise<void>;
 }
 
 const NewsContext = createContext<NewsContextType | undefined>(undefined);
@@ -67,6 +69,10 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
   const [followingSelectedYear, setFollowingSelectedYear] = useState<number>(
     new Date().getFullYear()
   );
+  const [myNewsLikes, setMyNewsLikes] = useState<Record<string, boolean>>({});
+  const [followingNewsLikes, setFollowingNewsLikes] = useState<
+    Record<string, boolean>
+  >({});
   const { user } = useAuth();
   const { selectedFollowId } = useFollow();
 
@@ -74,13 +80,11 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030,
   ]);
 
-  // 현재 사용자 정보 가져오기
   useEffect(() => {
     setCurrentUserId(user ? user.uid : null);
     setCurrentUserData(user);
   }, [user]);
 
-  // 내 뉴스 로드
   const loadMyNews = useCallback(
     async (year?: number) => {
       if (!currentUserId) return;
@@ -96,6 +100,11 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
           news = await newsApi.getUserNews(currentUserId);
         }
         setMyNews(news);
+        const likes = await newsApi.getUserNewsLikes(
+          currentUserId,
+          currentUserId
+        );
+        setMyNewsLikes(likes);
       } catch (error) {
         console.error("내 뉴스 로드 실패:", error);
       } finally {
@@ -105,18 +114,15 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     [currentUserId, selectedYear]
   );
 
-  // selectedYear가 변경되면 자동으로 뉴스 로드
   useEffect(() => {
     if (currentUserId) {
       loadMyNews();
     }
   }, [selectedYear, currentUserId]);
 
-  // 팔로잉 뉴스 로드 (년도 지원)
   const loadFollowingNews = useCallback(
     async (year?: number) => {
-      if (!currentUserId) return;
-      if (!selectedFollowId) return;
+      if (!currentUserId || !selectedFollowId) return;
       setLoading(true);
       try {
         let news;
@@ -131,6 +137,11 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setFollowingNews(news);
+        const likes = await newsApi.getUserNewsLikes(
+          selectedFollowId,
+          currentUserId
+        );
+        setFollowingNewsLikes(likes);
       } catch (error) {
         console.error("팔로잉 뉴스 로드 실패:", error);
       } finally {
@@ -140,14 +151,12 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     [currentUserId, followingSelectedYear, selectedFollowId]
   );
 
-  // followingSelectedYear가 변경되면 자동으로 팔로잉 뉴스 로드
   useEffect(() => {
     if (selectedFollowId && currentUserId) {
       loadFollowingNews();
     }
   }, [followingSelectedYear, currentUserId, selectedFollowId]);
 
-  // 뉴스 생성
   const createNews = useCallback(
     async (taskId: string, dueDate: string, useAI: boolean = false) => {
       if (!currentUserId || !currentUserData) return;
@@ -197,7 +206,24 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     [currentUserId, currentUserData, loadMyNews]
   );
 
-  // 뉴스 삭제
+  const updateNews = useCallback(
+    async (newsId: string, title: string, content: string) => {
+      if (!currentUserId) return;
+
+      try {
+        await newsApi.updateNews(currentUserId, newsId, {
+          title,
+          content,
+        });
+        await loadMyNews();
+      } catch (error) {
+        console.error("뉴스 수정 실패:", error);
+        throw error;
+      }
+    },
+    [currentUserId, loadMyNews]
+  );
+
   const deleteNews = useCallback(
     async (newsId: string) => {
       if (!currentUserId) return;
@@ -213,7 +239,6 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     [currentUserId, loadMyNews]
   );
 
-  // 뉴스 선택
   const selectNews = useCallback((news: newsApi.NewsItem | null) => {
     setSelectedNews(news);
     if (!news) {
@@ -221,7 +246,6 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // 댓글 로드
   const loadComments = useCallback(
     async (newsUserId: string, newsId: string) => {
       try {
@@ -234,7 +258,6 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     []
   );
 
-  // 댓글 작성
   const addComment = useCallback(
     async (newsUserId: string, newsId: string, content: string) => {
       if (!currentUserId || !currentUserData) return;
@@ -256,7 +279,6 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     [currentUserId, currentUserData, loadComments]
   );
 
-  // 댓글 삭제
   const deleteComment = useCallback(
     async (newsUserId: string, newsId: string, commentId: string) => {
       try {
@@ -270,6 +292,29 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     [loadComments]
   );
 
+  const toggleNewsLike = useCallback(
+    async (newsUserId: string, newsId: string) => {
+      if (!currentUserId) {
+        Alert.alert("오류", "로그인이 필요합니다.");
+        return;
+      }
+
+      try {
+        await newsApi.toggleNewsLike(newsUserId, newsId, currentUserId);
+
+        if (newsUserId === currentUserId) {
+          await loadMyNews();
+        } else {
+          await loadFollowingNews();
+        }
+      } catch (error) {
+        console.error("뉴스 좋아요 실패:", error);
+        Alert.alert("오류", "좋아요 처리에 실패했습니다.");
+      }
+    },
+    [currentUserId, loadMyNews, loadFollowingNews]
+  );
+
   const value: NewsContextType = {
     currentUserId,
     myNews,
@@ -280,9 +325,12 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     selectedYear,
     followingSelectedYear,
     years,
+    myNewsLikes,
+    followingNewsLikes,
     loadMyNews,
     loadFollowingNews,
     createNews,
+    updateNews,
     deleteNews,
     selectNews,
     addComment,
@@ -290,6 +338,7 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     loadComments,
     setSelectedYear,
     setFollowingSelectedYear,
+    toggleNewsLike,
   };
 
   return <NewsContext.Provider value={value}>{children}</NewsContext.Provider>;
