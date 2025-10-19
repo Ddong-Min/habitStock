@@ -35,6 +35,7 @@ export type TypoProps = {
   color?: string;
   fontWeight?: TextStyle["fontWeight"];
   children: any | null;
+  numberOfLines?: number;
   style?: TextStyle;
   textProps?: TextProps;
 };

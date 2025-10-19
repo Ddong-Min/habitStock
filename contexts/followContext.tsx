@@ -14,7 +14,6 @@ interface FollowContextType {
   // 상태
   searchQuery: string;
   searchResults: UserType[];
-  suggestedUsers: UserType[];
   followingIds: Set<string>;
   loading: boolean;
   currentUserId: string | null;
@@ -24,7 +23,6 @@ interface FollowContextType {
   setSearchQuery: (query: string) => void;
   toggleFollow: (targetUserId: string) => Promise<void>;
   isFollowing: (userId: string) => boolean;
-  refreshSuggestedUsers: () => Promise<void>;
   loadDetailFriendInfo: () => Promise<void>;
   changeSelectedFollowId: (followId: string | null) => void;
 }
@@ -34,13 +32,12 @@ const FollowContext = createContext<FollowContextType | undefined>(undefined);
 export const FollowProvider = ({ children }: { children: ReactNode }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserType[]>([]);
-  const [suggestedUsers, setSuggestedUsers] = useState<UserType[]>([]);
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [followingUsers, setFollowingUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedFollowId, setSelectedFollowId] = useState<string | null>(null);
   const { user } = useAuth();
-  const { loadTodayFriendStocks, loadAllFriendStocksData } = useStock();
+  const { loadAllFriendStocksData } = useStock();
   const currentUserId = user?.uid || null;
 
   // 팔로잉 목록 실시간 업데이트
@@ -59,35 +56,6 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
     );
     return () => unsubscribe();
   }, [currentUserId]);
-
-  useEffect(() => {
-    if (followingIds.size === 0) {
-      setFollowingUsers([]);
-      return;
-    }
-    loadTodayFriendStocks(Array.from(followingIds));
-  }, [followingIds]);
-
-  // 추천 사용자 로드
-  const loadSuggestedUsers = useCallback(async () => {
-    if (!currentUserId) return;
-
-    try {
-      const users = await followApi.getSuggestedUsers(currentUserId, 10);
-      setSuggestedUsers(users);
-    } catch (error) {
-      console.error("Error loading suggested users:", error);
-    }
-  }, [currentUserId]);
-
-  //loadSuggestedUsers의 주소가 바뀌면 실행
-  //이 함수가 re rendering되면 주소가 바뀌므로 다시실행됨
-  //따라서 이를 막기위해서 useCallback으로 감싸서 주소가 바뀌지 않도록함
-  //useCallback이 없으면 ui가 re rendering될때마다 함수가 새로 만들어지므로 주소가 바뀜
-  //하지만 useCallback을 사용하면 의존성 배열이 바뀌지 않는한 함수의  주소가 바뀌지 않음
-  useEffect(() => {
-    loadSuggestedUsers();
-  }, [loadSuggestedUsers]);
 
   // 사용자 검색 (Debounced)
   const searchUsers = useCallback(
@@ -174,8 +142,7 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
   const loadDetailFriendInfo = async () => {
     if (!user || !user.uid || !selectedFollowId) return;
     const userObj = followingUsers.find((u) => u?.uid === selectedFollowId);
-    const startDate = userObj?.registerDate;
-    loadAllFriendStocksData(selectedFollowId, startDate || "");
+    loadAllFriendStocksData(selectedFollowId);
   };
 
   const changeSelectedFollowId = (followId: string | null) => {
@@ -184,7 +151,6 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
   const value: FollowContextType = {
     searchQuery,
     searchResults,
-    suggestedUsers,
     followingIds,
     loading,
     currentUserId,
@@ -193,7 +159,7 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
     setSearchQuery,
     toggleFollow,
     isFollowing,
-    refreshSuggestedUsers: loadSuggestedUsers,
+
     loadDetailFriendInfo,
     changeSelectedFollowId,
   };

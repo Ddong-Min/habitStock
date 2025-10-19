@@ -24,6 +24,8 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+const AI_FUNCTIONS_URL = process.env.EXPO_PUBLIC_CREATE_NEWS_API_URL || "";
+export { AI_FUNCTIONS_URL };
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 

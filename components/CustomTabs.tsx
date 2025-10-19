@@ -36,10 +36,10 @@ const getTabIcon = (routeName: string, isFocused: boolean, theme: Theme) => {
           color={iconColor}
         />
       );
-    case "follow":
+    case "market":
       return (
         <Ionicons
-          name={isFocused ? "people" : "people-outline"}
+          name={isFocused ? "globe" : "globe-outline"}
           size={size}
           color={iconColor}
         />
@@ -72,8 +72,8 @@ const getTabLabel = (routeName: string) => {
       return "주가";
     case "news":
       return "뉴스";
-    case "follow":
-      return "팔로우";
+    case "market":
+      return "마켓";
     case "profile":
       return "프로필";
     default:

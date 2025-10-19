@@ -1,6 +1,11 @@
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { firestore } from "@/config/firebase";
-import { StockDataType, StockDataByDateType, UserType } from "@/types";
+import {
+  StockDataType,
+  StockDataByDateType,
+  UserType,
+  FriendStockType,
+} from "@/types";
 
 // 새로운 구조:
 // users/{userId}/data/stocks (문서)
@@ -31,37 +36,26 @@ export const changeStockDataFirebase = async (
 };
 
 export const loadFriendStockDataFirebase = async (
-  userId: string,
-  startDate: string,
-  endDate: string
-): Promise<StockDataByDateType | null> => {
+  userIds: string[]
+): Promise<FriendStockType | null> => {
   try {
-    if (!userId) {
-      throw new Error("User UID is undefined");
+    if (!userIds || userIds.length === 0) {
+      throw new Error("User IDs are undefined or empty");
     }
+    const docRefs = userIds.map((userId) =>
+      doc(firestore, "users", userId, "data", "stocks")
+    );
+    const docSnaps = await Promise.all(docRefs.map((docRef) => getDoc(docRef)));
 
-    const docRef = doc(firestore, "users", userId, "data", "stocks");
-    const docSnap = await getDoc(docRef);
+    const allFriendStockData: FriendStockType = {};
 
-    if (!docSnap.exists()) {
-      return null;
-    }
-
-    const allData = docSnap.data();
-    const stockDataByDate: StockDataByDateType = {};
-
-    // startDate와 endDate 사이의 데이터만 필터링
-    Object.keys(allData).forEach((date) => {
-      if (date >= startDate && date <= endDate) {
-        stockDataByDate[date] = allData[date] as StockDataType;
+    docSnaps.forEach((docSnap, index) => {
+      if (docSnap.exists()) {
+        const userId = userIds[index];
+        allFriendStockData[userId] = docSnap.data() as StockDataByDateType;
       }
     });
-
-    if (Object.keys(stockDataByDate).length === 0) {
-      return null;
-    }
-
-    return stockDataByDate;
+    return allFriendStockData;
   } catch (error) {
     console.error("Error loading friend stock data: ", error);
     return null;

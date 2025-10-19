@@ -1,8 +1,6 @@
-// YearHeader.tsx
 import React, { useState } from "react";
 import {
   View,
-  Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -33,18 +31,17 @@ const YearHeader = ({ year, style }: { year: string; style?: ViewStyle }) => {
         ]}
         activeOpacity={0.7}
       >
-        <Text style={[styles.currentYear, { color: theme.text }]}>
+        <Typo size={22} fontWeight="700" color={theme.text}>
           {selectedYear}년
-        </Text>
-        <Text
-          style={[
-            styles.arrow,
-            { color: theme.textLight },
-            expanded && styles.arrowUp,
-          ]}
+        </Typo>
+        <Typo
+          size={14}
+          fontWeight="600"
+          color={theme.textLight}
+          //style={[expanded && styles.arrowUp]}
         >
           ▼
-        </Text>
+        </Typo>
       </TouchableOpacity>
 
       {/* 드롭다운 */}
@@ -56,7 +53,6 @@ const YearHeader = ({ year, style }: { year: string; style?: ViewStyle }) => {
             onPress={() => setExpanded(false)}
             activeOpacity={1}
           />
-
           {/* 드롭다운 메뉴 */}
           <View
             style={[
@@ -105,9 +101,9 @@ const YearHeader = ({ year, style }: { year: string; style?: ViewStyle }) => {
                       {y}년
                     </Typo>
                     {y === selectedYear && (
-                      <Text style={{ color: theme.blue100, fontSize: 18 }}>
+                      <Typo size={18} color={theme.blue100}>
                         ✓
-                      </Text>
+                      </Typo>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -129,15 +125,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: spacingX._7,
     alignSelf: "flex-start",
-  },
-  currentYear: {
-    fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: -0.3,
-  },
-  arrow: {
-    fontSize: 14,
-    fontWeight: "600",
   },
   arrowUp: {
     transform: [{ rotate: "180deg" }],

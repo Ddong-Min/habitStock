@@ -7,8 +7,7 @@ import {
   onSnapshot,
   Timestamp,
 } from "firebase/firestore";
-import { firestore } from "@/config/firebase";
-
+import { firestore, AI_FUNCTIONS_URL } from "@/config/firebase";
 export interface NewsItemType {
   id?: string;
   title: string;
@@ -21,6 +20,7 @@ export interface NewsItem {
   userId: string;
   userName: string;
   userPhotoURL?: string;
+  imageURL?: string;
   title: string;
   content: string;
   date: string;
@@ -66,7 +66,7 @@ export const createNews = async (
       id: newsId,
       userId,
       userName: newsData.userName,
-      userPhotoURL: newsData.userPhotoURL || null,
+      userPhotoURL: newsData.userPhotoURL || null, //얘는 필요할지 고민, 차라리 userProfile을 직접 가져오는게 좋지 않을까 싶은게, 나중에 프로필 바뀌면 반영이 안되니까
       title: newsData.title,
       content: newsData.content,
       date: `${String(now.getMonth() + 1).padStart(2, "0")}-${String(
@@ -88,7 +88,36 @@ export const createNews = async (
     throw error;
   }
 };
+export const createAiNews = async (
+  userId: string,
+  taskId: string,
+  dueDate: string,
+  token: string
+) => {
+  // Expo Config에서 안전하게 읽기
 
+  console.log("Functions URL:", AI_FUNCTIONS_URL);
+
+  if (!AI_FUNCTIONS_URL) {
+    throw new Error("Functions URL not defined in Expo config.extra");
+  }
+
+  // GET 쿼리 파라미터 생성
+  const params = new URLSearchParams({ userId, taskId, date: dueDate });
+
+  const res = await fetch(`${AI_FUNCTIONS_URL}?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText || "AI 뉴스 생성 실패");
+  }
+
+  const result = await res.json();
+  console.log("✅ AI 뉴스 생성 성공", result);
+  return result;
+};
 // 뉴스 수정
 export const updateNews = async (
   userId: string,

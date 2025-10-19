@@ -10,8 +10,6 @@ import {
   changeStockDataFirebase,
   loadFriendStockDataFirebase,
   subscribeToStockData,
-  subscribeToAllStockData,
-  subscribeToFriendStockData,
 } from "@/api/stockApi";
 import { useCalendar } from "./calendarContext";
 import { Task } from "@/types";
@@ -28,13 +26,9 @@ type StockContextType = {
     | undefined
   >;
   changeSelectedPeriod: (period: "day" | "week" | "month") => void;
-  loadTodayFriendStocks: (followIds: string[]) => Promise<void>;
   stockTabType: "stocks" | "news";
   changeStockTabType: (type: "stocks" | "news") => void;
-  loadAllFriendStocksData: (
-    followId: string,
-    startDate: string
-  ) => Promise<void>;
+  loadAllFriendStocksData: (followIds: string[]) => Promise<void>;
 };
 
 const StockContext = React.createContext<StockContextType | undefined>(
@@ -141,57 +135,15 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     setSelectedPeriod(period);
   };
 
-  const loadTodayFriendStocks = async (followIds: string[]) => {
+  const loadAllFriendStocksData = async (followIds: string[]) => {
     if (!user?.uid) return;
     if (followIds.length === 0) {
       setFriendStockData({});
       return;
     }
-    const startDate = today;
-    const endDate = today;
 
-    const allFriendStockData: FriendStockType = {};
-    for (const fid of followIds) {
-      const tempFriendStockData = await loadFriendStockDataFirebase(
-        fid,
-        startDate,
-        endDate
-      );
-      if (tempFriendStockData && tempFriendStockData[today]) {
-        if (!allFriendStockData[fid]) {
-          allFriendStockData[fid] = {};
-        }
-        allFriendStockData[fid][today] = tempFriendStockData[today];
-      }
-    }
-    setFriendStockData(allFriendStockData);
-  };
-
-  const loadAllFriendStocksData = async (
-    followId: string,
-    startDate: string
-  ) => {
-    if (!user?.uid) return;
-    if (followId.length === 0) {
-      setFriendStockData({});
-      return;
-    }
-    const endDate = today;
-
-    const allFriendStockData: FriendStockType = {};
-    const tempFriendStockData = await loadFriendStockDataFirebase(
-      followId,
-      startDate,
-      endDate
-    );
-    if (tempFriendStockData) {
-      if (!allFriendStockData[followId]) {
-        allFriendStockData[followId] = {};
-      }
-      Object.keys(tempFriendStockData).forEach((date) => {
-        allFriendStockData[followId][date] = tempFriendStockData[date];
-      });
-    }
+    const allFriendStockData = await loadFriendStockDataFirebase(followIds);
+    if (!allFriendStockData) return;
     setFriendStockData(allFriendStockData);
     console.log("Loaded friend stock data:", allFriendStockData);
   };
@@ -208,7 +160,6 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
         friendStockData,
         changeStockData,
         changeSelectedPeriod,
-        loadTodayFriendStocks,
         stockTabType,
         changeStockTabType,
         loadAllFriendStocksData,

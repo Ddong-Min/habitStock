@@ -54,25 +54,25 @@ interface NewsContextType {
 const NewsContext = createContext<NewsContextType | undefined>(undefined);
 
 export const NewsProvider = ({ children }: { children: ReactNode }) => {
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [currentUserData, setCurrentUserData] = useState<any>(null);
-  const [myNews, setMyNews] = useState<newsApi.NewsItem[]>([]);
-  const [followingNews, setFollowingNews] = useState<newsApi.NewsItem[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null); //현재 사용자 ID
+  const [currentUserData, setCurrentUserData] = useState<any>(null); //현재 사용자 데이터
+  const [myNews, setMyNews] = useState<newsApi.NewsItem[]>([]); //내 뉴스
+  const [followingNews, setFollowingNews] = useState<newsApi.NewsItem[]>([]); //팔로잉 뉴스
   const [selectedNews, setSelectedNews] = useState<newsApi.NewsItem | null>(
     null
-  );
-  const [comments, setComments] = useState<newsApi.Comment[]>([]);
-  const [loading, setLoading] = useState(false);
+  ); //세부 보기를 선택한 뉴스
+  const [comments, setComments] = useState<newsApi.Comment[]>([]); //선택한 뉴스의 댓글
+  const [loading, setLoading] = useState(false); //로딩 상태
   const [selectedYear, setSelectedYear] = useState<number>(
     new Date().getFullYear()
-  );
+  ); //내 뉴스 선택 연도
   const [followingSelectedYear, setFollowingSelectedYear] = useState<number>(
     new Date().getFullYear()
-  );
-  const [myNewsLikes, setMyNewsLikes] = useState<Record<string, boolean>>({});
+  ); //팔로잉 뉴스 선택 연도
+  const [myNewsLikes, setMyNewsLikes] = useState<Record<string, boolean>>({}); //내 뉴스 좋아요 상태
   const [followingNewsLikes, setFollowingNewsLikes] = useState<
     Record<string, boolean>
-  >({});
+  >({}); //팔로잉 뉴스 좋아요 상태
   const { user } = useAuth();
   const { selectedFollowId } = useFollow();
 
@@ -85,6 +85,7 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     setCurrentUserData(user);
   }, [user]);
 
+  //내 뉴스를 가져옴
   const loadMyNews = useCallback(
     async (year?: number) => {
       if (!currentUserId) return;
@@ -114,6 +115,7 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     [currentUserId, selectedYear]
   );
 
+  //처음에 로드할때 일정 개수의 뉴스를 불러옴
   useEffect(() => {
     if (currentUserId) {
       loadMyNews();
@@ -165,33 +167,14 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
         if (useAI) {
           const auth = getAuth();
           const user = auth.currentUser;
-
           if (!user) {
             Alert.alert("오류", "인증 정보를 찾을 수 없습니다");
             return;
           }
 
           const token = await user.getIdToken();
-          const functionsUrl = `https://asia-northeast3-habitstock-618dd.cloudfunctions.net/manualGenerateNews`;
-          const params = new URLSearchParams({
-            userId: currentUserId,
-            taskId: taskId,
-            date: dueDate,
-          });
+          await newsApi.createAiNews(currentUserId, taskId, dueDate, token);
 
-          const response = await fetch(`${functionsUrl}?${params.toString()}`, {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || "AI 뉴스 생성 실패");
-          }
-
-          const result = await response.json();
           Alert.alert("성공", "AI 뉴스가 생성되었습니다!");
         } else {
           Alert.alert("오류", "아직 구현되지 않은 기능입니다.");
