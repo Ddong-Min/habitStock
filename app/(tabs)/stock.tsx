@@ -25,20 +25,10 @@ const Stock = () => {
     );
   }
 
-  if (selectedFollowId) {
-    return (
-      <FriendStockDetail
-        followId={selectedFollowId}
-        onBack={() => changeSelectedFollowId(null)}
-      />
-    );
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <UserProfile type={stockTabType} />
       <CustomChart stockData={stockData} />
-      <FriendStock />
     </View>
   );
 };

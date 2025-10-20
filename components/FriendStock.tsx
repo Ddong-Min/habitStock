@@ -1,253 +1,313 @@
-import React, { useState, useEffect } from "react";
+import { Defs, LinearGradient, Stop } from "react-native-svg";
 import {
-  View,
-  ScrollView,
-  StyleSheet,
+  FlatList,
+  Text,
   TouchableOpacity,
-  ActivityIndicator,
+  Image,
+  View,
+  StyleSheet,
+  Dimensions,
 } from "react-native";
-import Typo from "./Typo";
-import { colors, radius, spacingX, spacingY } from "@/constants/theme";
-import { verticalScale } from "@/utils/styling";
+import React from "react";
 import { useFollow } from "@/contexts/followContext";
-import { useStock } from "@/contexts/stockContext";
-import { useCalendar } from "@/contexts/calendarContext";
 import { useTheme } from "@/contexts/themeContext";
+import { useStock } from "@/contexts/stockContext";
+import { radius, spacingX, spacingY } from "@/constants/theme";
+import Typo from "@/components/Typo";
+import { LineChart } from "react-native-chart-kit";
+import { verticalScale } from "@/utils/styling";
+import { useCalendar } from "@/contexts/calendarContext";
 
-const FriendStock: React.FC<{}> = () => {
+const screenWidth = Dimensions.get("window").width;
+const chartWidth = screenWidth * 0.22; // 화면 너비의 22%로 설정
+const chartHeight = spacingY._70;
+
+const FriendStock = ({ item }: { item: any }) => {
   const { theme } = useTheme();
-  const { followingUsers, changeSelectedFollowId } = useFollow();
-  const { friendStockData } = useStock();
+  const {
+    searchQuery,
+    setSearchQuery,
+    searchResults,
+    loading,
+    followingUsers,
+    toggleFollow,
+    isFollowing,
+    selectedFollowId,
+    changeSelectedFollowId,
+  } = useFollow();
+  const { friendStockData, loadAllFriendStocksData } = useStock();
   const { today } = useCalendar();
+  const following = isFollowing(item.uid);
+  const friendStock = friendStockData[item.uid] || {};
+  const closeValues = Object.values(friendStock)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .splice(-7) // 최근 7일 데이터
+    .map((data) => Number(data?.close) || 0);
 
-  const [friends, setFriends] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // 기준선이 될 7일 전 날짜 계산
+  const firstDay = new Date(today);
+  firstDay.setDate(firstDay.getDate() - 6);
 
-  useEffect(() => {
-    // 2초 후에 로딩 상태 해제
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
+  const firstDayKey = firstDay.toISOString().split("T")[0];
 
-    if (!friendStockData || !followingUsers.length) {
-      return () => clearTimeout(timer);
+  // 7일 전 'open' 값이 없으면 100을 기본값으로 사용
+  const firstDayOpen = friendStock[firstDayKey]?.open || 100;
+
+  const weeklyChange = (
+    ((friendStock[today]?.close - firstDayOpen) / firstDayOpen) *
+    100
+  ).toFixed(2);
+  // --- 그라데이션 로직 시작 ---
+  const gradientId = `threshold-gradient-${item.uid}`;
+  let thresholdPercent = 0.5;
+  if (closeValues.length > 1) {
+    const allValues = [...closeValues, firstDayOpen];
+    const dataMin = Math.min(...allValues);
+    const dataMax = Math.max(...allValues);
+    let dataRange = dataMax - dataMin;
+    if (dataRange === 0) {
+      dataRange = 1;
     }
-
-    const loadedFriends = followingUsers.map((user) => {
-      const stockData = friendStockData?.[user!.uid]?.[today];
-      return {
-        name: user!.name || "Unknown",
-        price: user!.price || 0,
-        percentage: stockData ? stockData.changeRate : 0,
-        avatarColor: theme.neutral200,
-        changePrice: stockData ? stockData.changePrice : 0,
-        uid: user?.uid || "",
-      };
-    });
-
-    setFriends(loadedFriends);
-    clearTimeout(timer);
-    setIsLoading(false);
-
-    return () => clearTimeout(timer);
-  }, [friendStockData, followingUsers, today, theme]);
-
-  if (isLoading) {
-    return (
-      <View
-        style={[styles.loadingContainer, { backgroundColor: theme.background }]}
-      >
-        <ActivityIndicator size="large" color={theme.blue100} />
-      </View>
-    );
+    thresholdPercent = 1 - (firstDayOpen - dataMin) / dataRange;
+    thresholdPercent = Math.max(0, Math.min(1, thresholdPercent));
   }
+  const GradientDecorator = () => (
+    <Defs key={gradientId}>
+      <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="100%">
+        <Stop offset="0%" stopColor={theme.red100} />
+        <Stop offset={thresholdPercent} stopColor={theme.red100} />
+        <Stop offset={thresholdPercent} stopColor={theme.blue100} />
+        <Stop offset="100%" stopColor={theme.blue100} />
+      </LinearGradient>
+    </Defs>
+  );
+  // --- 그라데이션 로직 끝 ---
 
-  // 팔로워가 없는 경우
-  if (!friends.length) {
-    return (
-      <View
-        style={[styles.emptyContainer, { backgroundColor: theme.background }]}
-      >
-        <View style={styles.emptyContent}>
-          <Typo color={theme.textLight} style={styles.emptyIcon}>
-            👥
-          </Typo>
-          <Typo color={theme.text} style={styles.emptyTitle}>
-            팔로워가 없습니다
-          </Typo>
-          <Typo color={theme.textLight} style={styles.emptyDescription}>
-            친구를 팔로우하고{"\n"}주가 변동을 확인해보세요
+  return (
+    <TouchableOpacity
+      onPress={() => changeSelectedFollowId(item.uid)}
+      activeOpacity={0.7}
+      style={[styles.userCard, { backgroundColor: theme.cardBackground }]}
+    >
+      {/* 왼쪽: 사용자 정보 (flex: 1) */}
+      <View style={styles.leftSection}>
+        <Image
+          source={{
+            uri: item.image || "https://via.placeholder.com/60",
+          }}
+          style={[styles.avatar, { backgroundColor: theme.neutral200 }]}
+        />
+        <View style={styles.userInfo}>
+          <Typo
+            color={theme.text}
+            style={styles.userName}
+            fontWeight={"600"}
+            size={20}
+            numberOfLines={2}
+          >
+            {item.name}
           </Typo>
         </View>
       </View>
-    );
-  }
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
-        {friends.map((friend, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[
-              styles.friendItem,
-              { backgroundColor: theme.cardBackground },
-            ]}
-            onPress={() => changeSelectedFollowId(friend.uid)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.leftSection}>
-              <View
-                style={[
-                  styles.avatar,
-                  {
-                    backgroundColor: friend.avatarColor,
-                    borderColor: theme.neutral200,
-                  },
-                ]}
-              />
-              <Typo color={theme.text} style={styles.name}>
-                {friend.name}
+      {/* 오른쪽: 차트 또는 팔로우 버튼 (flex: 2)
+          4. Follow 버튼을 rightSelection 안으로 이동시켜 레이아웃 일관성 유지
+        */}
+      <View style={styles.rightSelection}>
+        {following ? (
+          <>
+            {closeValues.length > 1 ? (
+              <View style={styles.chartSection}>
+                <LineChart
+                  data={{
+                    labels: [],
+                    datasets: [
+                      {
+                        data: closeValues,
+                        strokeWidth: 2,
+                        color: (opacity = 1) => `url(#${gradientId})`,
+                      },
+                      {
+                        data: Array(closeValues.length).fill(firstDayOpen),
+                        color: (opacity = 1) => theme.neutral300,
+                        strokeWidth: 1,
+                        withDots: false,
+                      },
+                    ],
+                  }}
+                  // 5. 계산된 픽셀 값을 prop으로 전달
+                  width={chartWidth}
+                  height={chartHeight}
+                  withDots={false}
+                  withInnerLines={false}
+                  withOuterLines={false}
+                  withVerticalLabels={false}
+                  withHorizontalLabels={false}
+                  decorator={GradientDecorator}
+                  chartConfig={{
+                    backgroundGradientFrom: theme.cardBackground,
+                    backgroundGradientTo: theme.cardBackground,
+                    color: (opacity = 1) => theme.cardBackground,
+                    strokeWidth: 2,
+                    propsForBackgroundLines: {
+                      strokeWidth: 0,
+                    },
+                  }}
+                  bezier
+                  style={{
+                    marginLeft: -chartWidth * 0.1, // ✅ 좌측 여백 강제로 제거
+                    paddingRight: 0,
+                  }}
+                />
+              </View>
+            ) : (
+              <View style={[styles.chartSection, styles.chartEmpty]}>
+                {/* 데이터가 부족하여 차트를 그리지 않음 */}
+              </View>
+            )}
+            <View style={styles.weeklyChange}>
+              <Typo
+                size={18}
+                color={theme.text}
+                style={styles.weeklyChangeText}
+              >
+                {item.price}원
               </Typo>
-            </View>
-
-            <View style={styles.rightSection}>
-              <Typo color={theme.text} style={styles.price}>
-                ₩ {friend.price.toLocaleString()}
+              <Typo color={theme.textLight} style={styles.weeklyChangeText}>
+                7d Change
               </Typo>
               <View
                 style={[
                   styles.changeBadge,
                   {
                     backgroundColor:
-                      friend.changePrice > 0
+                      Number(weeklyChange) > 0
                         ? `${theme.red100}20`
-                        : friend.changePrice === 0
+                        : Number(weeklyChange) === 0
                         ? `${theme.textLight}20`
                         : `${theme.blue100}20`,
                   },
                 ]}
               >
                 <Typo
+                  size={14}
                   color={
-                    friend.changePrice > 0
+                    Number(weeklyChange) > 0
                       ? theme.red100
-                      : friend.changePrice === 0
-                      ? theme.textLight
+                      : Number(weeklyChange) === 0
+                      ? theme.text
                       : theme.blue100
                   }
-                  style={styles.percentage}
+                  style={{ lineHeight: verticalScale(14) }}
                 >
-                  {friend.changePrice > 0
-                    ? "▲"
-                    : friend.changePrice === 0
-                    ? ""
-                    : "▼"}{" "}
-                  {friend.percentage ? friend.percentage : 0}%
+                  {weeklyChange}%
                 </Typo>
               </View>
             </View>
+          </>
+        ) : (
+          // 팔로우 버튼
+          <TouchableOpacity
+            style={[styles.followBtn, { backgroundColor: theme.blue100 }]}
+            onPress={() => toggleFollow(item.uid)}
+          >
+            <Text style={styles.followBtnText}>Follow</Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 };
 
+export default FriendStock;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  friendItem: {
+  userCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: spacingY._15,
-    paddingHorizontal: spacingX._20,
-    marginHorizontal: spacingX._10,
-    marginVertical: spacingY._5,
+    padding: 16,
     borderRadius: 12,
+    marginBottom: 12,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 1,
+    elevation: 2,
   },
   leftSection: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacingX._12,
+    flex: 1,
+    //overflow: "hidden",
   },
   avatar: {
     width: spacingX._40,
     height: spacingX._40,
-    borderRadius: radius._30,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
+    borderRadius: radius._40,
+    marginRight: 12,
   },
-  name: {
-    fontSize: verticalScale(18),
-    fontWeight: "600",
-    letterSpacing: -0.3,
+  userInfo: {
+    //flex: 1,
+    flexShrink: 1,
+    marginRight: 8,
   },
-  rightSection: {
-    alignItems: "flex-end",
-    gap: spacingY._7,
+  userName: {
+    marginRight: spacingX._3,
+    lineHeight: verticalScale(20),
   },
   price: {
-    fontSize: verticalScale(17),
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  priceChangeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  priceChange: {
+    fontSize: 12,
     fontWeight: "600",
-    letterSpacing: -0.2,
+    marginRight: 4,
+  },
+  priceChangePercent: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  rightSelection: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end", // 컨텐츠를 오른쪽으로 정렬
+  },
+  chartSection: {
+    height: chartHeight,
+  },
+  chartEmpty: {
+    height: chartHeight,
   },
   changeBadge: {
-    paddingHorizontal: spacingX._7,
-    paddingVertical: spacingY._3,
-    borderRadius: 6,
-  },
-  percentage: {
-    fontSize: verticalScale(14),
-    fontWeight: "500",
-  },
-  loadingContainer: {
-    flex: 1,
+    paddingHorizontal: spacingX._3,
+    paddingVertical: spacingY._5,
+    borderRadius: radius._10,
+    alignItems: "center",
     justifyContent: "center",
+  },
+  followBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 70,
     alignItems: "center",
+    // marginLeft 제거
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  followBtnText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 12,
   },
-  emptyContent: {
-    alignItems: "center",
-    paddingHorizontal: spacingX._40,
+  weeklyChange: {
+    marginTop: 4,
   },
-  emptyIcon: {
-    fontSize: verticalScale(64),
-    marginBottom: spacingY._20,
-  },
-  emptyTitle: {
-    fontSize: verticalScale(20),
-    fontWeight: "700",
-    marginBottom: spacingY._10,
-    letterSpacing: -0.5,
-  },
-  emptyDescription: {
-    fontSize: verticalScale(15),
-    textAlign: "center",
-    lineHeight: verticalScale(22),
-    letterSpacing: -0.3,
+  weeklyChangeText: {
+    marginBottom: verticalScale(6),
   },
 });
-
-export default FriendStock;
