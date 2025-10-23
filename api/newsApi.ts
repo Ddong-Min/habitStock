@@ -1,13 +1,13 @@
+import { doc, getDoc, setDoc, Timestamp, onSnapshot } from "firebase/firestore";
 import {
-  doc,
-  getDoc,
-  setDoc,
-  deleteDoc,
-  serverTimestamp,
-  onSnapshot,
-  Timestamp,
-} from "firebase/firestore";
-import { firestore, AI_FUNCTIONS_URL } from "@/config/firebase";
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+  getStorage,
+} from "firebase/storage";
+import { firestore, storage, AI_FUNCTIONS_URL } from "@/config/firebase";
+
 export interface NewsItemType {
   id?: string;
   title: string;
@@ -42,7 +42,61 @@ export interface Comment {
   dislikesCount?: number;
 }
 
-// 뉴스 생성
+// ==================== 이미지 관련 함수 ====================
+
+// 이미지 업로드
+export const uploadNewsImage = async (
+  userId: string,
+  newsId: string,
+  imageUri: string
+): Promise<string> => {
+  try {
+    console.log("이미지 업로드 시작:", imageUri);
+    // React Native의 경우 fetch로 blob 가져오기
+    const response = await fetch(imageUri);
+    const blob = await response.blob();
+    const storage = getStorage();
+    const filename = `news_${newsId}_${Date.now()}.jpg`;
+    // Storage 경로: news/{userId}/{newsId}.jpg
+    const imageRef = ref(storage, `news/${userId}/${newsId}/${filename}`);
+
+    // 업로드
+    await uploadBytes(imageRef, blob);
+
+    // 다운로드 URL 가져오기
+    const downloadURL = await getDownloadURL(imageRef);
+
+    console.log("✅ 이미지 업로드 완료:", downloadURL);
+    return downloadURL;
+  } catch (error) {
+    console.error("❌ 이미지 업로드 실패:", error);
+    throw error;
+  }
+};
+
+// 이미지 삭제
+export const deleteNewsImage = async (
+  userId: string,
+  newsId: string
+): Promise<void> => {
+  try {
+    const imageRef = ref(storage, `news/${userId}/${newsId}.jpg`);
+    await deleteObject(imageRef);
+    console.log("✅ 이미지 삭제 완료");
+  } catch (error) {
+    // 이미지가 없는 경우는 무시
+    if ((error as any).code === "storage/object-not-found") {
+      console.log("ℹ️ 삭제할 이미지가 없음");
+      return;
+    }
+    console.error("❌ 이미지 삭제 실패:", error);
+    throw error;
+  }
+};
+
+// ==================== 뉴스 관련 함수 ====================
+
+// 뉴스 생성 (이미지 포함)
 export const createNews = async (
   userId: string,
   newsData: {
@@ -50,6 +104,7 @@ export const createNews = async (
     content: string;
     userName: string;
     userPhotoURL?: string;
+    imageUri?: string; // 이미지 URI 추가
   }
 ): Promise<string> => {
   try {
@@ -57,6 +112,13 @@ export const createNews = async (
     const newsId = `news_${now.getTime()}_${Math.random()
       .toString(36)
       .substr(2, 9)}`;
+
+    let imageURL: string | undefined;
+
+    // 이미지가 있으면 먼저 업로드
+    if (newsData.imageUri) {
+      imageURL = await uploadNewsImage(userId, newsId, newsData.imageUri);
+    }
 
     const docRef = doc(firestore, "users", userId, "data", "news");
     const docSnap = await getDoc(docRef);
@@ -66,7 +128,8 @@ export const createNews = async (
       id: newsId,
       userId,
       userName: newsData.userName,
-      userPhotoURL: newsData.userPhotoURL || null, //얘는 필요할지 고민, 차라리 userProfile을 직접 가져오는게 좋지 않을까 싶은게, 나중에 프로필 바뀌면 반영이 안되니까
+      userPhotoURL: newsData.userPhotoURL || null,
+      imageURL: imageURL || null, // 이미지 URL 추가
       title: newsData.title,
       content: newsData.content,
       date: `${String(now.getMonth() + 1).padStart(2, "0")}-${String(
@@ -88,21 +151,18 @@ export const createNews = async (
     throw error;
   }
 };
+
+// AI 뉴스 생성
 export const createAiNews = async (
   userId: string,
   taskId: string,
   dueDate: string,
-  token: string
+  token: string,
+  imageUri?: string // 이미지 URI 추가
 ) => {
-  // Expo Config에서 안전하게 읽기
-
-  console.log("Functions URL:", AI_FUNCTIONS_URL);
-
   if (!AI_FUNCTIONS_URL) {
     throw new Error("Functions URL not defined in Expo config.extra");
-  }
-
-  // GET 쿼리 파라미터 생성
+  } // GET 쿼리 파라미터 생성
   const params = new URLSearchParams({ userId, taskId, date: dueDate });
 
   const res = await fetch(`${AI_FUNCTIONS_URL}?${params.toString()}`, {
@@ -115,16 +175,48 @@ export const createAiNews = async (
   }
 
   const result = await res.json();
+  console.log("AI 뉴스 생성 응답:", result);
+  // AI 뉴스가 생성된 후 이미지가 있으면 업로드
+  if (imageUri !== "" && result.news.id) {
+    console.log("imageUri:", imageUri);
+
+    try {
+      const imageURL = imageUri
+        ? await uploadNewsImage(userId, result.news.id, imageUri)
+        : undefined;
+
+      // 뉴스에 이미지 URL 업데이트
+      const docRef = doc(firestore, "users", userId, "data", "news");
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const newsData = docSnap.data();
+        console.log("newsData before image update:", newsData);
+        if (newsData[result.news.id]) {
+          newsData[result.news.id].imageURL = imageURL;
+          await setDoc(docRef, newsData, { merge: true });
+          console.log("✅ AI 뉴스 이미지 URL 업데이트 완료", imageURL);
+        }
+      }
+    } catch (error) {
+      console.error("❌ AI 뉴스 이미지 업로드 실패:", error);
+      // 이미지 업로드 실패해도 뉴스는 생성됨
+    }
+  }
+
   console.log("✅ AI 뉴스 생성 성공", result);
   return result;
 };
-// 뉴스 수정
+
+// 뉴스 수정 (이미지 포함)
 export const updateNews = async (
   userId: string,
   newsId: string,
   updates: {
     title?: string;
     content?: string;
+    imageUri?: string; // 새 이미지 URI
+    removeImage?: boolean; // 이미지 삭제 플래그
   }
 ): Promise<void> => {
   try {
@@ -141,9 +233,28 @@ export const updateNews = async (
       throw new Error("News item not found");
     }
 
+    // 이미지 처리
+    let imageURL = currentData[newsId].imageURL;
+
+    if (updates.removeImage) {
+      // 이미지 삭제
+      if (imageURL) {
+        await deleteNewsImage(userId, newsId);
+        imageURL = null;
+      }
+    } else if (updates.imageUri) {
+      // 기존 이미지가 있으면 삭제 후 새 이미지 업로드
+      if (imageURL) {
+        await deleteNewsImage(userId, newsId);
+      }
+      imageURL = await uploadNewsImage(userId, newsId, updates.imageUri);
+    }
+
     currentData[newsId] = {
       ...currentData[newsId],
-      ...updates,
+      title: updates.title ?? currentData[newsId].title,
+      content: updates.content ?? currentData[newsId].content,
+      imageURL,
     };
 
     await setDoc(docRef, currentData, { merge: true });
@@ -209,6 +320,7 @@ export const getUserNewsByYear = async (
 // 팔로우한 유저들의 최신 뉴스 가져오기
 export const getFollowingNewsFeed = async (
   followingId: string,
+  year?: number,
   limitCount: number = 50
 ): Promise<NewsItem[]> => {
   try {
@@ -219,7 +331,17 @@ export const getFollowingNewsFeed = async (
 
     if (docSnap.exists()) {
       const userData = docSnap.data();
-      const newsArray = Object.values(userData) as NewsItem[];
+      let newsArray = Object.values(userData) as NewsItem[];
+
+      // 연도 필터링
+      if (year) {
+        const startDate = `${year}-01-01`;
+        const endDate = `${year}-12-31`;
+        newsArray = newsArray.filter((news) => {
+          return news.fullDate >= startDate && news.fullDate <= endDate;
+        });
+      }
+
       allNews.push(...newsArray);
     }
 
@@ -236,7 +358,7 @@ export const getFollowingNewsFeed = async (
   }
 };
 
-// 뉴스 삭제
+// 뉴스 삭제 (이미지도 함께 삭제)
 export const deleteNews = async (
   userId: string,
   newsId: string
@@ -252,9 +374,16 @@ export const deleteNews = async (
     const currentData = docSnap.data();
 
     if (currentData[newsId]) {
+      // 이미지가 있으면 삭제
+      if (currentData[newsId].imageURL) {
+        await deleteNewsImage(userId, newsId);
+      }
+
+      // 뉴스 삭제
       delete currentData[newsId];
       await setDoc(docRef, currentData);
 
+      // 댓글도 삭제
       const commentsDocRef = doc(
         firestore,
         "users",
@@ -279,6 +408,8 @@ export const deleteNews = async (
     throw error;
   }
 };
+
+// ==================== 좋아요 관련 함수 ====================
 
 // 뉴스 좋아요 토글
 export const toggleNewsLike = async (
@@ -372,6 +503,8 @@ export const getUserNewsLikes = async (
     return {};
   }
 };
+
+// ==================== 댓글 관련 함수 ====================
 
 // 댓글 작성
 export const addComment = async (

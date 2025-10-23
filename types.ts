@@ -313,6 +313,10 @@ export type TasksContextType = {
   changeAddTaskState: () => void;
   changeEditTextState: () => void;
   changeTaskType: (type: "todos" | "buckets") => void;
+  changePriceAfterNews: (
+    taskId: string,
+    difficulty: keyof TasksState
+  ) => Promise<void>;
 };
 export type StockDataType = {
   date: string;

@@ -8,15 +8,12 @@ import {
   Text,
 } from "react-native";
 import { colors, radius, spacingX, spacingY } from "../../constants/theme";
-import Profile from "../../components/UserProfile";
 import CustomCalendar from "../../components/CustomCalendar";
 import TaskList from "../../components/TaskList";
-import Toggle from "@/components/Toggle";
 import { useTasks } from "@/contexts/taskContext";
 import TaskBottomSheet from "@/components/TaskBottomSheet";
 import DiffBottomSheet from "@/components/DiffBottomSheet";
 import CustomDatePicker from "@/components/CustomDatePicker";
-import YearHeader from "@/components/YearHeader";
 import { useCalendar } from "@/contexts/calendarContext";
 import { useTheme } from "@/contexts/themeContext";
 import UserProfile from "../../components/UserProfile";

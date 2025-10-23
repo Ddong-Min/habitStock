@@ -26,6 +26,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [user, setUser] = useState<UserType>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const authListenerSetup = useRef(false); // 중복 실행 방지
+  const { expoPushToken, notification, error } = useNotification();
 
   const updateUserData = useCallback(async (uid: string) => {
     try {
@@ -112,8 +113,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         email,
         password
       );
-
-      const { expoPushToken, notification, error } = useNotification();
 
       await setDoc(doc(firestore, "users", response.user.uid), {
         name,

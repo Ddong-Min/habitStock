@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   Text,
+  Image, // Image 임포트 추가
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Typo from "@/components/Typo";
@@ -19,12 +20,14 @@ import { useTheme } from "@/contexts/themeContext";
 import { useNews } from "@/contexts/newsContext";
 import * as newsApi from "@/api/newsApi";
 import { useAuth } from "@/contexts/authContext";
+import * as ImagePicker from "expo-image-picker"; // ImagePicker 임포트 추가
+
 interface CommentWithReaction extends newsApi.Comment {
   userReaction?: "like";
 }
 
 const NewsDetail = ({
-  item,
+  item, // 타입을 NewsItemWithImage로 변경
   onBack,
 }: {
   item: newsApi.NewsItem;
@@ -36,6 +39,10 @@ const NewsDetail = ({
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   const [editContent, setEditContent] = useState(item.content);
+  // 수정 모달용 이미지 상태 추가
+  const [editImage, setEditImage] = useState<string | null>(
+    item.imageURL || null
+  );
 
   const { theme } = useTheme();
   const {
@@ -54,9 +61,11 @@ const NewsDetail = ({
     : !!followingNewsLikes[item.id];
 
   // Get the most up-to-date news item from the context
-  const currentNewsItem = isMyNews
-    ? myNews.find((n) => n.id === item.id)
-    : followingNews.find((n) => n.id === item.id);
+  const currentNewsItem = (
+    isMyNews
+      ? myNews.find((n) => n.id === item.id)
+      : followingNews.find((n) => n.id === item.id)
+  ) as newsApi.NewsItem | undefined; // 타입 캐스팅
 
   const displayItem = currentNewsItem || item;
 
@@ -172,16 +181,42 @@ const NewsDetail = ({
     ]);
   };
 
-  // 뉴스 수정 핸들러
+  // (수정) 모달에서 사용할 이미지 픽커 핸들러
+  const handlePickImage = async () => {
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert(
+        "권한 필요",
+        "이미지를 선택하려면 카메라 롤 접근 권한이 필요합니다."
+      );
+      return;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, // 최신 표준 사용
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+    });
+
+    if (!pickerResult.canceled && pickerResult.assets.length > 0) {
+      setEditImage(pickerResult.assets[0].uri);
+    }
+  };
+
+  // (수정) 뉴스 수정 핸들러
   const handleEditNews = async () => {
     if (!editTitle.trim() || !editContent.trim()) {
       Alert.alert("오류", "제목과 내용을 모두 입력해주세요.");
       return;
     }
     try {
+      // imageURL을 포함하여 API 호출
       await newsApi.updateNews(item.userId, item.id, {
         title: editTitle.trim(),
         content: editContent.trim(),
+        imageUri: editImage || undefined, // 이미지 URL 추가
       });
       setEditModalVisible(false);
       Alert.alert("성공", "뉴스가 수정되었습니다.");
@@ -209,7 +244,13 @@ const NewsDetail = ({
           {isMyNews && (
             <View style={styles.headerActions}>
               <TouchableOpacity
-                onPress={() => setEditModalVisible(true)}
+                onPress={() => {
+                  // 모달 열 때 현재 아이템 상태로 리셋
+                  setEditTitle(displayItem.title);
+                  setEditContent(displayItem.content);
+                  setEditImage(displayItem.imageURL || null);
+                  setEditModalVisible(true);
+                }}
                 style={styles.iconButton}
               >
                 <Ionicons name="pencil" size={20} color={theme.text} />
@@ -239,6 +280,15 @@ const NewsDetail = ({
           >
             {displayItem.title}
           </Typo>
+
+          {/* (추가) 이미지 표시 영역 */}
+          {displayItem.imageURL && (
+            <Image
+              source={{ uri: displayItem.imageURL }}
+              style={[styles.newsImage, { backgroundColor: theme.neutral200 }]}
+            />
+          )}
+
           <View
             style={[styles.divider, { backgroundColor: theme.neutral200 }]}
           />
@@ -409,7 +459,7 @@ const NewsDetail = ({
         </View>
       </ScrollView>
 
-      {/* 뉴스 수정 모달 */}
+      {/* (수정) 뉴스 수정 모달 */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -450,6 +500,51 @@ const NewsDetail = ({
               placeholderTextColor={theme.neutral400}
               multiline
             />
+
+            {/* (추가) 이미지 프리뷰 및 버튼 */}
+            {editImage && (
+              <Image
+                source={{ uri: editImage }}
+                style={[
+                  styles.modalImagePreview,
+                  { backgroundColor: theme.neutral200 },
+                ]}
+              />
+            )}
+            <View style={styles.modalImageActions}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  {
+                    backgroundColor: theme.neutral200,
+                    flex: 1,
+                    marginRight: 5,
+                  },
+                ]}
+                onPress={handlePickImage}
+              >
+                <Text style={{ color: theme.text }}>이미지 변경</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  // theme에 red50, red100이 있다고 가정합니다.
+                  // 없다면 { backgroundColor: "#FFEEEE" } 등으로 수정하세요.
+                  {
+                    backgroundColor: theme.red50 || "#FFEEEE",
+                    flex: 1,
+                    marginLeft: 5,
+                  },
+                ]}
+                onPress={() => setEditImage(null)}
+              >
+                <Text style={{ color: theme.red100 || "#CC0000" }}>
+                  이미지 삭제
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {/* --- --- */}
+
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[
@@ -492,6 +587,13 @@ const styles = StyleSheet.create({
   detailContainer: { padding: spacingX._20 },
   date: { marginBottom: spacingY._10 },
   title: { marginBottom: spacingY._20, lineHeight: verticalScale(34) },
+  // (추가) 뉴스 상세 이미지 스타일
+  newsImage: {
+    width: "100%",
+    height: verticalScale(250),
+    borderRadius: 8,
+    marginBottom: spacingY._20,
+  },
   divider: { height: 1, marginBottom: spacingY._20 },
   contentText: { lineHeight: verticalScale(28) },
   likeSection: { alignItems: "center", paddingVertical: spacingY._15 },
@@ -558,6 +660,19 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   modalContentInput: { height: 150, textAlignVertical: "top" },
+  // (추가) 모달 이미지 프리뷰
+  modalImagePreview: {
+    width: "100%",
+    height: 150,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  // (추가) 모달 이미지 버튼 컨테이너
+  modalImageActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
   modalActions: {
     flexDirection: "row",
     justifyContent: "space-around",

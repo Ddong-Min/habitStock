@@ -721,7 +721,7 @@ async function generateNewsForTask(
   userName: string,
   task: any,
   currentPrice: number
-): Promise<{ title: string; content: string } | null> {
+): Promise<{ title: string; content: string; id: string } | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
 
@@ -762,17 +762,21 @@ You are a professional financial news reporter. Write a short, formal, and sligh
 
     const titleMatch = text.match(/\*\*title:\*\*\s*(.+)/);
     const contentMatch = text.match(/\*\*content:\*\*\s*([\s\S]+)/);
-
+    const now = new Date();
+    const newsId = `news_${now.getTime()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
     if (titleMatch && contentMatch) {
       return {
         title: titleMatch[1].trim(),
         content: contentMatch[1].trim(),
+        id: newsId,
       };
     }
-
     return {
       title: `${userName}, '${taskText}' 완료`,
       content: text,
+      id: newsId,
     };
   } catch (error) {
     console.error("❌ AI 뉴스 생성 실패:", error);
@@ -784,14 +788,9 @@ async function saveNewsToFirestore(
   userId: string,
   userName: string,
   userPhotoURL: string | undefined,
-  newsContent: { title: string; content: string }
+  newsContent: { title: string; content: string; id: string }
 ) {
   try {
-    const now = new Date();
-    const newsId = `news_${now.getTime()}_${Math.random()
-      .toString(36)
-      .substr(2, 9)}`;
-
     const docRef = db
       .collection("users")
       .doc(userId)
@@ -799,7 +798,8 @@ async function saveNewsToFirestore(
       .doc("news");
     const docSnap = await docRef.get();
     const currentData = docSnap.exists ? docSnap.data() ?? {} : {};
-
+    const newsId = newsContent.id;
+    const now = new Date();
     const newNews = {
       id: newsId,
       userId,

@@ -25,11 +25,11 @@ export const searchUsersByName = async (
   try {
     const queryLower = searchQuery.toLowerCase();
     const usersRef = collection(firestore, "users");
-
+    console.log("Searching users by name with query:", queryLower);
     const q = query(
       usersRef,
-      where("name_lowercase", ">=", queryLower),
-      where("name_lowercase", "<=", queryLower + "\uf8ff"), //해당 단어로 시작하는 친구 다 찾아오기
+      where("name_lower", ">=", queryLower),
+      where("name_lower", "<=", queryLower + "\uf8ff"), //해당 단어로 시작하는 친구 다 찾아오기
       limit(20)
     );
 

@@ -11,56 +11,61 @@ import {
 import React from "react";
 import { useFollow } from "@/contexts/followContext";
 import { useTheme } from "@/contexts/themeContext";
-import { useStock } from "@/contexts/stockContext";
+// --- [제거] ---
+// import { useStock } from "@/contexts/stockContext";
+// import { useCalendar } from "@/contexts/calendarContext";
+// -------------
 import { radius, spacingX, spacingY } from "@/constants/theme";
 import Typo from "@/components/Typo";
 import { LineChart } from "react-native-chart-kit";
 import { verticalScale } from "@/utils/styling";
-import { useCalendar } from "@/contexts/calendarContext";
 
 const screenWidth = Dimensions.get("window").width;
 const chartWidth = screenWidth * 0.22; // 화면 너비의 22%로 설정
-const chartHeight = spacingY._70;
+const chartHeight = spacingY._80;
 
+// --- [변경] item: any 타입으로 받음 (Market에서 보낸 확장된 객체) ---
 const FriendStock = ({ item }: { item: any }) => {
   const { theme } = useTheme();
   const {
-    searchQuery,
-    setSearchQuery,
-    searchResults,
-    loading,
-    followingUsers,
+    // Market에서 필요한 컨텍스트만 남김
     toggleFollow,
     isFollowing,
-    selectedFollowId,
     changeSelectedFollowId,
   } = useFollow();
-  const { friendStockData, loadAllFriendStocksData } = useStock();
-  const { today } = useCalendar();
-  const following = isFollowing(item.uid);
-  const friendStock = friendStockData[item.uid] || {};
-  const closeValues = Object.values(friendStock)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .splice(-7) // 최근 7일 데이터
-    .map((data) => Number(data?.close) || 0);
 
-  // 기준선이 될 7일 전 날짜 계산
-  const firstDay = new Date(today);
-  firstDay.setDate(firstDay.getDate() - 6);
+  // --- [제거] Hooks 및 모든 계산 로직 ---
+  // const { friendStockData, loadAllFriendStocksData } = useStock();
+  // const { today } = useCalendar();
+  // ... (모든 계산 로직 삭제) ...
+  // ---------------------------------
 
-  const firstDayKey = firstDay.toISOString().split("T")[0];
+  // --- [추가] Market에서 계산한 데이터를 props로 받음 ---
+  const {
+    uid,
+    name,
+    image,
+    price, // 현재 가격
+    processedCloseValues, // 차트 데이터
+    processedFirstDayOpen, // 7일 전 기준 가격
+    processedWeeklyChange, // 변화율 (숫자)
+  } = item;
 
-  // 7일 전 'open' 값이 없으면 100을 기본값으로 사용
-  const firstDayOpen = friendStock[firstDayKey]?.open || 100;
+  const following = isFollowing(uid);
 
-  const weeklyChange = (
-    ((friendStock[today]?.close - firstDayOpen) / firstDayOpen) *
-    100
-  ).toFixed(2);
-  // --- 그라데이션 로직 시작 ---
-  const gradientId = `threshold-gradient-${item.uid}`;
+  // 변수명 통일 (차트/그라데이션 로직이 그대로 작동하도록)
+  const closeValues = processedCloseValues;
+  const firstDayOpen = processedFirstDayOpen;
+
+  // 표시에 사용할 문자열 (숫자는 색상 결정에 사용)
+  const weeklyChangeString = processedWeeklyChange.toFixed(2);
+  // ----------------------------------------------------
+
+  // --- 그라데이션 로직 시작 (uid 사용) ---
+  const gradientId = `threshold-gradient-${uid}`;
   let thresholdPercent = 0.5;
   if (closeValues.length > 1) {
+    // [수정] firstDayOpen을 사용
     const allValues = [...closeValues, firstDayOpen];
     const dataMin = Math.min(...allValues);
     const dataMax = Math.max(...allValues);
@@ -68,6 +73,7 @@ const FriendStock = ({ item }: { item: any }) => {
     if (dataRange === 0) {
       dataRange = 1;
     }
+    // [수정] firstDayOpen을 사용
     thresholdPercent = 1 - (firstDayOpen - dataMin) / dataRange;
     thresholdPercent = Math.max(0, Math.min(1, thresholdPercent));
   }
@@ -85,7 +91,8 @@ const FriendStock = ({ item }: { item: any }) => {
 
   return (
     <TouchableOpacity
-      onPress={() => changeSelectedFollowId(item.uid)}
+      // [수정] uid 사용
+      onPress={() => changeSelectedFollowId(uid)}
       activeOpacity={0.7}
       style={[styles.userCard, { backgroundColor: theme.cardBackground }]}
     >
@@ -93,7 +100,8 @@ const FriendStock = ({ item }: { item: any }) => {
       <View style={styles.leftSection}>
         <Image
           source={{
-            uri: item.image || "https://via.placeholder.com/60",
+            // [수정] image 사용
+            uri: image || "https://via.placeholder.com/60",
           }}
           style={[styles.avatar, { backgroundColor: theme.neutral200 }]}
         />
@@ -102,20 +110,20 @@ const FriendStock = ({ item }: { item: any }) => {
             color={theme.text}
             style={styles.userName}
             fontWeight={"600"}
-            size={20}
+            size={18}
             numberOfLines={2}
           >
-            {item.name}
+            {/* [수정] name 사용 */}
+            {name}
           </Typo>
         </View>
       </View>
 
-      {/* 오른쪽: 차트 또는 팔로우 버튼 (flex: 2)
-          4. Follow 버튼을 rightSelection 안으로 이동시켜 레이아웃 일관성 유지
-        */}
+      {/* 오른쪽: 차트 또는 팔로우 버튼 (flex: 2) */}
       <View style={styles.rightSelection}>
         {following ? (
           <>
+            {/* [수정] closeValues 사용 */}
             {closeValues.length > 1 ? (
               <View style={styles.chartSection}>
                 <LineChart
@@ -123,19 +131,18 @@ const FriendStock = ({ item }: { item: any }) => {
                     labels: [],
                     datasets: [
                       {
-                        data: closeValues,
+                        data: closeValues, // [수정]
                         strokeWidth: 2,
                         color: (opacity = 1) => `url(#${gradientId})`,
                       },
                       {
-                        data: Array(closeValues.length).fill(firstDayOpen),
+                        data: Array(closeValues.length).fill(firstDayOpen), // [수정]
                         color: (opacity = 1) => theme.neutral300,
                         strokeWidth: 1,
                         withDots: false,
                       },
                     ],
                   }}
-                  // 5. 계산된 픽셀 값을 prop으로 전달
                   width={chartWidth}
                   height={chartHeight}
                   withDots={false}
@@ -155,7 +162,7 @@ const FriendStock = ({ item }: { item: any }) => {
                   }}
                   bezier
                   style={{
-                    marginLeft: -chartWidth * 0.1, // ✅ 좌측 여백 강제로 제거
+                    marginLeft: -chartWidth * 0.1,
                     paddingRight: 0,
                   }}
                 />
@@ -167,23 +174,29 @@ const FriendStock = ({ item }: { item: any }) => {
             )}
             <View style={styles.weeklyChange}>
               <Typo
-                size={18}
+                size={16}
                 color={theme.text}
                 style={styles.weeklyChangeText}
               >
-                {item.price}원
+                {/* [수정] price 사용 */}
+                {price}원
               </Typo>
-              <Typo color={theme.textLight} style={styles.weeklyChangeText}>
+              <Typo
+                size={14}
+                color={theme.textLight}
+                style={styles.weeklyChangeText}
+              >
                 7d Change
               </Typo>
               <View
                 style={[
                   styles.changeBadge,
                   {
+                    // [수정] 숫자(processedWeeklyChange)로 비교
                     backgroundColor:
-                      Number(weeklyChange) > 0
+                      processedWeeklyChange > 0
                         ? `${theme.red100}20`
-                        : Number(weeklyChange) === 0
+                        : processedWeeklyChange === 0
                         ? `${theme.textLight}20`
                         : `${theme.blue100}20`,
                   },
@@ -192,15 +205,17 @@ const FriendStock = ({ item }: { item: any }) => {
                 <Typo
                   size={14}
                   color={
-                    Number(weeklyChange) > 0
+                    // [수정] 숫자(processedWeeklyChange)로 비교
+                    processedWeeklyChange > 0
                       ? theme.red100
-                      : Number(weeklyChange) === 0
+                      : processedWeeklyChange === 0
                       ? theme.text
                       : theme.blue100
                   }
                   style={{ lineHeight: verticalScale(14) }}
                 >
-                  {weeklyChange}%
+                  {/* [수정] 문자열(weeklyChangeString)로 표시 */}
+                  {weeklyChangeString}%
                 </Typo>
               </View>
             </View>
@@ -209,9 +224,12 @@ const FriendStock = ({ item }: { item: any }) => {
           // 팔로우 버튼
           <TouchableOpacity
             style={[styles.followBtn, { backgroundColor: theme.blue100 }]}
-            onPress={() => toggleFollow(item.uid)}
+            // [수정] uid 사용
+            onPress={() => toggleFollow(uid)}
           >
-            <Text style={styles.followBtnText}>Follow</Text>
+            <Typo size={12} fontWeight={600} color={theme.text}>
+              Follow
+            </Typo>
           </TouchableOpacity>
         )}
       </View>
@@ -221,24 +239,25 @@ const FriendStock = ({ item }: { item: any }) => {
 
 export default FriendStock;
 
+// --- 스타일은 변경 사항 없음 ---
 const styles = StyleSheet.create({
   userCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    padding: spacingX._12,
+    borderRadius: radius._12,
+    marginBottom: spacingY._12,
+    paddingVertical: spacingY._10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: radius._6,
     elevation: 2,
   },
   leftSection: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    //overflow: "hidden",
   },
   avatar: {
     width: spacingX._40,
@@ -247,31 +266,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   userInfo: {
-    //flex: 1,
     flexShrink: 1,
-    marginRight: 8,
+    marginRight: spacingX._8,
   },
   userName: {
     marginRight: spacingX._3,
     lineHeight: verticalScale(20),
-  },
-  price: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  priceChangeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  priceChange: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginRight: 4,
-  },
-  priceChangePercent: {
-    fontSize: 12,
-    fontWeight: "600",
   },
   rightSelection: {
     flexDirection: "row",
@@ -292,20 +292,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   followBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 70,
+    paddingHorizontal: spacingX._16,
+    paddingVertical: spacingY._8,
+    borderRadius: radius._10,
+    minWidth: spacingX._70,
     alignItems: "center",
-    // marginLeft 제거
-  },
-  followBtnText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 12,
   },
   weeklyChange: {
-    marginTop: 4,
+    marginTop: spacingY._5,
   },
   weeklyChangeText: {
     marginBottom: verticalScale(6),

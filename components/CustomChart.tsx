@@ -7,10 +7,25 @@ import {
   TouchableOpacity,
   Text as RNText,
 } from "react-native";
-import Svg, { G, Line, Rect, Text, Polyline } from "react-native-svg";
+import {
+  Canvas,
+  Path,
+  Rect,
+  Text,
+  Group,
+  Line,
+  vec,
+  Skia,
+  matchFont,
+  DashPathEffect,
+} from "@shopify/react-native-skia";
 import { verticalScale } from "@/utils/styling";
 import { scaleLinear } from "d3-scale";
-import { useSharedValue, runOnJS } from "react-native-reanimated";
+import {
+  useSharedValue,
+  useDerivedValue,
+  runOnJS,
+} from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useStock } from "@/contexts/stockContext";
 import { aggregateData } from "@/handler/aggregateData";
@@ -26,13 +41,11 @@ const CANDLE_HEIGHT = verticalScale(300);
 const VOLUME_HEIGHT = verticalScale(70);
 const TOTAL_HEIGHT = CANDLE_HEIGHT + VOLUME_HEIGHT;
 
-// 이동평균선 계산 함수
 const calculateMovingAverage = (
   data: number[],
   period: number
 ): (number | null)[] => {
   const result: (number | null)[] = [];
-
   for (let i = 0; i < data.length; i++) {
     if (i < period - 1) {
       result.push(null);
@@ -64,93 +77,129 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     setFullDataArray(aggregated);
   }, [stockData, selectedPeriod]);
 
-  const [visibleRange, setVisibleRange] = useState(30);
-  const [scrollOffset, setScrollOffset] = useState(0);
+  // Shared values for smooth animation
+  const visibleRange = useSharedValue(30);
+  const scrollOffset = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const savedVisibleRange = useSharedValue(30);
+  const savedScrollOffset = useSharedValue(0);
+  const translateX = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const focalX = useSharedValue(0);
+
+  // State for rendering
+  const [renderVisibleRange, setRenderVisibleRange] = useState(30);
+  const [renderScrollOffset, setRenderScrollOffset] = useState(0);
 
   useEffect(() => {
     if (fullDataArray.length > 0) {
-      setVisibleRange(Math.min(30, fullDataArray.length));
+      const initialRange = Math.min(30, fullDataArray.length);
+      visibleRange.value = initialRange;
+      setRenderVisibleRange(initialRange);
+      const lastIndex = fullDataArray.length - initialRange;
+      const initialOffset = lastIndex > 0 ? lastIndex : 0;
+      scrollOffset.value = initialOffset;
+      setRenderScrollOffset(initialOffset);
     }
   }, [fullDataArray.length]);
 
-  useEffect(() => {
-    if (fullDataArray.length > 0) {
-      const lastIndex = fullDataArray.length - visibleRange;
-      setScrollOffset(lastIndex > 0 ? lastIndex : 0);
-    }
-  }, [fullDataArray, visibleRange]);
-
-  const pinchScale = useSharedValue(1);
-  const baseScale = useSharedValue(1);
-  const panOffset = useSharedValue(0);
-  const basePanOffset = useSharedValue(0);
-
-  // x축 설정
   const x0 = spacingX._25;
   const xAxisLength = SVG_WIDTH - x0 * 3;
   const x1 = x0 + xAxisLength;
 
-  // 캔들 차트 영역
   const candleY0 = spacingY._25;
   const candleYAxisLength = CANDLE_HEIGHT - candleY0 * 2;
   const candleXAxisY = candleY0 + candleYAxisLength;
 
-  // 거래량 차트 영역
   const volumeY0 = CANDLE_HEIGHT - candleY0;
   const volumeYAxisLength = VOLUME_HEIGHT;
   const volumeXAxisY = volumeY0 + volumeYAxisLength;
 
-  const updateVisibleRange = (newRange: number) => {
-    setVisibleRange(newRange);
-  };
-
-  const updateScrollOffset = (newOffset: number) => {
-    setScrollOffset(newOffset);
+  const updateRenderState = (newRange: number, newOffset: number) => {
+    setRenderVisibleRange(newRange);
+    setRenderScrollOffset(newOffset);
   };
 
   const pinchGesture = Gesture.Pinch()
-    .onStart(() => {
-      baseScale.value = pinchScale.value;
+    .onStart((e) => {
+      savedScale.value = scale.value;
+      savedVisibleRange.value = visibleRange.value;
+      savedScrollOffset.value = scrollOffset.value;
+      savedTranslateX.value = scrollOffset.value;
+
+      // 핀치 시작 지점 저장 (화면 상의 x 좌표) - onStart에서 한 번만 저장
+      focalX.value = e.focalX;
     })
     .onUpdate((e) => {
-      const newScale = baseScale.value * e.scale;
-      const maxData = fullDataArray.length / 5;
-      const minData = fullDataArray.length / 40;
-      const clampedScale = Math.min(Math.max(newScale, minData), maxData);
-      pinchScale.value = clampedScale;
+      const newScale = savedScale.value * e.scale;
+      const minScale = 0.2;
+      const maxScale = 6;
+      scale.value = Math.max(minScale, Math.min(maxScale, newScale));
 
+      const baseRange = 30;
       const newRange = Math.max(
         5,
-        Math.min(fullDataArray.length, fullDataArray.length / clampedScale)
+        Math.min(fullDataArray.length, baseRange / scale.value)
       );
-      runOnJS(updateVisibleRange)(Math.round(newRange));
+
+      visibleRange.value = newRange;
+
+      // 저장된 focalX 값 사용 (고정)
+      const focalXInChart = focalX.value - x0;
+      const focalRatio = Math.max(0, Math.min(1, focalXInChart / xAxisLength));
+
+      // 포커스 지점의 데이터 인덱스 (처음 저장된 위치 기준)
+      const focalDataIndex =
+        savedScrollOffset.value + savedVisibleRange.value * focalRatio;
+
+      // 새로운 범위에서 같은 데이터 인덱스가 같은 위치에 오도록 오프셋 조정
+      const newOffset = Math.max(
+        0,
+        Math.min(
+          fullDataArray.length - newRange,
+          focalDataIndex - newRange * focalRatio
+        )
+      );
+
+      scrollOffset.value = newOffset;
+
+      runOnJS(updateRenderState)(newRange, newOffset);
     })
     .onEnd(() => {
-      baseScale.value = pinchScale.value;
+      savedScale.value = scale.value;
+      savedTranslateX.value = scrollOffset.value;
     });
 
   const panGesture = Gesture.Pan()
+    .maxPointers(1)
     .onStart(() => {
-      basePanOffset.value = panOffset.value;
+      savedTranslateX.value = scrollOffset.value;
     })
     .onUpdate((e) => {
-      const newOffset = basePanOffset.value - e.translationX;
-      const maxScroll = Math.max(0, fullDataArray.length - visibleRange);
-      const pixelsPerData = xAxisLength / visibleRange;
-      const offsetInDataPoints = newOffset / pixelsPerData;
-      const clampedOffset = Math.max(
+      const pixelsPerData = xAxisLength / visibleRange.value;
+      const deltaInDataPoints = -e.translationX / pixelsPerData;
+
+      const newOffset = Math.max(
         0,
-        Math.min(maxScroll, offsetInDataPoints)
+        Math.min(
+          fullDataArray.length - visibleRange.value,
+          savedTranslateX.value + deltaInDataPoints * 0.7
+        )
       );
-      panOffset.value = clampedOffset * pixelsPerData;
-      runOnJS(updateScrollOffset)(Math.round(clampedOffset));
+
+      scrollOffset.value = newOffset;
+
+      runOnJS(updateRenderState)(visibleRange.value, newOffset);
     })
     .onEnd(() => {
-      basePanOffset.value = panOffset.value;
+      translateX.value = 0;
+      savedTranslateX.value = 0;
     });
 
-  const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
+  const composedGesture = Gesture.Race(pinchGesture, panGesture);
 
+  // Moving averages 계산
   const fullMa5 = useMemo(() => {
     const allClose = fullDataArray.map((d) => d[2]);
     return calculateMovingAverage(allClose, 5);
@@ -166,388 +215,455 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     return calculateMovingAverage(allClose, 60);
   }, [fullDataArray]);
 
-  const { dataArray, startIndex } = useMemo(() => {
+  // 현재 보이는 데이터 계산
+  const {
+    dataArray,
+    ma5,
+    ma20,
+    ma60,
+    niceMin,
+    niceMax,
+    niceTick,
+    volumeYMax,
+    offsetFraction,
+    barPlotWidth,
+  } = useMemo(() => {
     const start = Math.max(
       0,
-      Math.min(scrollOffset, fullDataArray.length - visibleRange)
+      Math.min(renderScrollOffset, fullDataArray.length - renderVisibleRange)
     );
-    const end = Math.min(start + visibleRange, fullDataArray.length);
-    return {
-      dataArray: fullDataArray.slice(start, end),
-      startIndex: start,
+    const startFloor = Math.floor(start - 1);
+    const fraction = start - Math.floor(start);
+    const end = Math.ceil(start + renderVisibleRange + 1);
+
+    const dataArray = fullDataArray.slice(
+      Math.max(0, startFloor),
+      Math.min(end, fullDataArray.length)
+    );
+    const startIndex = Math.max(0, startFloor);
+    const offsetFraction = startFloor < 0 ? fraction : fraction + 1;
+
+    const ma5 = fullMa5.slice(startIndex, startIndex + dataArray.length);
+    const ma20 = fullMa20.slice(startIndex, startIndex + dataArray.length);
+    const ma60 = fullMa60.slice(startIndex, startIndex + dataArray.length);
+
+    // Y축 범위 계산
+    const rawCandleYMax = Math.max(
+      ...dataArray.map((d) => d[3]),
+      ...ma5.filter((v): v is number => v !== null),
+      ...ma20.filter((v): v is number => v !== null),
+      ...ma60.filter((v): v is number => v !== null)
+    );
+    const rawCandleYMin = Math.min(
+      ...dataArray.map((d) => d[4]),
+      ...ma5.filter((v): v is number => v !== null),
+      ...ma20.filter((v): v is number => v !== null),
+      ...ma60.filter((v): v is number => v !== null)
+    );
+
+    const rawRange = rawCandleYMax - rawCandleYMin;
+    const padding = rawRange * 0.05;
+    const candleYMax = rawCandleYMax + padding;
+    const candleYMin = rawCandleYMin - padding;
+    const candleYRange = candleYMax - candleYMin;
+
+    // Nice 값 계산
+    const getNiceNumber = (range: number, round: boolean) => {
+      const exponent = Math.floor(Math.log10(range));
+      const fraction = range / Math.pow(10, exponent);
+      let niceFraction;
+
+      if (round) {
+        if (fraction < 1.5) niceFraction = 1;
+        else if (fraction < 3) niceFraction = 2;
+        else if (fraction < 7) niceFraction = 5;
+        else niceFraction = 10;
+      } else {
+        if (fraction <= 1) niceFraction = 1;
+        else if (fraction <= 2) niceFraction = 2;
+        else if (fraction <= 5) niceFraction = 5;
+        else niceFraction = 10;
+      }
+
+      return niceFraction * Math.pow(10, exponent);
     };
-  }, [fullDataArray, scrollOffset, visibleRange]);
 
-  const ma5 = fullMa5.slice(startIndex, startIndex + dataArray.length);
-  const ma20 = fullMa20.slice(startIndex, startIndex + dataArray.length);
-  const ma60 = fullMa60.slice(startIndex, startIndex + dataArray.length);
+    const numYTicks = 7;
+    const niceRange = getNiceNumber(candleYRange, false);
+    const niceTick = getNiceNumber(niceRange / (numYTicks - 1), true);
+    const niceMin = Math.floor(candleYMin / niceTick) * niceTick;
+    const niceMax = Math.ceil(candleYMax / niceTick) * niceTick;
 
-  const rawCandleYMax = Math.max(
-    dataArray.reduce(
-      (max, [_, __, ___, high, ____]) => Math.max(max, high),
-      -Infinity
-    ),
-    ...ma5.filter((v): v is number => v !== null),
-    ...ma20.filter((v): v is number => v !== null),
-    ...ma60.filter((v): v is number => v !== null)
+    const volumeYMax = Math.max(...dataArray.map((d) => d[5]));
+    const barPlotWidth = xAxisLength / renderVisibleRange;
+
+    return {
+      dataArray,
+      ma5,
+      ma20,
+      ma60,
+      niceMin,
+      niceMax,
+      niceTick,
+      volumeYMax,
+      offsetFraction,
+      barPlotWidth,
+    };
+  }, [
+    fullDataArray,
+    fullMa5,
+    fullMa20,
+    fullMa60,
+    renderScrollOffset,
+    renderVisibleRange,
+  ]);
+
+  // Font 정의 수정 - fontWeight 제거
+  const font = useMemo(
+    () =>
+      matchFont({
+        fontFamily: "Arial",
+        fontSize: 11,
+      }),
+    []
   );
-  const rawCandleYMin = Math.min(
-    dataArray.reduce(
-      (min, [_, __, ___, ____, low]) => Math.min(min, low),
-      Infinity
-    ),
-    ...ma5.filter((v): v is number => v !== null),
-    ...ma20.filter((v): v is number => v !== null),
-    ...ma60.filter((v): v is number => v !== null)
+
+  const smallFont = useMemo(
+    () =>
+      matchFont({
+        fontFamily: "Arial",
+        fontSize: 10,
+      }),
+    []
   );
-
-  const rawRange = rawCandleYMax - rawCandleYMin;
-  const padding = rawRange * 0.05;
-  const candleYMax = rawCandleYMax + padding;
-  const candleYMin = rawCandleYMin - padding;
-  const candleYRange = candleYMax - candleYMin;
-
-  const visibleVolumes = dataArray.map((d) => d[5]);
-  const volumeYMax = Math.max(...visibleVolumes);
-  const volumeYMin = 0;
-  const volumeYRange = volumeYMax - volumeYMin;
 
   const numYTicks = 7;
   const numXTicks = 5;
-  const minDataCount = 5;
-  const barPlotWidth = xAxisLength / Math.max(dataArray.length, minDataCount);
 
-  const createMovingAveragePoints = (maData: (number | null)[]): string => {
-    const points: string[] = [];
-    const scaleY = scaleLinear()
-      .domain([candleYMin, candleYMax])
-      .range([candleY0, candleYAxisLength]);
-
-    maData.forEach((value, index) => {
-      if (value !== null) {
-        const x = x0 + index * barPlotWidth + barPlotWidth / 2;
-        const y = CANDLE_HEIGHT - scaleY(value) - candleY0;
-        points.push(`${x},${y}`);
-      }
+  // Y축 라벨 데이터 미리 계산
+  const yAxisLabels = useMemo(() => {
+    return Array.from({ length: numYTicks }).map((_, i) => {
+      const yValue = niceMin + i * niceTick;
+      const scaleY = scaleLinear()
+        .domain([niceMin, niceMax])
+        .range([candleYAxisLength, 0]);
+      const y = candleY0 + scaleY(yValue);
+      return { yValue, y };
     });
+  }, [niceMin, niceMax, niceTick, candleY0, candleYAxisLength]);
 
-    return points.join(" ");
-  };
-
-  const createLinePoints = (): string => {
-    const points: string[] = [];
-    const scaleY = scaleLinear()
-      .domain([candleYMin, candleYMax])
-      .range([candleY0, candleYAxisLength]);
-
-    dataArray.forEach((data, index) => {
-      const closePrice = data[2];
-      const x = x0 + index * barPlotWidth + barPlotWidth / 2;
-      const y = CANDLE_HEIGHT - scaleY(closePrice) - candleY0;
-      points.push(`${x},${y}`);
+  // 거래량 Y축 라벨 데이터 미리 계산
+  const volumeYAxisLabels = useMemo(() => {
+    return Array.from({ length: 5 }).map((_, i) => {
+      const y = volumeY0 + i * (volumeYAxisLength / 4);
+      const yValue = Math.round(volumeYMax - i * (volumeYMax / 4));
+      return { yValue, y };
     });
-
-    return points.join(" ");
-  };
+  }, [volumeY0, volumeYAxisLength, volumeYMax]);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.cardBackground }]}>
       <GestureDetector gesture={composedGesture}>
-        <View>
-          <Svg height={TOTAL_HEIGHT} width={SVG_WIDTH}>
-            {/* 캔들 차트 X축 */}
-            <Line
-              x1={x0}
-              y1={candleXAxisY}
-              x2={x1}
-              y2={candleXAxisY}
-              stroke={theme.neutral300}
-              strokeWidth="1"
-            />
-            {/* 캔들 차트 Y축 */}
-            <Line
-              x1={x1}
-              y1={candleY0}
-              x2={x1}
-              y2={candleXAxisY}
-              stroke={theme.neutral300}
-              strokeWidth="1"
-            />
-            {/* X축 격자선과 날짜 레이블 */}
-            {dataArray.map((_, index) => {
-              const shouldShowLabel =
-                index % Math.ceil(dataArray.length / numXTicks) === 0;
-              if (shouldShowLabel) {
-                const x = x0 + index * barPlotWidth + barPlotWidth / 2;
+        <Canvas style={{ width: SVG_WIDTH, height: TOTAL_HEIGHT }}>
+          {/* 축 */}
+          <Line
+            p1={vec(x0, candleXAxisY)}
+            p2={vec(x1, candleXAxisY)}
+            color={theme.neutral300}
+            strokeWidth={1}
+          />
+          <Line
+            p1={vec(x1, candleY0)}
+            p2={vec(x1, candleXAxisY)}
+            color={theme.neutral300}
+            strokeWidth={1}
+          />
+          <Line
+            p1={vec(x0, volumeXAxisY)}
+            p2={vec(x1, volumeXAxisY)}
+            color={theme.neutral300}
+            strokeWidth={1}
+          />
+          <Line
+            p1={vec(x1, volumeY0)}
+            p2={vec(x1, volumeXAxisY)}
+            color={theme.neutral300}
+            strokeWidth={1}
+          />
+
+          {/* Y축 격자선 */}
+          {yAxisLabels.map(({ yValue, y }, i) => (
+            <Group key={`y-${i}`}>
+              <Line
+                p1={vec(x0, y)}
+                p2={vec(x1, y)}
+                color={theme.neutral200 || "#E5E5E5"}
+                strokeWidth={1}
+              >
+                <DashPathEffect intervals={[3, 3]} />
+              </Line>
+              <Text
+                x={x1 + 5}
+                y={y}
+                text={String(Math.round(yValue))}
+                font={font}
+                color="#666666"
+              />
+            </Group>
+          ))}
+
+          {/* 거래량 Y축 격자선 */}
+          {volumeYAxisLabels.map(({ yValue, y }, i) => (
+            <Group key={`vol-y-${i}`}>
+              <Line
+                p1={vec(x0, y)}
+                p2={vec(x1, y)}
+                color={theme.neutral200 || "#E5E5E5"}
+                strokeWidth={1}
+              >
+                <DashPathEffect intervals={[3, 3]} />
+              </Line>
+              <Text
+                x={x1 + 5}
+                y={y}
+                text={String(Math.abs(yValue))}
+                font={smallFont}
+                color="#666666"
+              />
+            </Group>
+          ))}
+
+          {/* X축 격자선과 날짜 레이블 */}
+          {dataArray.map((data, index) => {
+            const shouldShowLabel =
+              index % Math.max(1, Math.ceil(dataArray.length / numXTicks)) ===
+              0;
+            if (shouldShowLabel) {
+              const x =
+                x0 + (index - offsetFraction) * barPlotWidth + barPlotWidth / 2;
+              if (x >= x0 && x <= x1) {
+                const dateText = data[0]
+                  .split("-")
+                  .map((part, i) => (i === 0 ? part.slice(-2) : part))
+                  .join("/");
+
                 return (
-                  <G key={`x-${index}`}>
+                  <Group key={`x-${index}`}>
                     <Line
-                      x1={x}
-                      y1={candleY0}
-                      x2={x}
-                      y2={candleXAxisY}
-                      stroke={theme.neutral200}
-                      strokeWidth="1"
-                      strokeDasharray="3,3"
-                    />
-                    <Line
-                      x1={x}
-                      y1={volumeY0}
-                      x2={x}
-                      y2={volumeXAxisY}
-                      stroke={theme.neutral200}
-                      strokeWidth="1"
-                      strokeDasharray="3,3"
-                    />
-                    <Text
-                      x={x}
-                      y={volumeXAxisY + spacingY._15}
-                      textAnchor="middle"
-                      fontSize={verticalScale(10)}
-                      fill={theme.textLight}
+                      p1={vec(x, candleY0)}
+                      p2={vec(x, candleXAxisY)}
+                      color={theme.neutral200 || "#E5E5E5"}
+                      strokeWidth={1}
                     >
-                      {dataArray[index][0]
-                        .split("-")
-                        .map((part, i) => (i === 0 ? part.slice(-2) : part))
-                        .join("/")}
-                    </Text>
-                  </G>
+                      <DashPathEffect intervals={[3, 3]} />
+                    </Line>
+                    <Line
+                      p1={vec(x, volumeY0)}
+                      p2={vec(x, volumeXAxisY)}
+                      color={theme.neutral200 || "#E5E5E5"}
+                      strokeWidth={1}
+                    >
+                      <DashPathEffect intervals={[3, 3]} />
+                    </Line>
+                    <Text
+                      x={x - 15}
+                      y={volumeXAxisY + 12}
+                      text={dateText}
+                      font={smallFont}
+                      color="#666666"
+                    />
+                  </Group>
                 );
               }
-              return null;
-            })}
+            }
+            return null;
+          })}
 
-            {/* 캔들 차트 Y축 격자선과 가격 레이블 */}
-            {Array.from({ length: numYTicks }).map((_, index) => {
-              const y = candleY0 + index * (candleYAxisLength / numYTicks);
-              const ratio = index / (numYTicks - 1);
-              const yValue = Math.round(candleYMax - ratio * candleYRange);
-              return (
-                <G key={`candle-y-${index}`}>
-                  <Line
-                    x1={x1}
-                    y1={y}
-                    x2={x0}
-                    y2={y}
-                    stroke={theme.neutral200}
-                    strokeWidth="1"
-                    strokeDasharray="3,3"
-                  />
-                  <Text
-                    x={x1 + spacingX._5}
-                    y={y + spacingY._5}
-                    textAnchor="start"
-                    fontSize={verticalScale(11)}
-                    fill={theme.textLight}
-                  >
-                    {yValue.toLocaleString()}
-                  </Text>
-                </G>
-              );
-            })}
-
-            {/* 거래량 차트 X축 */}
-            <Line
-              x1={x0}
-              y1={volumeXAxisY}
-              x2={x1}
-              y2={volumeXAxisY}
-              stroke={theme.neutral300}
-              strokeWidth="1"
-            />
-
-            {/* 거래량 차트 Y축 */}
-            <Line
-              x1={x1}
-              y1={volumeY0}
-              x2={x1}
-              y2={volumeXAxisY}
-              stroke={theme.neutral300}
-              strokeWidth="1"
-            />
-
-            {/* 거래량 차트 Y축 격자선과 레이블 */}
-            {Array.from({ length: 5 }).map((_, index) => {
-              const y = volumeY0 + index * (volumeYAxisLength / 4);
-              const yValue = Math.round(
-                volumeYMax - index * (volumeYRange / 4)
-              );
-              return (
-                <G key={`volume-y-${index}`}>
-                  <Line
-                    x1={x1}
-                    x2={x0}
-                    y1={y}
-                    y2={y}
-                    stroke={theme.neutral200}
-                    strokeWidth="1"
-                    strokeDasharray="3,3"
-                  />
-                  <Text
-                    fontSize={verticalScale(10)}
-                    x={x1 + spacingX._5}
-                    y={y + 5}
-                    textAnchor="start"
-                    fill={theme.textLight}
-                  >
-                    {Math.abs(yValue)}
-                  </Text>
-                </G>
-              );
-            })}
-
-            {/* 차트 영역 */}
+          {/* 차트 영역 - 클리핑 적용 */}
+          <Group clip={Skia.XYWHRect(x0, 0, xAxisLength, TOTAL_HEIGHT)}>
+            {/* 캔들/라인 차트 */}
             {chartType === "candle" ? (
-              dataArray.map(([day, open, close, high, low, volume], index) => {
-                const x = x0 + index * barPlotWidth;
+              dataArray.map((data, index) => {
+                const [day, open, close, high, low, volume] = data;
+                const x = x0 + (index - offsetFraction) * barPlotWidth;
                 const sidePadding = barPlotWidth / 6;
                 const max = Math.max(open, close);
                 const min = Math.min(open, close);
+
                 const scaleY = scaleLinear()
-                  .domain([candleYMin, candleYMax])
-                  .range([candleY0, candleYAxisLength]);
+                  .domain([niceMin, niceMax])
+                  .range([candleYAxisLength, 0]);
+
                 const fill = open > close ? theme.blue100 : theme.red100;
-
-                const highY = CANDLE_HEIGHT - scaleY(high) - candleY0;
-                const lowY = CANDLE_HEIGHT - scaleY(low) - candleY0;
-                const maxY = CANDLE_HEIGHT - scaleY(max) - candleY0;
-                const minY = CANDLE_HEIGHT - scaleY(min) - candleY0;
-
+                const highY = candleY0 + scaleY(high);
+                const lowY = candleY0 + scaleY(low);
+                const maxY = candleY0 + scaleY(max);
+                const minY = candleY0 + scaleY(min);
                 const rectHeight = minY - maxY;
 
                 const volumeScaleY = scaleLinear()
-                  .domain([volumeYMin, volumeYMax])
+                  .domain([0, volumeYMax])
                   .range([0, volumeYAxisLength]);
-
                 const barHeight = volumeScaleY(volume);
                 const barY = volumeXAxisY - barHeight;
 
+                const lineX =
+                  x + sidePadding / 2 + (barPlotWidth - sidePadding) / 2;
+
                 return (
-                  <G key={`candle-${index}`}>
+                  <Group key={`candle-${index}`}>
                     <Line
-                      x1={
-                        x + sidePadding / 2 + (barPlotWidth - sidePadding) / 2
-                      }
-                      y1={highY}
-                      x2={
-                        x + sidePadding / 2 + (barPlotWidth - sidePadding) / 2
-                      }
-                      y2={lowY}
-                      stroke={fill}
-                      strokeWidth="1"
+                      p1={vec(lineX, highY)}
+                      p2={vec(lineX, lowY)}
+                      color={fill}
+                      strokeWidth={1}
                     />
                     <Rect
-                      fill={fill}
                       x={x + sidePadding / 2}
                       y={maxY}
                       width={barPlotWidth - sidePadding}
-                      height={rectHeight}
+                      height={Math.max(rectHeight, 1)}
+                      color={fill}
                     />
+                    <Rect
+                      x={x + sidePadding / 2}
+                      y={barY}
+                      width={barPlotWidth - sidePadding}
+                      height={barHeight}
+                      color={fill}
+                      opacity={0.5}
+                    />
+                  </Group>
+                );
+              })
+            ) : (
+              <Group>
+                {(() => {
+                  const path = Skia.Path.Make();
+                  const scaleY = scaleLinear()
+                    .domain([niceMin, niceMax])
+                    .range([candleYAxisLength, 0]);
+
+                  dataArray.forEach((data, index) => {
+                    const closePrice = data[2];
+                    const x =
+                      x0 +
+                      (index - offsetFraction) * barPlotWidth +
+                      barPlotWidth / 2;
+                    const y = candleY0 + scaleY(closePrice);
+
+                    if (index === 0) {
+                      path.moveTo(x, y);
+                    } else {
+                      path.lineTo(x, y);
+                    }
+                  });
+
+                  return (
+                    <Path
+                      path={path}
+                      color={theme.blue100}
+                      style="stroke"
+                      strokeWidth={2.5}
+                    />
+                  );
+                })()}
+
+                {dataArray.map((data, index) => {
+                  const [day, open, close, high, low, volume] = data;
+                  const x = x0 + (index - offsetFraction) * barPlotWidth;
+                  const sidePadding = barPlotWidth / 6;
+                  const fill = open > close ? theme.blue100 : theme.red100;
+
+                  const volumeScaleY = scaleLinear()
+                    .domain([0, volumeYMax])
+                    .range([0, volumeYAxisLength]);
+                  const barHeight = volumeScaleY(volume);
+                  const barY = volumeXAxisY - barHeight;
+
+                  return (
                     <Rect
                       key={`volume-${index}`}
                       x={x + sidePadding / 2}
                       y={barY}
                       width={barPlotWidth - sidePadding}
                       height={barHeight}
-                      fill={fill}
+                      color={fill}
                       opacity={0.5}
                     />
-                  </G>
-                );
-              })
-            ) : (
-              <>
-                <Polyline
-                  points={createLinePoints()}
-                  fill="none"
-                  stroke={theme.blue100}
-                  strokeWidth="2.5"
-                />
-                {dataArray.map(
-                  ([day, open, close, high, low, volume], index) => {
-                    const x = x0 + index * barPlotWidth;
-                    const sidePadding = barPlotWidth / 6;
-                    const fill = open > close ? theme.blue100 : theme.red100;
-
-                    const volumeScaleY = scaleLinear()
-                      .domain([volumeYMin, volumeYMax])
-                      .range([0, volumeYAxisLength]);
-
-                    const barHeight = volumeScaleY(volume);
-                    const barY = volumeXAxisY - barHeight;
-
-                    return (
-                      <Rect
-                        key={`volume-${index}`}
-                        x={x + sidePadding / 2}
-                        y={barY}
-                        width={barPlotWidth - sidePadding}
-                        height={barHeight}
-                        fill={fill}
-                        opacity={0.5}
-                      />
-                    );
-                  }
-                )}
-              </>
+                  );
+                })}
+              </Group>
             )}
 
             {/* 이동평균선 */}
-            <Polyline
-              points={createMovingAveragePoints(ma5)}
-              fill="none"
-              stroke="#FF6B6B"
-              strokeWidth="1.5"
-            />
-            <Polyline
-              points={createMovingAveragePoints(ma20)}
-              fill="none"
-              stroke="#4ECDC4"
-              strokeWidth="1.5"
-            />
-            <Polyline
-              points={createMovingAveragePoints(ma60)}
-              fill="none"
-              stroke="#9B59B6"
-              strokeWidth="1.5"
-            />
+            {[
+              { data: ma5, color: "#FF6B6B" },
+              { data: ma20, color: "#4ECDC4" },
+              { data: ma60, color: "#9B59B6" },
+            ].map((ma, maIndex) => {
+              const path = Skia.Path.Make();
+              const scaleY = scaleLinear()
+                .domain([niceMin, niceMax])
+                .range([candleYAxisLength, 0]);
 
-            {/* 이동평균선 범례 */}
-            <G>
-              <Text
-                x={x0}
-                y={candleY0 - 10}
-                fontSize={verticalScale(11)}
-                fill="#FF6B6B"
-                fontWeight="500"
-              >
-                MA5
-              </Text>
-              <Text
-                x={x0 + 50}
-                y={candleY0 - 10}
-                fontSize={verticalScale(11)}
-                fill="#4ECDC4"
-                fontWeight="500"
-              >
-                MA20
-              </Text>
-              <Text
-                x={x0 + 110}
-                y={candleY0 - 10}
-                fontSize={verticalScale(11)}
-                fill="#9B59B6"
-                fontWeight="500"
-              >
-                MA60
-              </Text>
-            </G>
-          </Svg>
-        </View>
+              let started = false;
+              ma.data.forEach((value, index) => {
+                if (value !== null) {
+                  const x =
+                    x0 +
+                    (index - offsetFraction) * barPlotWidth +
+                    barPlotWidth / 2;
+                  const y = candleY0 + scaleY(value);
+
+                  if (!started) {
+                    path.moveTo(x, y);
+                    started = true;
+                  } else {
+                    path.lineTo(x, y);
+                  }
+                }
+              });
+
+              return (
+                <Path
+                  key={`ma-${maIndex}`}
+                  path={path}
+                  color={ma.color}
+                  style="stroke"
+                  strokeWidth={1.5}
+                />
+              );
+            })}
+          </Group>
+
+          {/* 이동평균선 범례 */}
+          <Text
+            x={x0}
+            y={candleY0 - 5}
+            text="MA5"
+            font={font}
+            color="#FF6B6B"
+          />
+          <Text
+            x={x0 + 50}
+            y={candleY0 - 5}
+            text="MA20"
+            font={font}
+            color="#4ECDC4"
+          />
+          <Text
+            x={x0 + 110}
+            y={candleY0 - 5}
+            text="MA60"
+            font={font}
+            color="#9B59B6"
+          />
+        </Canvas>
       </GestureDetector>
+
       {/* 차트 타입 전환 버튼 */}
       <View style={styles.chartControlContainer}>
-        {/* 왼쪽: 기간 선택 (일/주/월) */}
         <View
           style={[
             styles.periodButtonContainer,
@@ -618,7 +734,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
           </TouchableOpacity>
         </View>
 
-        {/* 오른쪽: 차트 타입 선택 (캔들/라인) */}
         <View
           style={[
             styles.chartTypeButtonContainer,

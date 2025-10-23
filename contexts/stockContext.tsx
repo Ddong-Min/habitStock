@@ -10,14 +10,22 @@ import {
   changeStockDataFirebase,
   loadFriendStockDataFirebase,
   subscribeToStockData,
+  subscribeToStockSummary,
+  updateStockSummaryOnChange,
+  StockSummaryType,
+  loadFriendStockSummary as loadFriendStockSummaryApi,
+  loadFriendStockSummaries as loadFriendStockSummariesApi,
 } from "@/api/stockApi";
+
 import { useCalendar } from "./calendarContext";
 import { Task } from "@/types";
 
 type StockContextType = {
   stockData: StockDataByDateType | undefined;
+  stockSummary: StockSummaryType | null;
   selectedPeriod: "day" | "week" | "month";
   friendStockData: FriendStockType;
+  friendStockSummaries: { [friendId: string]: StockSummaryType };
   changeStockData: (
     task: Task
   ) => Promise<
@@ -29,6 +37,14 @@ type StockContextType = {
   stockTabType: "stocks" | "news";
   changeStockTabType: (type: "stocks" | "news") => void;
   loadAllFriendStocksData: (followIds: string[]) => Promise<void>;
+  changeStockAfterNews: (
+    priceIncrease: number,
+    percentageIncrease: number
+  ) => Promise<any>;
+  loadFriendStockSummary: (
+    friendId: string
+  ) => Promise<StockSummaryType | null>;
+  loadAllFriendStockSummaries: (friendIds: string[]) => Promise<void>;
 };
 
 const StockContext = React.createContext<StockContextType | undefined>(
@@ -39,15 +55,21 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
   const [stockData, setStockData] = useState<StockDataByDateType | undefined>(
     undefined
   );
+  const [stockSummary, setStockSummary] = useState<StockSummaryType | null>(
+    null
+  );
   const [selectedPeriod, setSelectedPeriod] = useState<
     "day" | "week" | "month"
   >("day");
   const [friendStockData, setFriendStockData] = useState<FriendStockType>({});
+  const [friendStockSummaries, setFriendStockSummaries] = useState<{
+    [friendId: string]: StockSummaryType;
+  }>({});
   const { user, changeUserStock } = useAuth();
   const { selectedDate, isWeekView, today } = useCalendar();
   const [stockTabType, setStockTabType] = useState<"stocks" | "news">("stocks");
 
-  // 🔥 NEW: 실시간 구독 추가 - 선택된 날짜 범위의 주식 데이터 자동 업데이트
+  // 🔥 실시간 구독: 주식 데이터
   useEffect(() => {
     console.log("Subscribing to stock data updates...");
     if (!user?.uid) return;
@@ -70,6 +92,29 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
 
     return () => unsubscribe();
   }, [user?.uid, today, user?.price, user?.registerDate]);
+
+  // 🔥 NEW: 실시간 구독: Summary 데이터
+  useEffect(() => {
+    console.log("Subscribing to stock summary updates...");
+    if (!user?.uid) return;
+
+    const unsubscribe = subscribeToStockSummary(user.uid, (summary) => {
+      setStockSummary(summary);
+      console.log("Stock summary updated:", summary);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  // 🔥 NEW: stockData 변경 시 Summary 자동 업데이트
+  useEffect(() => {
+    if (!user?.uid || !user?.registerDate || !stockData) return;
+
+    // stockData가 비어있지 않을 때만 업데이트
+    if (Object.keys(stockData).length > 0) {
+      updateStockSummaryOnChange(user.uid, stockData, user.registerDate);
+    }
+  }, [stockData, user?.uid, user?.registerDate]);
 
   const changeStockData = async (task: Task) => {
     if (!user?.uid || !stockData) return;
@@ -152,17 +197,95 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     setStockTabType(type);
   };
 
+  const changeStockAfterNews = async (
+    priceIncrease: number,
+    percentageIncrease: number
+  ) => {
+    if (!user?.uid || !stockData) return;
+
+    const date = today;
+    const existingData = stockData[date];
+
+    const updatedStockData: StockDataType = { ...existingData };
+
+    // 뉴스로 인한 증가분 반영
+    updatedStockData.changePrice =
+      Math.round((updatedStockData.changePrice + priceIncrease) * 10) / 10;
+
+    updatedStockData.changeRate =
+      Math.round((updatedStockData.changeRate + percentageIncrease) * 10) / 10;
+
+    updatedStockData.close =
+      Math.round((updatedStockData.close + priceIncrease) * 10) / 10;
+
+    updatedStockData.high = Math.max(
+      updatedStockData.high,
+      updatedStockData.close
+    );
+
+    // Firebase에 저장
+    const result = await changeStockDataFirebase(
+      user.uid,
+      updatedStockData,
+      date
+    );
+
+    if (result.success) {
+      // Optimistic UI update
+      setStockData((prev) => ({
+        ...prev,
+        [date]: updatedStockData,
+      }));
+      changeUserStock(updatedStockData.close);
+    } else {
+      console.error("Failed to update stock data:", result.msg);
+    }
+
+    return result;
+  };
+
+  // 🔥 NEW: 단일 친구의 Summary 로드
+  const loadFriendStockSummary = async (friendId: string) => {
+    const summary = await loadFriendStockSummaryApi(friendId);
+    if (summary) {
+      setFriendStockSummaries((prev) => ({
+        ...prev,
+        [friendId]: summary,
+      }));
+    }
+    return summary;
+  };
+
+  // 🔥 NEW: 여러 친구의 Summary 한 번에 로드
+  const loadAllFriendStockSummaries = async (friendIds: string[]) => {
+    if (friendIds.length === 0) {
+      setFriendStockSummaries({});
+      return;
+    }
+
+    const summaries = await loadFriendStockSummariesApi(friendIds);
+    if (summaries) {
+      setFriendStockSummaries(summaries);
+      console.log("Loaded friend stock summaries:", summaries);
+    }
+  };
+
   return (
     <StockContext.Provider
       value={{
         stockData,
+        stockSummary,
         selectedPeriod,
         friendStockData,
+        friendStockSummaries,
         changeStockData,
         changeSelectedPeriod,
         stockTabType,
         changeStockTabType,
         loadAllFriendStocksData,
+        changeStockAfterNews,
+        loadFriendStockSummary,
+        loadAllFriendStockSummaries,
       }}
     >
       {children}

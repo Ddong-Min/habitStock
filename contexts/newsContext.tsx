@@ -10,6 +10,7 @@ import * as newsApi from "../api/newsApi";
 import { useAuth } from "./authContext";
 import { Alert } from "react-native";
 import { getAuth } from "firebase/auth";
+``;
 import { useFollow } from "./followContext";
 
 interface NewsContextType {
@@ -30,7 +31,8 @@ interface NewsContextType {
   createNews: (
     taskId: string,
     dueDate: string,
-    useAI?: boolean
+    useAI?: boolean,
+    imageURL?: string
   ) => Promise<void>;
   updateNews: (newsId: string, title: string, content: string) => Promise<void>;
   deleteNews: (newsId: string) => Promise<void>;
@@ -74,7 +76,7 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
     Record<string, boolean>
   >({}); //팔로잉 뉴스 좋아요 상태
   const { user } = useAuth();
-  const { selectedFollowId } = useFollow();
+  const { selectedFollowId, followingIds } = useFollow();
 
   const years = Array.from([
     2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030,
@@ -124,33 +126,44 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
 
   const loadFollowingNews = useCallback(
     async (year?: number) => {
-      if (!currentUserId || !selectedFollowId) return;
+      if (!currentUserId || !followingIds || followingIds.size === 0) return;
       setLoading(true);
       try {
-        let news;
         const targetYear = year ?? followingSelectedYear;
-        if (targetYear) {
-          news = await newsApi.getFollowingNewsFeed(
-            selectedFollowId,
-            targetYear
-          );
-        } else {
-          news = await newsApi.getFollowingNewsFeed(selectedFollowId);
-        }
 
-        setFollowingNews(news);
-        const likes = await newsApi.getUserNewsLikes(
-          selectedFollowId,
-          currentUserId
+        // 모든 팔로잉 유저의 뉴스를 병렬로 가져오기
+        const newsPromises = Array.from(followingIds).map(async (followId) => {
+          if (targetYear) {
+            return await newsApi.getFollowingNewsFeed(followId, targetYear);
+          } else {
+            return await newsApi.getFollowingNewsFeed(followId);
+          }
+        });
+
+        const newsArrays = await Promise.all(newsPromises);
+        const allNews = newsArrays.flat(); // 2차원 배열을 1차원으로 평탄화
+
+        setFollowingNews(allNews);
+
+        // 좋아요 상태도 모든 팔로잉 유저에 대해 가져오기
+        const likesPromises = Array.from(followingIds).map(async (followId) => {
+          return await newsApi.getUserNewsLikes(followId, currentUserId);
+        });
+
+        const likesArrays = await Promise.all(likesPromises);
+        const allLikes = likesArrays.reduce(
+          (acc, likes) => ({ ...acc, ...likes }),
+          {}
         );
-        setFollowingNewsLikes(likes);
+
+        setFollowingNewsLikes(allLikes);
       } catch (error) {
         console.error("팔로잉 뉴스 로드 실패:", error);
       } finally {
         setLoading(false);
       }
     },
-    [currentUserId, followingSelectedYear, selectedFollowId]
+    [currentUserId, followingSelectedYear, followingIds]
   );
 
   useEffect(() => {
@@ -160,9 +173,13 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
   }, [followingSelectedYear, currentUserId, selectedFollowId]);
 
   const createNews = useCallback(
-    async (taskId: string, dueDate: string, useAI: boolean = false) => {
+    async (
+      taskId: string,
+      dueDate: string,
+      useAI: boolean = false,
+      imageURL: string = ""
+    ) => {
       if (!currentUserId || !currentUserData) return;
-
       try {
         if (useAI) {
           const auth = getAuth();
@@ -173,7 +190,13 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
           }
 
           const token = await user.getIdToken();
-          await newsApi.createAiNews(currentUserId, taskId, dueDate, token);
+          await newsApi.createAiNews(
+            currentUserId,
+            taskId,
+            dueDate,
+            token,
+            imageURL
+          );
 
           Alert.alert("성공", "AI 뉴스가 생성되었습니다!");
         } else {

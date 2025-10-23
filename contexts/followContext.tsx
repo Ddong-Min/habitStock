@@ -23,7 +23,6 @@ interface FollowContextType {
   setSearchQuery: (query: string) => void;
   toggleFollow: (targetUserId: string) => Promise<void>;
   isFollowing: (userId: string) => boolean;
-  loadDetailFriendInfo: () => Promise<void>;
   changeSelectedFollowId: (followId: string | null) => void;
 }
 
@@ -65,7 +64,7 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
         setSearchResults([]);
         return;
       }
-
+      console.log("Searching users with query:", query);
       setLoading(true);
       try {
         // 이름과 이메일 모두 검색
@@ -138,13 +137,6 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
     [followingIds]
   );
 
-  //팔로워 정보 불러오기
-  const loadDetailFriendInfo = async () => {
-    if (!user || !user.uid || !selectedFollowId) return;
-    const userObj = followingUsers.find((u) => u?.uid === selectedFollowId);
-    loadAllFriendStocksData(selectedFollowId);
-  };
-
   const changeSelectedFollowId = (followId: string | null) => {
     setSelectedFollowId(followId);
   };
@@ -159,8 +151,6 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
     setSearchQuery,
     toggleFollow,
     isFollowing,
-
-    loadDetailFriendInfo,
     changeSelectedFollowId,
   };
 

@@ -9,7 +9,6 @@ import { Task, TasksByDate, TasksContextType, TasksState } from "../types";
 import {
   addTaskFirebase,
   deleteTaskFirebase,
-  loadTasksFirebase,
   updateTaskFirebase,
   subscribeToTasksByDate, // 🔥 NEW
 } from "@/api/taskApi";
@@ -41,7 +40,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [selectedText, setSelectedText] = useState("");
   const [taskType, setTaskType] = useState<"todos" | "buckets">("todos");
   const { user } = useAuth();
-
+  const { changeStockAfterNews } = useStock();
   const initialTaskTypeByDate: { todos: TasksByDate; buckets: TasksByDate } = {
     todos: {},
     buckets: {},
@@ -309,6 +308,51 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     setTaskType(type);
   };
 
+  const changePriceAfterNews = async (
+    taskId: string,
+    difficulty: keyof TasksState
+  ) => {
+    if (!user || !taskId || !selectedDate) return;
+    const taskList = taskByDate[selectedDate][difficulty];
+    const taskIndex = taskList.findIndex((task: Task) => task.id === taskId);
+
+    if (taskIndex === -1) return;
+
+    const foundTask = taskList[taskIndex];
+
+    // 증가량 계산 (0.5배)
+    const priceIncrease = Math.round(foundTask.priceChange * 0.5 * 10) / 10;
+    const percentageIncrease = Math.round(foundTask.percentage * 0.5 * 10) / 10;
+
+    // Task 업데이트 (1.5배)
+    const updatedTask = {
+      ...foundTask,
+      priceChange: Math.round(foundTask.priceChange * 1.5 * 10) / 10,
+      percentage: Math.round(foundTask.percentage * 1.5 * 10) / 10,
+      appliedPriceChange:
+        Math.round(foundTask.appliedPriceChange * 1.5 * 10) / 10,
+      appliedPercentage:
+        Math.round(foundTask.appliedPercentage * 1.5 * 10) / 10,
+      updatedAt: new Date().toISOString(),
+    };
+    const updatedTaskList = [...taskList];
+    updatedTaskList[taskIndex] = updatedTask;
+
+    setTaskByDate((prev) => ({
+      ...prev,
+      [selectedDate]: {
+        ...prev[selectedDate],
+        [difficulty]: updatedTaskList,
+      },
+    }));
+
+    await updateTaskFirebase(updatedTask, user.uid!, taskType);
+
+    // 🔥 완료된 task인 경우에만 stock 업데이트
+    if (foundTask.completed) {
+      await changeStockAfterNews(priceIncrease, percentageIncrease);
+    }
+  };
   return (
     <TasksContext.Provider
       value={{
@@ -339,6 +383,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         changeEditTextState,
         isEditText,
         changeTaskType,
+        changePriceAfterNews,
       }}
     >
       {children}

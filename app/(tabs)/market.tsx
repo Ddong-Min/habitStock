@@ -11,7 +11,9 @@ import {
   Dimensions,
   Touchable,
 } from "react-native";
-import React, { useEffect } from "react";
+// --- [변경] ---
+import React, { useEffect, useMemo, useState } from "react";
+// -------------
 import { useFollow } from "../../contexts/followContext";
 import { useTheme } from "@/contexts/themeContext";
 import { useStock } from "@/contexts/stockContext";
@@ -19,7 +21,6 @@ import { useCalendar } from "@/contexts/calendarContext";
 import { radius, spacingX, spacingY } from "@/constants/theme";
 import Typo from "@/components/Typo";
 import { LineChart } from "react-native-chart-kit";
-// react-native-svg에서 그라데이션을 위한 컴포넌트 import
 import { Defs, LinearGradient, Stop } from "react-native-svg";
 import { verticalScale } from "@/utils/styling";
 import FriendStockDetail from "@/components/FriendStockDetail";
@@ -42,6 +43,110 @@ const Market = () => {
   const { today } = useCalendar();
   const displayUsers = searchQuery ? searchResults : followingUsers;
 
+  // --- [추가] 정렬 상태 관리 ---
+  const [sortConfig, setSortConfig] = useState({
+    key: "default", // 'default', 'price', 'changePercent'
+    order: "desc", // 'asc', 'desc'
+  });
+
+  // 정렬 버튼 클릭 핸들러
+  const handleSort = (newKey: "default" | "price" | "changePercent") => {
+    setSortConfig((prevConfig) => {
+      if (newKey === "default") {
+        return { key: "default", order: "desc" };
+      }
+      if (prevConfig.key === newKey) {
+        // 같은 키: 순서 변경
+        return {
+          key: newKey,
+          order: prevConfig.order === "desc" ? "asc" : "desc",
+        };
+      }
+      // 새로운 키: 내림차순 기본
+      return { key: newKey, order: "desc" };
+    });
+  };
+  // -------------------------
+
+  // 데이터 로딩 (종속성 배열에서 loadAllFriendStocksData 제거)
+  useEffect(() => {
+    if (displayUsers.length > 0) {
+      const followIds = displayUsers.map((user) => user!.uid);
+      loadAllFriendStocksData(followIds);
+    }
+  }, [displayUsers]);
+
+  // --- [추가] 1. 데이터 계산 로직 (useMemo) ---
+  const processedUsers = useMemo(() => {
+    return displayUsers
+      .map((user) => {
+        if (!user) return null;
+
+        const friendStock = friendStockData[user.uid] || {};
+
+        // 차트 데이터 계산
+        const closeValues = Object.values(friendStock)
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .slice(-7) // non-mutating slice
+          .map((data) => Number(data?.close) || 0);
+
+        // 7일 전 기준 가격 계산
+        const firstDay = new Date(today);
+        firstDay.setDate(firstDay.getDate() - 6);
+        const firstDayKey = firstDay.toISOString().split("T")[0];
+        const firstDayOpen = friendStock[firstDayKey]?.open || 100;
+
+        // 변화율 계산 (숫자형으로)
+        const currentPrice = user.price || 0;
+        const weeklyChange =
+          firstDayOpen === 0
+            ? 0 // 0으로 나누기 방지
+            : ((currentPrice - firstDayOpen) / firstDayOpen) * 100;
+
+        // FriendStock에 전달할 객체 반환
+        return {
+          ...user, // uid, name, image, price 포함
+          // 정렬 및 표시에 사용할 추가 데이터
+          processedCloseValues: closeValues,
+          processedFirstDayOpen: firstDayOpen,
+          processedWeeklyChange: weeklyChange, // 정렬에 사용될 숫자
+        };
+      })
+      .filter(Boolean); // null 값 제거
+  }, [displayUsers, friendStockData, today]);
+  // -----------------------------------------
+
+  // --- [추가] 2. 데이터 정렬 로직 (useMemo) ---
+  const sortedUsers = useMemo(() => {
+    const { key, order } = sortConfig;
+
+    if (key === "default") {
+      return processedUsers; // 기본 순서
+    }
+
+    // 정렬을 위해 배열 복사
+    const sortable = [...processedUsers];
+
+    sortable.sort((a, b) => {
+      let valA: number;
+      let valB: number;
+
+      if (key === "price") {
+        valA = a?.price ?? 0; // 유저 객체의 기본 price, 기본값 0
+        valB = b?.price ?? 0;
+      } else {
+        // 'changePercent'
+        valA = a?.processedWeeklyChange ?? 0; // 위에서 계산한 변화율, 기본값 0
+        valB = b?.processedWeeklyChange ?? 0;
+      }
+
+      return order === "desc" ? valB - valA : valA - valB;
+    });
+
+    return sortable;
+  }, [processedUsers, sortConfig]);
+  // ---------------------------------------
+
   if (selectedFollowId) {
     return (
       <FriendStockDetail
@@ -51,12 +156,85 @@ const Market = () => {
     );
   }
 
-  useEffect(() => {
-    if (displayUsers.length > 0) {
-      const followIds = displayUsers.map((user) => user!.uid);
-      loadAllFriendStocksData(followIds);
-    }
-  }, [displayUsers]);
+  // --- [추가] 정렬 버튼 UI 렌더링 함수 ---
+  const renderSortButtons = () => {
+    // 현재 정렬 상태에 따라 아이콘 표시
+    const getSortIndicator = (key: string) => {
+      if (sortConfig.key !== key) return "";
+      return sortConfig.order === "desc" ? " ▼" : " ▲";
+    };
+
+    return (
+      <View
+        style={[styles.sortContainer, { borderBottomColor: theme.neutral200 }]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.sortButton,
+            { backgroundColor: theme.neutral100 },
+            sortConfig.key === "default" && [
+              styles.sortButtonActive,
+              { borderColor: theme.blue100 },
+            ],
+          ]}
+          onPress={() => handleSort("default")}
+        >
+          <Typo
+            size={13}
+            color={
+              sortConfig.key === "default" ? theme.blue100 : theme.textLight
+            }
+            fontWeight={sortConfig.key === "default" ? "600" : "500"}
+          >
+            기본
+          </Typo>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.sortButton,
+            { backgroundColor: theme.neutral100 },
+            sortConfig.key === "price" && [
+              styles.sortButtonActive,
+              { borderColor: theme.blue100 },
+            ],
+          ]}
+          onPress={() => handleSort("price")}
+        >
+          <Typo
+            size={13}
+            color={sortConfig.key === "price" ? theme.blue100 : theme.textLight}
+            fontWeight={sortConfig.key === "price" ? "600" : "500"}
+          >
+            가격순{getSortIndicator("price")}
+          </Typo>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.sortButton,
+            { backgroundColor: theme.neutral100 },
+            sortConfig.key === "changePercent" && [
+              styles.sortButtonActive,
+              { borderColor: theme.blue100 },
+            ],
+          ]}
+          onPress={() => handleSort("changePercent")}
+        >
+          <Typo
+            size={13}
+            color={
+              sortConfig.key === "changePercent"
+                ? theme.blue100
+                : theme.textLight
+            }
+            fontWeight={sortConfig.key === "changePercent" ? "600" : "500"}
+          >
+            변화율순{getSortIndicator("changePercent")}
+          </Typo>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+  // ---------------------------------------
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -91,6 +269,11 @@ const Market = () => {
         </View>
       </View>
 
+      {/* --- [추가] --- */}
+      {/* 검색 중이 아닐 때만 정렬 버튼 표시 */}
+      {!searchQuery && renderSortButtons()}
+      {/* ------------- */}
+
       {/* Loading Indicator */}
       {loading && (
         <View style={styles.loadingContainer}>
@@ -100,7 +283,9 @@ const Market = () => {
 
       {/* User List */}
       <FlatList
-        data={displayUsers}
+        // --- [변경] data prop 수정 ---
+        data={sortedUsers}
+        // -------------------------
         renderItem={({ item }) => <FriendStock item={item} />}
         keyExtractor={(item) => (item ? item.uid : "")}
         contentContainerStyle={styles.listContainer}
@@ -142,7 +327,6 @@ const Market = () => {
 
 export default Market;
 
-// 6. StyleSheet 스타일 수정
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -172,6 +356,28 @@ const styles = StyleSheet.create({
     fontSize: 20,
     paddingHorizontal: 8,
   },
+  // --- [추가] 정렬 버튼 스타일 ---
+  sortContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    backgroundColor: "transparent", // Market 배경색과 동일하게
+  },
+  sortButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "transparent", // 기본
+  },
+  sortButtonActive: {
+    borderWidth: 1,
+    // borderColor는 theme을 사용하므로 JSX에서 인라인으로 적용
+  },
+  // -------------------------
   loadingContainer: {
     paddingVertical: 32,
   },
