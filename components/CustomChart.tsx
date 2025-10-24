@@ -21,11 +21,7 @@ import {
 } from "@shopify/react-native-skia";
 import { verticalScale } from "@/utils/styling";
 import { scaleLinear } from "d3-scale";
-import {
-  useSharedValue,
-  useDerivedValue,
-  runOnJS,
-} from "react-native-reanimated";
+import { useSharedValue, runOnJS } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useStock } from "@/contexts/stockContext";
 import { aggregateData } from "@/handler/aggregateData";
