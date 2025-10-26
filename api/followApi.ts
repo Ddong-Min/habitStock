@@ -1,13 +1,26 @@
 // src/services/usersService.ts
-import { firestore } from "@/config/firebase"; // config에서 내보낸 모듈(react-native-firebase 기본 export)
-import firebaseFirestore from "@react-native-firebase/firestore";
+import { firestore } from "@/config/firebase";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  writeBatch,
+  serverTimestamp,
+  increment,
+} from "@react-native-firebase/firestore";
+import { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
 import { UserType } from "@/types";
 
-/**
- * NOTE:
- * - firestore() 형태로 호출해야 합니다.
- * - FieldValue 등은 firebaseFirestore.FieldValue 로 사용합니다.
- */
+// ✅ Firestore Modular API 사용
 
 // 사용자 검색 (name으로, name_lower 필드 필요)
 export const searchUsersByName = async (
@@ -18,19 +31,25 @@ export const searchUsersByName = async (
     const queryLower = searchQuery.toLowerCase();
     console.log("Searching users by name with query:", queryLower);
 
-    const snapshot = await firestore()
-      .collection("users")
-      .where("name_lower", ">=", queryLower)
-      .where("name_lower", "<=", queryLower + "\uf8ff")
-      .limit(20)
-      .get();
+    const usersCollection = collection(firestore, "users");
+    const q = query(
+      usersCollection,
+      where("name_lower", ">=", queryLower),
+      where("name_lower", "<=", queryLower + "\uf8ff"),
+      limit(20)
+    );
+
+    const snapshot = await getDocs(q);
 
     return snapshot.docs
-      .filter((doc) => doc.id !== currentUserId)
-      .map((doc) => {
-        const data = doc.data() || {};
+      .filter(
+        (docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) =>
+          docSnap.id !== currentUserId
+      )
+      .map((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+        const data = docSnap.data() || {};
         return {
-          uid: doc.id,
+          uid: docSnap.id,
           ...data,
         } as UserType;
       });
@@ -46,19 +65,25 @@ export const searchUsersByEmail = async (
   currentUserId: string
 ): Promise<UserType[]> => {
   try {
-    const snapshot = await firestore()
-      .collection("users")
-      .where("email", ">=", searchQuery)
-      .where("email", "<=", searchQuery + "\uf8ff")
-      .limit(20)
-      .get();
+    const usersCollection = collection(firestore, "users");
+    const q = query(
+      usersCollection,
+      where("email", ">=", searchQuery),
+      where("email", "<=", searchQuery + "\uf8ff"),
+      limit(20)
+    );
+
+    const snapshot = await getDocs(q);
 
     return snapshot.docs
-      .filter((doc) => doc.id !== currentUserId)
-      .map((doc) => {
-        const data = doc.data() || {};
+      .filter(
+        (docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) =>
+          docSnap.id !== currentUserId
+      )
+      .map((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+        const data = docSnap.data() || {};
         return {
-          uid: doc.id,
+          uid: docSnap.id,
           ...data,
         } as UserType;
       });
@@ -74,18 +99,24 @@ export const getSuggestedUsers = async (
   limitCount: number = 10
 ): Promise<UserType[]> => {
   try {
-    const snapshot = await firestore()
-      .collection("users")
-      .orderBy("followersCount", "desc")
-      .limit(limitCount)
-      .get();
+    const usersCollection = collection(firestore, "users");
+    const q = query(
+      usersCollection,
+      orderBy("followersCount", "desc"),
+      limit(limitCount)
+    );
+
+    const snapshot = await getDocs(q);
 
     return snapshot.docs
-      .filter((doc) => doc.id !== currentUserId)
-      .map((doc) => {
+      .filter(
+        (docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) =>
+          docSnap.id !== currentUserId
+      )
+      .map((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
         return {
-          uid: doc.id,
-          ...(doc.data() || {}),
+          uid: docSnap.id,
+          ...(docSnap.data() || {}),
         } as UserType;
       });
   } catch (error) {
@@ -100,17 +131,19 @@ export const subscribeToFollowingList = (
   onUpdate: (followingIds: Set<string>) => void,
   onGetData: (users: UserType[]) => void
 ) => {
-  const collRef = firestore()
-    .collection("following")
-    .doc(userId)
-    .collection("userFollowing");
+  const collRef = collection(firestore, "following", userId, "userFollowing");
 
-  // onSnapshot은 unsubscribe 함수를 반환하므로 그대로 반환
-  return collRef.onSnapshot(
+  return onSnapshot(
+    collRef,
     async (snapshot) => {
       try {
         // 1) 팔로잉 id 수집
-        const ids = new Set(snapshot.docs.map((doc) => doc.id));
+        const ids = new Set<string>(
+          snapshot.docs.map(
+            (docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) =>
+              docSnap.id as string
+          )
+        );
         onUpdate(ids);
 
         if (ids.size === 0) {
@@ -121,10 +154,8 @@ export const subscribeToFollowingList = (
         // 2) 각 uid의 users 컬렉션에서 데이터 가져오기 (병렬)
         const userDocs = await Promise.all(
           Array.from(ids).map(async (id) => {
-            const userSnap = await firestore()
-              .collection("users")
-              .doc(id)
-              .get();
+            const userRef = doc(firestore, "users", id);
+            const userSnap = await getDoc(userRef);
             if (userSnap.exists()) {
               return {
                 uid: userSnap.id,
@@ -157,40 +188,44 @@ export const followUser = async (
   currentUserId: string,
   targetUserId: string
 ): Promise<void> => {
-  const batch = firestore().batch();
+  const batch = writeBatch(firestore);
 
   try {
     // following 문서
-    const followingRef = firestore()
-      .collection("following")
-      .doc(currentUserId)
-      .collection("userFollowing")
-      .doc(targetUserId);
+    const followingRef = doc(
+      firestore,
+      "following",
+      currentUserId,
+      "userFollowing",
+      targetUserId
+    );
 
     batch.set(followingRef, {
-      followedAt: firebaseFirestore.FieldValue.serverTimestamp(),
+      followedAt: serverTimestamp(),
     });
 
     // followers 문서
-    const followersRef = firestore()
-      .collection("followers")
-      .doc(targetUserId)
-      .collection("userFollowers")
-      .doc(currentUserId);
+    const followersRef = doc(
+      firestore,
+      "followers",
+      targetUserId,
+      "userFollowers",
+      currentUserId
+    );
 
     batch.set(followersRef, {
-      followedAt: firebaseFirestore.FieldValue.serverTimestamp(),
+      followedAt: serverTimestamp(),
     });
 
     // counts 업데이트
-    const currentUserRef = firestore().collection("users").doc(currentUserId);
+    const currentUserRef = doc(firestore, "users", currentUserId);
     batch.update(currentUserRef, {
-      followingCount: firebaseFirestore.FieldValue.increment(1),
+      followingCount: increment(1),
     });
 
-    const targetUserRef = firestore().collection("users").doc(targetUserId);
+    const targetUserRef = doc(firestore, "users", targetUserId);
     batch.update(targetUserRef, {
-      followersCount: firebaseFirestore.FieldValue.increment(1),
+      followersCount: increment(1),
     });
 
     await batch.commit();
@@ -206,36 +241,40 @@ export const unfollowUser = async (
   currentUserId: string,
   targetUserId: string
 ): Promise<void> => {
-  const batch = firestore().batch();
+  const batch = writeBatch(firestore);
 
   try {
     // following에서 삭제
-    const followingRef = firestore()
-      .collection("following")
-      .doc(currentUserId)
-      .collection("userFollowing")
-      .doc(targetUserId);
+    const followingRef = doc(
+      firestore,
+      "following",
+      currentUserId,
+      "userFollowing",
+      targetUserId
+    );
 
     batch.delete(followingRef);
 
     // followers에서 삭제
-    const followersRef = firestore()
-      .collection("followers")
-      .doc(targetUserId)
-      .collection("userFollowers")
-      .doc(currentUserId);
+    const followersRef = doc(
+      firestore,
+      "followers",
+      targetUserId,
+      "userFollowers",
+      currentUserId
+    );
 
     batch.delete(followersRef);
 
     // counts 업데이트 (감소)
-    const currentUserRef = firestore().collection("users").doc(currentUserId);
+    const currentUserRef = doc(firestore, "users", currentUserId);
     batch.update(currentUserRef, {
-      followingCount: firebaseFirestore.FieldValue.increment(-1),
+      followingCount: increment(-1),
     });
 
-    const targetUserRef = firestore().collection("users").doc(targetUserId);
+    const targetUserRef = doc(firestore, "users", targetUserId);
     batch.update(targetUserRef, {
-      followersCount: firebaseFirestore.FieldValue.increment(-1),
+      followersCount: increment(-1),
     });
 
     await batch.commit();

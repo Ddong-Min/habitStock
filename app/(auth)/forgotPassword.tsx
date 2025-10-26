@@ -9,8 +9,8 @@ import { verticalScale } from "@/utils/styling";
 import BackButton from "@/components/BackButton";
 import * as Icons from "phosphor-react-native";
 import { router } from "expo-router";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "../../config/firebase";
+import auth from "@react-native-firebase/auth"; // ✅ Web SDK 대신 Native Firebase 사용
+
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -30,7 +30,9 @@ const ForgotPassword = () => {
 
     setIsLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      // ✅ React Native Firebase 방식
+      await auth().sendPasswordResetEmail(email);
+
       Alert.alert(
         "이메일 전송 완료",
         "비밀번호 재설정 링크가 이메일로 전송되었습니다.",
@@ -42,6 +44,7 @@ const ForgotPassword = () => {
         ]
       );
     } catch (error: any) {
+      console.error("비밀번호 재설정 오류:", error);
       let errorMessage = "비밀번호 재설정 이메일 전송에 실패했습니다.";
 
       if (error.code === "auth/user-not-found") {

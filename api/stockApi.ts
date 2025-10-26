@@ -1,8 +1,11 @@
-// 📂 src/firebase/stockFirebase.ts
-import auth from "@react-native-firebase/auth";
-import firestore from "@react-native-firebase/firestore";
-import storage from "@react-native-firebase/storage";
-import analytics from "@react-native-firebase/analytics";
+import { firestore } from "@/config/firebase";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 
 import {
   StockDataType,
@@ -11,13 +14,7 @@ import {
   StockSummaryType,
 } from "@/types";
 
-// ✅ Firestore 설정 (오프라인 캐시 활성화)
-firestore().settings({
-  persistence: true,
-  cacheSizeBytes: firestore.CACHE_SIZE_UNLIMITED, // 무제한 캐시
-});
-
-// ==================== Stock Data ====================
+// ✅ Firestore Modular API 사용
 
 // 날짜별 주식 데이터 저장
 export const changeStockDataFirebase = async (
@@ -26,18 +23,13 @@ export const changeStockDataFirebase = async (
   date: string
 ) => {
   try {
-    const docRef = firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("data")
-      .doc("stocks");
-    const docSnap = await docRef.get();
+    const docRef = doc(firestore, "users", userId, "data", "stocks");
+    const docSnap = await getDoc(docRef);
 
-    const currentData = docSnap.exists ? docSnap.data()! : {};
-
+    const currentData = docSnap.exists() ? docSnap.data()! : {};
     currentData[date] = stockData;
 
-    await docRef.set(currentData, { merge: true });
+    await setDoc(docRef, currentData, { merge: true });
 
     return { success: true };
   } catch (error) {
@@ -53,21 +45,17 @@ export const loadFriendStockDataFirebase = async (
   try {
     if (!userIds || userIds.length === 0) return {};
 
-    const promises = userIds.map((id) =>
-      firestore()
-        .collection("users")
-        .doc(id)
-        .collection("data")
-        .doc("stocks")
-        .get()
-    );
+    const promises = userIds.map((id) => {
+      const docRef = doc(firestore, "users", id, "data", "stocks");
+      return getDoc(docRef);
+    });
 
     const docSnaps = await Promise.all(promises);
 
     const allFriendStockData: FriendStockType = {};
 
     docSnaps.forEach((docSnap, idx) => {
-      if (docSnap.exists) {
+      if (docSnap.exists()) {
         allFriendStockData[userIds[idx]] =
           docSnap.data() as StockDataByDateType;
       }
@@ -88,15 +76,11 @@ export const subscribeToStockData = (
   userPrice: number,
   onUpdate: (stockData: StockDataByDateType) => void
 ) => {
-  const docRef = firestore()
-    .collection("users")
-    .doc(userId)
-    .collection("data")
-    .doc("stocks");
+  const docRef = doc(firestore, "users", userId, "data", "stocks");
 
-  return docRef.onSnapshot(async (docSnap) => {
+  return onSnapshot(docRef, async (docSnap) => {
     const stockDataByDate: StockDataByDateType = {};
-    const allData = docSnap.exists ? docSnap.data()! : {};
+    const allData = docSnap.exists() ? docSnap.data()! : {};
 
     // 기존 데이터 필터링
     Object.keys(allData).forEach((date) => {
@@ -129,9 +113,9 @@ export const subscribeToStockData = (
     }
 
     if (Object.keys(newDates).length > 0) {
-      await docRef
-        .set({ ...allData, ...newDates }, { merge: true })
-        .catch(console.error);
+      await setDoc(docRef, { ...allData, ...newDates }, { merge: true }).catch(
+        console.error
+      );
     }
 
     onUpdate(stockDataByDate);
@@ -144,14 +128,10 @@ export const subscribeToAllStockData = (
   registerDate: string,
   onUpdate: (stockData: StockDataByDateType) => void
 ) => {
-  const docRef = firestore()
-    .collection("users")
-    .doc(userId)
-    .collection("data")
-    .doc("stocks");
+  const docRef = doc(firestore, "users", userId, "data", "stocks");
 
-  return docRef.onSnapshot((docSnap) => {
-    const allData = docSnap.exists ? docSnap.data()! : {};
+  return onSnapshot(docRef, (docSnap) => {
+    const allData = docSnap.exists() ? docSnap.data()! : {};
     const stockDataByDate: StockDataByDateType = {};
 
     Object.keys(allData).forEach((date) => {
@@ -170,14 +150,10 @@ export const subscribeToFriendStockData = (
   endDate: string,
   onUpdate: (stockData: StockDataByDateType) => void
 ) => {
-  const docRef = firestore()
-    .collection("users")
-    .doc(userId)
-    .collection("data")
-    .doc("stocks");
+  const docRef = doc(firestore, "users", userId, "data", "stocks");
 
-  return docRef.onSnapshot((docSnap) => {
-    const allData = docSnap.exists ? docSnap.data()! : {};
+  return onSnapshot(docRef, (docSnap) => {
+    const allData = docSnap.exists() ? docSnap.data()! : {};
     const stockDataByDate: StockDataByDateType = {};
 
     Object.keys(allData).forEach((date) => {
@@ -286,12 +262,8 @@ export const saveStockSummary = async (
   summary: StockSummaryType
 ) => {
   try {
-    await firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("data")
-      .doc("stockSummary")
-      .set(summary);
+    const docRef = doc(firestore, "users", userId, "data", "stockSummary");
+    await setDoc(docRef, summary);
     return { success: true };
   } catch (error) {
     console.error("Error saving stock summary: ", error);
@@ -303,13 +275,9 @@ export const loadStockSummary = async (
   userId: string
 ): Promise<StockSummaryType | null> => {
   try {
-    const docSnap = await firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("data")
-      .doc("stockSummary")
-      .get();
-    return docSnap.exists ? (docSnap.data()! as StockSummaryType) : null;
+    const docRef = doc(firestore, "users", userId, "data", "stockSummary");
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? (docSnap.data()! as StockSummaryType) : null;
   } catch (error) {
     console.error("Error loading stock summary: ", error);
     return null;
@@ -320,26 +288,18 @@ export const subscribeToStockSummary = (
   userId: string,
   onUpdate: (summary: StockSummaryType | null) => void
 ) => {
-  const docRef = firestore()
-    .collection("users")
-    .doc(userId)
-    .collection("data")
-    .doc("stockSummary");
-  return docRef.onSnapshot((docSnap) =>
-    onUpdate(docSnap.exists ? (docSnap.data()! as StockSummaryType) : null)
+  const docRef = doc(firestore, "users", userId, "data", "stockSummary");
+  return onSnapshot(docRef, (docSnap) =>
+    onUpdate(docSnap.exists() ? (docSnap.data()! as StockSummaryType) : null)
   );
 };
 
 // 친구 Summary
 export const loadFriendStockSummary = async (friendId: string) => {
   try {
-    const docSnap = await firestore()
-      .collection("users")
-      .doc(friendId)
-      .collection("data")
-      .doc("stockSummary")
-      .get();
-    return docSnap.exists ? (docSnap.data()! as StockSummaryType) : null;
+    const docRef = doc(firestore, "users", friendId, "data", "stockSummary");
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? (docSnap.data()! as StockSummaryType) : null;
   } catch (error) {
     console.error(error);
     return null;
@@ -349,19 +309,16 @@ export const loadFriendStockSummary = async (friendId: string) => {
 export const loadFriendStockSummaries = async (friendIds: string[]) => {
   if (!friendIds || friendIds.length === 0) return {};
   try {
-    const docSnaps = await Promise.all(
-      friendIds.map((id) =>
-        firestore()
-          .collection("users")
-          .doc(id)
-          .collection("data")
-          .doc("stockSummary")
-          .get()
-      )
-    );
+    const promises = friendIds.map((id) => {
+      const docRef = doc(firestore, "users", id, "data", "stockSummary");
+      return getDoc(docRef);
+    });
+    const docSnaps = await Promise.all(promises);
+
     const result: { [key: string]: StockSummaryType } = {};
     docSnaps.forEach((snap, i) => {
-      if (snap.exists) result[friendIds[i]] = snap.data()! as StockSummaryType;
+      if (snap.exists())
+        result[friendIds[i]] = snap.data()! as StockSummaryType;
     });
     return result;
   } catch (error) {
@@ -374,13 +331,9 @@ export const subscribeToFriendStockSummary = (
   friendId: string,
   onUpdate: (summary: StockSummaryType | null) => void
 ) => {
-  const docRef = firestore()
-    .collection("users")
-    .doc(friendId)
-    .collection("data")
-    .doc("stockSummary");
-  return docRef.onSnapshot((snap) =>
-    onUpdate(snap.exists ? (snap.data()! as StockSummaryType) : null)
+  const docRef = doc(firestore, "users", friendId, "data", "stockSummary");
+  return onSnapshot(docRef, (snap) =>
+    onUpdate(snap.exists() ? (snap.data()! as StockSummaryType) : null)
   );
 };
 

@@ -1,8 +1,22 @@
 // 📂 src/services/newsService.ts
 
-import firestore from "@react-native-firebase/firestore";
+import { firestore } from "@/config/firebase";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  increment,
+  serverTimestamp,
+} from "@react-native-firebase/firestore";
+import { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
 import storage from "@react-native-firebase/storage";
 import { AI_FUNCTIONS_URL } from "@/config/firebase";
+
+// ✅ Firestore Modular API 사용
 
 // ==================== 타입 정의 ====================
 export interface NewsItem {
@@ -88,13 +102,9 @@ export const createNews = async (
       imageURL = await uploadNewsImage(userId, newsId, newsData.imageUri);
     }
 
-    const newsRef = firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("news")
-      .doc(newsId);
+    const newsRef = doc(firestore, "users", userId, "news", newsId);
 
-    await newsRef.set({
+    await setDoc(newsRef, {
       id: newsId,
       userId,
       userName: newsData.userName,
@@ -106,7 +116,7 @@ export const createNews = async (
         now.getDate()
       ).padStart(2, "0")}`,
       fullDate: now.toISOString().split("T")[0],
-      createdAt: firestore.FieldValue.serverTimestamp(),
+      createdAt: serverTimestamp(),
       likesCount: 0,
       commentsCount: 0,
     });
@@ -130,14 +140,10 @@ export const updateNews = async (
   }
 ) => {
   try {
-    const newsRef = firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("news")
-      .doc(newsId);
-    const docSnap = await newsRef.get();
+    const newsRef = doc(firestore, "users", userId, "news", newsId);
+    const docSnap = await getDoc(newsRef);
 
-    if (!docSnap.exists) throw new Error("News not found");
+    if (!docSnap.exists()) throw new Error("News not found");
 
     const currentData = docSnap.data() as NewsItem;
 
@@ -151,7 +157,7 @@ export const updateNews = async (
       imageURL = await uploadNewsImage(userId, newsId, updates.imageUri);
     }
 
-    await newsRef.update({
+    await updateDoc(newsRef, {
       title: updates.title ?? currentData.title,
       content: updates.content ?? currentData.content,
       imageURL,
@@ -165,28 +171,20 @@ export const updateNews = async (
 // 뉴스 삭제
 export const deleteNews = async (userId: string, newsId: string) => {
   try {
-    const newsRef = firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("news")
-      .doc(newsId);
-    const docSnap = await newsRef.get();
-    if (!docSnap.exists) throw new Error("News not found");
+    const newsRef = doc(firestore, "users", userId, "news", newsId);
+    const docSnap = await getDoc(newsRef);
+    if (!docSnap.exists()) throw new Error("News not found");
 
     const newsData = docSnap.data() as NewsItem;
 
     if (newsData.imageURL) await deleteNewsImage(userId, newsId);
 
     // 뉴스 삭제
-    await newsRef.delete();
+    await deleteDoc(newsRef);
 
     // 댓글 삭제
-    const commentsRef = firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("comments")
-      .doc(newsId);
-    await commentsRef.delete();
+    const commentsRef = doc(firestore, "users", userId, "comments", newsId);
+    await deleteDoc(commentsRef);
   } catch (error) {
     console.error("뉴스 삭제 실패:", error);
     throw error;
@@ -196,13 +194,12 @@ export const deleteNews = async (userId: string, newsId: string) => {
 // 뉴스 가져오기
 export const getUserNews = async (userId: string): Promise<NewsItem[]> => {
   try {
-    const snap = await firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("news")
-      .get();
+    const newsCollection = collection(firestore, "users", userId, "news");
+    const snap = await getDocs(newsCollection);
     const news: NewsItem[] = [];
-    snap.forEach((doc) => news.push(doc.data() as NewsItem));
+    snap.forEach((docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot) =>
+      news.push(docSnap.data() as NewsItem)
+    );
     return news.sort(
       (a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)
     );
@@ -229,13 +226,9 @@ export const addComment = async (
     const commentId = `comment_${Date.now()}_${Math.random()
       .toString(36)
       .substr(2, 9)}`;
-    const commentRef = firestore()
-      .collection("users")
-      .doc(newsUserId)
-      .collection("comments")
-      .doc(newsId);
+    const commentRef = doc(firestore, "users", newsUserId, "comments", newsId);
 
-    const snap = await commentRef.get();
+    const snap = await getDoc(commentRef);
     const commentsData = snap.exists() ? snap.data() || {} : {};
 
     commentsData![commentId] = {
@@ -245,21 +238,17 @@ export const addComment = async (
       userName: commentData.userName,
       userPhotoURL: commentData.userPhotoURL || null,
       content: commentData.content,
-      createdAt: firestore.FieldValue.serverTimestamp(),
+      createdAt: serverTimestamp(),
       likesCount: 0,
       dislikesCount: 0,
     };
 
-    await commentRef.set(commentsData, { merge: true });
+    await setDoc(commentRef, commentsData, { merge: true });
 
     // 뉴스 댓글 카운트 업데이트
-    const newsRef = firestore()
-      .collection("users")
-      .doc(newsUserId)
-      .collection("news")
-      .doc(newsId);
-    await newsRef.update({
-      commentsCount: firestore.FieldValue.increment(1),
+    const newsRef = doc(firestore, "users", newsUserId, "news", newsId);
+    await updateDoc(newsRef, {
+      commentsCount: increment(1),
     });
 
     return commentId;
@@ -275,13 +264,9 @@ export const getComments = async (
   newsId: string
 ): Promise<Comment[]> => {
   try {
-    const snap = await firestore()
-      .collection("users")
-      .doc(newsUserId)
-      .collection("comments")
-      .doc(newsId)
-      .get();
-    if (!snap.exists) return [];
+    const commentRef = doc(firestore, "users", newsUserId, "comments", newsId);
+    const snap = await getDoc(commentRef);
+    if (!snap.exists()) return [];
     const data = snap.data() || {};
     return Object.values(data).sort(
       (a: any, b: any) =>

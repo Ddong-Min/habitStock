@@ -335,3 +335,24 @@ export type StockDataByDateType = {
 export type FriendStockType = {
   [uid: string]: StockDataByDateType;
 };
+export type StockSummaryType = {
+  recent7Days: {
+    high: number;
+    low: number;
+    current: number;
+    highDate: string;
+    lowDate: string;
+  };
+  allTime: {
+    high: number;
+    low: number;
+    current: number;
+    highDate: string;
+    lowDate: string;
+  };
+  maxVolume: {
+    volume: number;
+    date: string;
+  };
+  lastUpdated: string;
+};

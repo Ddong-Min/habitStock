@@ -10,6 +10,18 @@ import React, {
 import { AuthContextType, UserType } from "@/types";
 import { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { auth, firestore } from "@/config/firebase";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+} from "@react-native-firebase/auth";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+} from "@react-native-firebase/firestore";
 import { router } from "expo-router";
 import { useNotification } from "./notificationContext";
 
@@ -25,48 +37,48 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const updateUserData = useCallback(async (uid: string) => {
     try {
-      const docRef = firestore.collection("users").doc(uid);
+      // ✅ Modular API로 문서 참조 생성
+      const docRef = doc(firestore, "users", uid);
 
       // 📌 캐시 우선 전략:
       // 1. 먼저 캐시에서 데이터를 가져옴 (빠른 로딩)
       // 2. 그 다음 서버에서 최신 데이터를 확인
       // 3. 변경사항이 있으면 자동으로 업데이트됨
-
-      // 'default' 옵션: 캐시 우선, 그 다음 서버 확인 (권장)
-      // 'server': 항상 서버에서 가져옴 (오프라인에서 실패)
-      // 'cache': 캐시에서만 가져옴 (서버 확인 안함)
-      const docSnap = await docRef.get({ source: "default" });
+      const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-        // data()는 항상 객체를 반환하거나 undefined를 반환함
-        if (data) {
-          const userData: UserType = {
-            uid: data.uid,
-            email: data.email || null,
-            name: data.name || null,
-            image: data.image || null,
-            price: data.price,
-            quantity: data.quantity,
-            lastUpdated: data.lastUpdated,
-            followersCount: data.followersCount || 0,
-            followingCount: data.followingCount || 0,
-            bio: data.bio || "",
-            isDarkMode: data.isDarkMode || false,
-            allowAlarm: data.allowAlarm || false,
-            duetime: data.duetime || "00:00",
-            words: data.words || "korean",
-            registerDate: data.registerDate || null,
-          };
 
-          // 캐시된 데이터인지 확인 (디버깅용)
-          const isFromCache = docSnap.metadata.fromCache;
-          console.log(
-            `📦 User data loaded from ${isFromCache ? "CACHE" : "SERVER"}`
-          );
-
-          setUser(userData);
+        if (!data) {
+          console.log("⚠️ Document exists but has no data");
+          return;
         }
+
+        // 캐시된 데이터인지 확인 (디버깅용)
+        const isFromCache = docSnap.metadata.fromCache;
+        console.log(
+          `📦 User data loaded from ${isFromCache ? "CACHE ✅" : "SERVER 🌐"}`
+        );
+
+        const userData: UserType = {
+          uid: data.uid,
+          email: data.email || null,
+          name: data.name || null,
+          image: data.image || null,
+          price: data.price,
+          quantity: data.quantity,
+          lastUpdated: data.lastUpdated,
+          followersCount: data.followersCount || 0,
+          followingCount: data.followingCount || 0,
+          bio: data.bio || "",
+          isDarkMode: data.isDarkMode || false,
+          allowAlarm: data.allowAlarm || false,
+          duetime: data.duetime || "00:00",
+          words: data.words || "korean",
+          registerDate: data.registerDate || null,
+        };
+
+        setUser(userData);
       }
     } catch (error: any) {
       console.log("❌ Error fetching user data:", error.message);
@@ -75,31 +87,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       if (error.code === "unavailable") {
         console.log("📴 Device is offline, trying to use cached data");
         try {
-          const docRef = firestore.collection("users").doc(uid);
-          const docSnap = await docRef.get({ source: "cache" });
+          const docRef = doc(firestore, "users", uid);
+          const docSnap = await getDoc(docRef);
+
           if (docSnap.exists()) {
             const data = docSnap.data();
-            if (data) {
-              const userData: UserType = {
-                uid: data.uid,
-                email: data.email || null,
-                name: data.name || null,
-                image: data.image || null,
-                price: data.price,
-                quantity: data.quantity,
-                lastUpdated: data.lastUpdated,
-                followersCount: data.followersCount || 0,
-                followingCount: data.followingCount || 0,
-                bio: data.bio || "",
-                isDarkMode: data.isDarkMode || false,
-                allowAlarm: data.allowAlarm || false,
-                duetime: data.duetime || "00:00",
-                words: data.words || "korean",
-                registerDate: data.registerDate || null,
-              };
-              console.log("✅ Successfully loaded user data from cache");
-              setUser(userData);
+
+            if (!data) {
+              console.log("⚠️ Cached document exists but has no data");
+              return;
             }
+
+            const userData: UserType = {
+              uid: data.uid,
+              email: data.email || null,
+              name: data.name || null,
+              image: data.image || null,
+              price: data.price,
+              quantity: data.quantity,
+              lastUpdated: data.lastUpdated,
+              followersCount: data.followersCount || 0,
+              followingCount: data.followingCount || 0,
+              bio: data.bio || "",
+              isDarkMode: data.isDarkMode || false,
+              allowAlarm: data.allowAlarm || false,
+              duetime: data.duetime || "00:00",
+              words: data.words || "korean",
+              registerDate: data.registerDate || null,
+            };
+            console.log("✅ Successfully loaded user data from cache");
+            setUser(userData);
           }
         } catch (cacheError: any) {
           console.log("❌ No cached data available:", cacheError.message);
@@ -113,7 +130,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     console.log("🔧 Setting up auth listener...");
     authListenerSetup.current = true;
 
-    const unsub = auth.onAuthStateChanged(
+    // ✅ Modular API로 Auth 상태 감지
+    const unsub = onAuthStateChanged(
+      auth,
       async (firebaseUser: FirebaseAuthTypes.User | null) => {
         console.log("🔐 Auth State Changed:", firebaseUser?.uid || "null");
 
@@ -135,7 +154,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const login = async (email: string, password: string) => {
     try {
-      const userCredential = await auth.signInWithEmailAndPassword(
+      // ✅ Modular API로 로그인
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
         email,
         password
       );
@@ -158,35 +179,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const register = async (email: string, password: string, name: string) => {
     try {
-      const response = await auth.createUserWithEmailAndPassword(
+      // ✅ Modular API로 회원가입
+      const response = await createUserWithEmailAndPassword(
+        auth,
         email,
         password
       );
 
-      // 새로운 사용자 데이터 생성 시 서버에 직접 씀 (캐시 무시)
-      await firestore
-        .collection("users")
-        .doc(response.user.uid)
-        .set({
-          name,
-          email,
-          uid: response.user.uid,
-          image: null,
-          price: 100,
-          quantity: 1,
-          lastUpdated: new Date().toISOString(),
-          name_lower: name.toLowerCase(),
-          followersCount: 0,
-          followingCount: 0,
-          bio: "",
-          isDarkMode: false,
-          allowAlarm: expoPushToken ? true : false,
-          duetime: "00:00",
-          words: "한국어",
-          registerDate: new Date().toISOString().split("T")[0],
-          expoPushToken: expoPushToken || null,
-          consecutiveNoTaskDays: 0,
-        });
+      // ✅ Modular API로 사용자 데이터 생성
+      const userRef = doc(firestore, "users", response.user.uid);
+      await setDoc(userRef, {
+        name,
+        email,
+        uid: response.user.uid,
+        image: null,
+        price: 100,
+        quantity: 1,
+        lastUpdated: new Date().toISOString(),
+        name_lower: name.toLowerCase(),
+        followersCount: 0,
+        followingCount: 0,
+        bio: "",
+        isDarkMode: false,
+        allowAlarm: expoPushToken ? true : false,
+        duetime: "00:00",
+        words: "한국어",
+        registerDate: new Date().toISOString().split("T")[0],
+        expoPushToken: expoPushToken || null,
+        consecutiveNoTaskDays: 0,
+      });
 
       await updateUserData(response.user.uid);
       router.replace("/(tabs)");
@@ -207,10 +228,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     // 🔄 낙관적 업데이트: UI를 먼저 업데이트
     setUser({ ...user, price });
 
-    const userRef = firestore.collection("users").doc(user.uid);
+    // ✅ Modular API로 문서 업데이트
+    const userRef = doc(firestore, "users", user.uid);
     try {
       // 서버에 업데이트 (오프라인 시 자동으로 큐에 저장되고 온라인 시 실행됨)
-      await userRef.update({ price });
+      await updateDoc(userRef, { price });
       console.log("✅ User stock updated successfully");
       return { success: true };
     } catch (error: any) {
@@ -235,7 +257,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const logout = async () => {
     try {
-      await auth.signOut();
+      // ✅ Modular API로 로그아웃
+      await signOut(auth);
       router.replace("/(auth)/welcome");
     } catch (error) {
       console.log("❌ Logout Error: ", error);

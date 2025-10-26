@@ -12,11 +12,10 @@ import {
   subscribeToStockData,
   subscribeToStockSummary,
   updateStockSummaryOnChange,
-  StockSummaryType,
   loadFriendStockSummary as loadFriendStockSummaryApi,
   loadFriendStockSummaries as loadFriendStockSummariesApi,
 } from "@/api/stockApi";
-
+import { StockSummaryType } from "@/types";
 import { useCalendar } from "./calendarContext";
 import { Task } from "@/types";
 
