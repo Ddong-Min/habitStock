@@ -263,18 +263,6 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
           ) / 10,
     };
 
-    // 🔥 Optimistic UI Update는 유지 (즉각 반응을 위해)
-    const updatedTaskList = [...taskList];
-    updatedTaskList[taskIndex] = updatedTask;
-
-    setTaskByDate((prev) => ({
-      ...prev,
-      [selectedDate]: {
-        ...prev[selectedDate],
-        [difficulty]: updatedTaskList,
-      },
-    }));
-
     // API 호출 - onSnapshot이 다시 한번 업데이트하지만 같은 데이터라 문제없음
     await saveTaskFirebase(user.uid!, updatedTask);
     changeStockData(updatedTask).then((result) => {
@@ -285,37 +273,37 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const changeBottomSheetState = () => {
-    setIsBottomSheetOpen((prev) => !prev);
     customLogEvent({
-      eventName: isBottomSheetOpen ? "open_bottom_sheet" : "close_bottom_sheet",
+      eventName: isBottomSheetOpen ? "close_bottom_sheet" : "open_bottom_sheet",
       payload: { taskId: selectedTaskId },
     });
+    setIsBottomSheetOpen((prev) => !prev);
   };
 
   const changeShowDatePicker = () => {
-    setShowDatePicker((prev) => !prev);
     customLogEvent({
-      eventName: showDatePicker ? "open_date_picker" : "close_date_picker",
+      eventName: showDatePicker ? "close_date_picker" : "open_date_picker",
       payload: { taskId: selectedTaskId },
     });
+    setShowDatePicker((prev) => !prev);
   };
 
   const changeDifficultySheetState = () => {
-    setIsModifyDifficultySheet((prev) => !prev);
     customLogEvent({
       eventName: isModifyDifficultySheet
-        ? "open_difficulty_sheet"
-        : "close_difficulty_sheet",
+        ? "close_modify_difficulty_sheet"
+        : "open_modify_difficulty_sheet",
       payload: { taskId: selectedTaskId },
     });
+    setIsModifyDifficultySheet((prev) => !prev);
   };
 
   const changeAddTaskState = () => {
-    setIsAddTask((prev) => !prev);
     customLogEvent({
-      eventName: isAddTask ? "open_add_task_mode" : "close_add_task_mode",
+      eventName: isAddTask ? "close_add_task_mode" : "open_add_task_mode",
       payload: {},
     });
+    setIsAddTask((prev) => !prev);
   };
 
   const changeEditTextState = () => {
@@ -359,8 +347,6 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     };
 
     await saveTaskFirebase(user.uid!, updatedTask);
-
-    // 🔥 완료된 task인 경우에만 stock 업데이트
     await changeStockAfterNews(priceIncrease, percentageIncrease);
     customLogEvent({
       eventName: "change_task_price_after_news",

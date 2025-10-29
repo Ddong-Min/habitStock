@@ -84,18 +84,18 @@ const Stock = () => {
                 </View>
                 <View style={styles.rangeTextContainer}>
                   <View style={styles.rangeItem}>
-                    <Typo size={13} color={theme.sub}>
+                    <Typo size={13} color={theme.textLight}>
                       7일 최저가
                     </Typo>
-                    <Typo size={15} fontWeight="medium" color={theme.text}>
+                    <Typo size={15} fontWeight="semibold" color={theme.text}>
                       {stockSummary.recent7Days.low.toLocaleString()}원
                     </Typo>
                   </View>
                   <View style={styles.rangeItem}>
-                    <Typo size={13} color={theme.sub}>
+                    <Typo size={13} color={theme.textLight}>
                       7일 최고가
                     </Typo>
-                    <Typo size={15} fontWeight="medium" color={theme.text}>
+                    <Typo size={15} fontWeight="semibold" color={theme.text}>
                       {stockSummary.recent7Days.high.toLocaleString()}원
                     </Typo>
                   </View>
@@ -141,18 +141,18 @@ const Stock = () => {
                 </View>
                 <View style={styles.rangeTextContainer}>
                   <View style={styles.rangeItem}>
-                    <Typo size={13} color={theme.sub}>
+                    <Typo size={13} color={theme.textLight}>
                       전체 최저가
                     </Typo>
-                    <Typo size={15} fontWeight="medium" color={theme.text}>
+                    <Typo size={15} fontWeight="semibold" color={theme.text}>
                       {stockSummary.allTime.low.toLocaleString()}원
                     </Typo>
                   </View>
                   <View style={styles.rangeItem}>
-                    <Typo size={13} color={theme.sub}>
+                    <Typo size={13} color={theme.textLight}>
                       전체 최고가
                     </Typo>
-                    <Typo size={15} fontWeight="medium" color={theme.text}>
+                    <Typo size={15} fontWeight="semibold" color={theme.text}>
                       {stockSummary.allTime.high.toLocaleString()}원
                     </Typo>
                   </View>
@@ -169,7 +169,7 @@ const Stock = () => {
             <View style={styles.subsection}>
               <Typo
                 size={15}
-                fontWeight="semibold"
+                fontWeight="bold"
                 color={theme.text}
                 style={styles.subsectionTitle}
               >
@@ -177,36 +177,36 @@ const Stock = () => {
               </Typo>
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
-                  <Typo size={13} color={theme.sub}>
+                  <Typo size={13} color={theme.textLight}>
                     현재가
                   </Typo>
-                  <Typo size={16} fontWeight="medium" color={theme.text}>
+                  <Typo size={16} fontWeight="semibold" color={theme.text}>
                     {stockSummary.allTime.current.toLocaleString()}원
                   </Typo>
                 </View>
                 <View style={styles.infoItem}>
-                  <Typo size={13} color={theme.sub}>
+                  <Typo size={13} color={theme.textLight}>
                     최대 거래량
                   </Typo>
-                  <Typo size={16} fontWeight="medium" color={theme.text}>
+                  <Typo size={16} fontWeight="semibold" color={theme.text}>
                     {stockSummary.maxVolume.volume.toLocaleString()}주
                   </Typo>
                 </View>
               </View>
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
-                  <Typo size={13} color={theme.sub}>
+                  <Typo size={13} color={theme.textLight}>
                     시작가
                   </Typo>
-                  <Typo size={16} fontWeight="medium" color={theme.text}>
+                  <Typo size={16} fontWeight="semibold" color={theme.text}>
                     {stockData[today].open.toLocaleString()}원
                   </Typo>
                 </View>
                 <View style={styles.infoItem}>
-                  <Typo size={13} color={theme.sub}>
+                  <Typo size={13} color={theme.textLight}>
                     종가
                   </Typo>
-                  <Typo size={16} fontWeight="medium" color={theme.text}>
+                  <Typo size={16} fontWeight="semibold" color={theme.text}>
                     {stockData[today].close.toLocaleString()}원
                   </Typo>
                 </View>
@@ -283,16 +283,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   rangeItem: {
-    gap: 4,
+    gap: spacingY._3,
   },
   infoGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingTop: 12,
+    paddingTop: spacingY._10,
   },
   infoItem: {
     flex: 1,
-    gap: 8,
+    gap: spacingY._8,
   },
 });
 

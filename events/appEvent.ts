@@ -1,13 +1,10 @@
-import {
-  getAnalytics,
-  logEvent,
-  logScreenView,
-} from "@react-native-firebase/analytics";
+// 📂 src/api/analytics.ts
+import { getAnalytics, logEvent } from "@react-native-firebase/analytics";
 import { app } from "@/config/firebase";
 
 const analytics = getAnalytics(app);
 
-//payload is simply an object containing additional data(parameters) you want to send along with the event
+// ✅ 커스텀 이벤트 로깅
 export const customLogEvent = async ({
   eventName = "",
   payload = {},
@@ -16,17 +13,21 @@ export const customLogEvent = async ({
   payload?: Record<string, any>;
 }) => {
   try {
-    // ✅ 첫 번째 인자로 analytics 인스턴스 전달
-    await logEvent(analytics, eventName, payload);
+    // 타입 강제 캐스팅으로 string 이벤트 허용
+    await logEvent(analytics, eventName as string, payload);
     console.log(`Logged custom event: ${eventName}`, payload);
   } catch (error) {
     console.error("Error logging custom app event:", error);
   }
 };
 
+// ✅ 스크린 뷰 로깅 (deprecated logScreenView 대신 logEvent)
 export const customLogScreenView = async (screenName: string) => {
   try {
-    await logScreenView(analytics, { screen_name: screenName });
+    await logEvent(analytics, "screen_view" as string, {
+      screen_name: screenName,
+      screen_class: screenName, // optional but recommended
+    });
     console.log(`Logged screen view: ${screenName}`);
   } catch (error) {
     console.error("Error logging screen view:", error);

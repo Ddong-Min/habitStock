@@ -1,5 +1,5 @@
 import { StyleSheet, View, TouchableOpacity, TextInput } from "react-native";
-import React from "react";
+import React, { useEffect } from "react";
 import { useTasks } from "@/contexts/taskContext";
 import { useCalendar } from "@/contexts/calendarContext";
 import { Feather } from "@expo/vector-icons";
@@ -7,6 +7,7 @@ import { verticalScale } from "@/utils/styling";
 import { radius, spacingX, spacingY } from "@/constants/theme";
 import { difficultyColors } from "@/constants/theme";
 import { useTheme } from "@/contexts/themeContext";
+import { customLogEvent } from "@/events/appEvent";
 
 const NewTask = () => {
   const {
@@ -24,7 +25,6 @@ const NewTask = () => {
   } = useTasks();
   const { selectedDate } = useCalendar();
   const { theme, isDarkMode } = useTheme();
-
   return (
     <View style={styles.container}>
       <View style={styles.taskRow}>

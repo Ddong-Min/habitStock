@@ -1,5 +1,3 @@
-// 📂 src/api/newsApi.ts
-
 import { firestore } from "@/config/firebase";
 import {
   collection,
@@ -13,6 +11,8 @@ import {
   serverTimestamp,
   query,
   where,
+  onSnapshot,
+  writeBatch,
 } from "@react-native-firebase/firestore";
 import { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
 import storage from "@react-native-firebase/storage";
@@ -20,8 +20,9 @@ import { AI_FUNCTIONS_URL } from "@/config/firebase";
 
 // ✅ Firestore 평탄화 구조
 // news: users/{userId}/news/{newsId}
+// news likes: users/{userId}/news/{newsId}/likes/{currentUserId}
 // comments: users/{userId}/comments/{commentId}
-// comment reactions: users/{userId}/comments/{commentId}/reactions/{userId}
+// comment reactions: users/{userId}/comments/{commentId}/reactions/{currentUserId}
 
 // ==================== 타입 정의 ====================
 export interface NewsItem {
@@ -179,12 +180,10 @@ export const deleteNews = async (userId: string, newsId: string) => {
 
     const newsData = docSnap.data() as NewsItem;
 
-    if (newsData.imageURL) await deleteNewsImage(userId, newsId);
+    if (newsData.imageURL) await deleteNewsImage(userId, newsId); // 뉴스 삭제
 
-    // 뉴스 삭제
-    await deleteDoc(newsRef);
+    await deleteDoc(newsRef); // 해당 뉴스의 모든 댓글 삭제
 
-    // 해당 뉴스의 모든 댓글 삭제
     const commentsRef = collection(firestore, "users", userId, "comments");
     const commentsQuery = query(commentsRef, where("newsId", "==", newsId));
     const commentsSnap = await getDocs(commentsQuery);
@@ -232,14 +231,18 @@ export const subscribeToUserNews = (
       "news"
     ) as FirebaseFirestoreTypes.CollectionReference<FirebaseFirestoreTypes.DocumentData>;
 
-    const unsubscribe = newsCollection.onSnapshot(
+    const unsubscribe = onSnapshot(
+      newsCollection,
       (snapshot) => {
         const news: NewsItem[] = [];
-        snapshot.forEach((docSnap) => {
-          news.push(docSnap.data() as NewsItem);
-        });
+        snapshot.forEach(
+          (
+            docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData>
+          ) => {
+            news.push(docSnap.data() as NewsItem);
+          }
+        ); // 최신순 정렬
 
-        // 최신순 정렬
         const sortedNews = news.sort(
           (a, b) =>
             (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)
@@ -251,9 +254,8 @@ export const subscribeToUserNews = (
         console.error("뉴스 구독 실패:", error);
         if (onError) onError(error);
       }
-    );
+    ); // 구독 해제 함수 반환
 
-    // 구독 해제 함수 반환
     return unsubscribe;
   } catch (error) {
     console.error("뉴스 구독 설정 실패:", error);
@@ -278,9 +280,8 @@ export const addComment = async (
   try {
     const commentId = `comment_${Date.now()}_${Math.random()
       .toString(36)
-      .substr(2, 9)}`;
+      .substr(2, 9)}`; // users/{userId}/comments/{commentId} 구조
 
-    // users/{userId}/comments/{commentId} 구조
     const commentRef = doc(
       firestore,
       "users",
@@ -299,9 +300,8 @@ export const addComment = async (
       createdAt: serverTimestamp(),
       likesCount: 0,
       dislikesCount: 0,
-    });
+    }); // 뉴스 댓글 카운트 업데이트
 
-    // 뉴스 댓글 카운트 업데이트
     const newsRef = doc(firestore, "users", newsUserId, "news", newsId);
     await updateDoc(newsRef, {
       commentsCount: increment(1),
@@ -352,14 +352,18 @@ export const subscribeToComments = (
       where("newsId", "==", newsId)
     ) as FirebaseFirestoreTypes.Query<FirebaseFirestoreTypes.DocumentData>;
 
-    const unsubscribe = commentsQuery.onSnapshot(
+    const unsubscribe = onSnapshot(
+      commentsQuery,
       (snapshot) => {
         const comments: Comment[] = [];
-        snapshot.forEach((docSnap) => {
-          comments.push(docSnap.data() as Comment);
-        });
+        snapshot.forEach(
+          (
+            docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData>
+          ) => {
+            comments.push(docSnap.data() as Comment);
+          }
+        ); // 오래된 순 정렬
 
-        // 오래된 순 정렬
         const sortedComments = comments.sort(
           (a, b) =>
             (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0)
@@ -395,15 +399,83 @@ export const deleteComment = async (
       "comments",
       commentId
     );
-    await deleteDoc(commentRef);
+    await deleteDoc(commentRef); // 뉴스 댓글 카운트 업데이트
 
-    // 뉴스 댓글 카운트 업데이트
     const newsRef = doc(firestore, "users", newsUserId, "news", newsId);
     await updateDoc(newsRef, {
       commentsCount: increment(-1),
     });
   } catch (error) {
     console.error("댓글 삭제 실패:", error);
+    throw error;
+  }
+};
+
+// ==================== 뉴스 반응 (좋아요) ====================
+/**
+ * 뉴스 아이템의 '좋아요'를 토글합니다.
+ * @param newsUserId - 뉴스를 작성한 사용자의 ID
+ * @param newsId - 좋아요를 누를 뉴스의 ID
+ * @param currentUserId - 현재 '좋아요'를 누르는 사용자의 ID
+ */
+export const toggleNewsLike = async (
+  newsUserId: string,
+  newsId: string,
+  currentUserId: string
+): Promise<void> => {
+  try {
+    const batch = writeBatch(firestore);
+    // '좋아요' 문서 참조: users/{newsUserId}/news/{newsId}/likes/{currentUserId}
+    const likeRef = doc(
+      firestore,
+      "users",
+      newsUserId,
+      "news",
+      newsId,
+      "likes",
+      currentUserId
+    ); // 뉴스 문서 참조: users/{newsUserId}/news/{newsId}
+
+    const myLikeRef = doc(
+      firestore,
+      "users",
+      currentUserId,
+      "myNewsLikes",
+      newsId
+    );
+
+    const newsRef = doc(firestore, "users", newsUserId, "news", newsId);
+
+    const likeSnap = await getDoc(likeRef);
+
+    if (likeSnap.exists()) {
+      // --- 좋아요 취소 ---
+      // 1. .../likes/{currentUserId} 삭제
+      batch.delete(likeRef); // 2. .../myNewsLikes/{newsId} 삭제
+      batch.delete(myLikeRef); // 3. news 문서의 likesCount 감소
+      batch.update(newsRef, {
+        likesCount: increment(-1),
+      });
+    } else {
+      // --- 좋아요 추가 ---
+      const likeData = {
+        userId: currentUserId,
+        likedAt: serverTimestamp(),
+      }; // 1. .../likes/{currentUserId} 생성
+      batch.set(likeRef, likeData); // 2. .../myNewsLikes/{newsId} 생성 (newsId, newsUserId를 저장해두면 나중에 편함)
+      batch.set(myLikeRef, {
+        newsId: newsId,
+        newsUserId: newsUserId, // '내가 좋아요한 글' 목록 페이지에서 사용
+        likedAt: serverTimestamp(),
+      }); // 3. news 문서의 likesCount 증가
+      batch.update(newsRef, {
+        likesCount: increment(1),
+      });
+    } // 배치 작업 일괄 실행
+
+    await batch.commit();
+  } catch (error) {
+    console.error("뉴스 좋아요 토글 실패:", error);
     throw error;
   }
 };
@@ -481,67 +553,109 @@ export const subscribeToCommentReactions = (
     const commentsQuery = query(
       commentsRef,
       where("newsId", "==", newsId)
-    ) as FirebaseFirestoreTypes.Query<FirebaseFirestoreTypes.DocumentData>;
+    ) as FirebaseFirestoreTypes.Query<FirebaseFirestoreTypes.DocumentData>; // 모든 댓글의 reactions를 구독
 
-    // 모든 댓글의 reactions를 구독
     const unsubscribes: (() => void)[] = [];
-    const reactionsMap: Record<string, "like" | "dislike"> = {};
+    const reactionsMap: Record<string, "like" | "dislike"> = {}; // 먼저 댓글 목록을 구독
 
-    // 먼저 댓글 목록을 구독
-    const commentsUnsubscribe = commentsQuery.onSnapshot(
+    const commentsUnsubscribe = onSnapshot(
+      commentsQuery,
       async (commentsSnapshot) => {
         // 기존 reaction 구독 해제
         unsubscribes.forEach((unsub) => unsub());
-        unsubscribes.length = 0;
+        unsubscribes.length = 0; // 각 댓글의 reaction을 구독
 
-        // 각 댓글의 reaction을 구독
-        commentsSnapshot.forEach((commentDoc) => {
-          const reactionRef = doc(
-            firestore,
-            "users",
-            newsUserId,
-            "comments",
-            commentDoc.id,
-            "reactions",
-            currentUserId
-          );
+        commentsSnapshot.forEach(
+          (
+            commentDoc: FirebaseFirestoreTypes.QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData>
+          ) => {
+            const reactionRef = doc(
+              firestore,
+              "users",
+              newsUserId,
+              "comments",
+              commentDoc.id,
+              "reactions",
+              currentUserId
+            );
 
-          const reactionUnsubscribe = reactionRef.onSnapshot(
-            (reactionSnap) => {
-              if (reactionSnap.exists()) {
-                const reactionData = reactionSnap.data();
-                reactionsMap[commentDoc.id] = reactionData?.type as
-                  | "like"
-                  | "dislike";
-              } else {
-                // 반응이 없으면 맵에서 제거
-                delete reactionsMap[commentDoc.id];
+            const reactionUnsubscribe = onSnapshot(
+              reactionRef,
+              (
+                reactionSnap: FirebaseFirestoreTypes.DocumentSnapshot<FirebaseFirestoreTypes.DocumentData>
+              ) => {
+                if (reactionSnap.exists()) {
+                  const reactionData = reactionSnap.data() as {
+                    type: "like" | "dislike";
+                  };
+                  reactionsMap[commentDoc.id] = reactionData?.type;
+                } else {
+                  // 반응이 없으면 맵에서 제거
+                  delete reactionsMap[commentDoc.id];
+                } // 업데이트 콜백 호출
+
+                onUpdate({ ...reactionsMap });
+              },
+              (error: Error) => {
+                console.error(`댓글 ${commentDoc.id} 반응 구독 실패:`, error);
               }
+            );
 
-              // 업데이트 콜백 호출
-              onUpdate({ ...reactionsMap });
-            },
-            (error) => {
-              console.error(`댓글 ${commentDoc.id} 반응 구독 실패:`, error);
-            }
-          );
-
-          unsubscribes.push(reactionUnsubscribe);
-        });
+            unsubscribes.push(reactionUnsubscribe);
+          }
+        );
       },
       (error) => {
         console.error("댓글 목록 구독 실패:", error);
         if (onError) onError(error);
       }
-    );
+    ); // cleanup 함수: 모든 구독 해제
 
-    // cleanup 함수: 모든 구독 해제
     return () => {
       commentsUnsubscribe();
       unsubscribes.forEach((unsub) => unsub());
     };
   } catch (error) {
     console.error("댓글 반응 구독 설정 실패:", error);
+    if (onError) onError(error as Error);
+    return () => {};
+  }
+};
+export const subscribeToMyNewsLikes = (
+  currentUserId: string,
+  onUpdate: (likesMap: Record<string, boolean>) => void,
+  onError?: (error: Error) => void
+): (() => void) => {
+  try {
+    const myLikesCollection = collection(
+      firestore,
+      "users",
+      currentUserId,
+      "myNewsLikes"
+    ) as FirebaseFirestoreTypes.CollectionReference<FirebaseFirestoreTypes.DocumentData>;
+
+    const unsubscribe = onSnapshot(
+      myLikesCollection,
+      (snapshot) => {
+        const likesMap: Record<string, boolean> = {};
+        snapshot.forEach(
+          (
+            docSnap: FirebaseFirestoreTypes.QueryDocumentSnapshot<FirebaseFirestoreTypes.DocumentData>
+          ) => {
+            likesMap[docSnap.id] = true; // docSnap.id가 newsId임
+          }
+        );
+        onUpdate(likesMap);
+      },
+      (error) => {
+        console.error("내 좋아요 목록 구독 실패:", error);
+        if (onError) onError(error);
+      }
+    );
+
+    return unsubscribe;
+  } catch (error) {
+    console.error("내 좋아요 목록 구독 설정 실패:", error);
     if (onError) onError(error as Error);
     return () => {};
   }
@@ -558,9 +672,8 @@ export const getUserCommentReactions = async (
     const commentsQuery = query(commentsRef, where("newsId", "==", newsId));
     const commentsSnap = await getDocs(commentsQuery);
 
-    const reactions: Record<string, "like" | "dislike"> = {};
+    const reactions: Record<string, "like" | "dislike"> = {}; // 각 댓글의 반응을 병렬로 가져오기
 
-    // 각 댓글의 반응을 병렬로 가져오기
     const reactionPromises = commentsSnap.docs.map(
       async (commentDoc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
         const reactionRef = doc(

@@ -23,6 +23,7 @@ import { useTheme } from "@/contexts/themeContext";
 import { ViewStyle } from "react-native";
 // ImagePicker 임포트 추가
 import * as ImagePicker from "expo-image-picker";
+import { customLogEvent } from "@/events/appEvent";
 
 const TaskList: React.FC<{
   diffStyle?: ViewStyle;
@@ -90,6 +91,9 @@ const TaskList: React.FC<{
             {
               text: "취소",
               style: "cancel",
+              onPress: () => {
+                customLogEvent({ eventName: "cancel_create_news_in_ad" });
+              },
             },
             {
               text: "시청하기",
@@ -97,13 +101,16 @@ const TaskList: React.FC<{
                 setTimeout(async () => {
                   try {
                     // createNews 호출 시 imageUrl 전달
+                    customLogEvent({ eventName: "ad_watch_for_news" });
                     await createNews(taskId, dueDate, true, imageUrl || "");
                     setNewsGeneratedTasks((prev) => new Set(prev).add(taskId));
                     Alert.alert("완료", "AI 뉴스가 생성되었습니다!");
+                    customLogEvent({ eventName: "success_create_news" });
                     changePriceAfterNews(taskId, difficulty);
                   } catch (error) {
                     console.error("뉴스 생성 실패:", error);
                     Alert.alert("오류", "뉴스 생성에 실패했습니다.");
+                    customLogEvent({ eventName: "fail_create_news" });
                   }
                 }, 1000); // 광고 시청 시뮬레이션
               },
@@ -113,6 +120,7 @@ const TaskList: React.FC<{
       } catch (error) {
         console.error("광고 로드 실패:", error);
         Alert.alert("오류", "광고를 불러올 수 없습니다.");
+        customLogEvent({ eventName: "ad_load_fail" });
       }
     };
 
@@ -141,11 +149,13 @@ const TaskList: React.FC<{
       if (pickerResult.canceled) {
         // 취소하면 아무것도 안함 (혹은 showAdAlert(null)을 호출하여 이미지 없이 진행 가능)
         console.log("Image picker cancelled");
+        customLogEvent({ eventName: "cancel_image_picker" });
         return;
       }
 
       // 이미지 선택 완료 -> 광고 알림창 호출
       if (pickerResult.assets && pickerResult.assets.length > 0) {
+        customLogEvent({ eventName: "image_selected_for_news" });
         showAdAlert(pickerResult.assets[0].uri);
       }
     };
@@ -154,15 +164,24 @@ const TaskList: React.FC<{
     Alert.alert("이미지 추가", "AI 뉴스에 이미지를 추가하시겠습니까?", [
       {
         text: "아니요 (이미지 없이 생성)",
-        onPress: () => showAdAlert(null), // 이미지 없이 광고 알림으로 이동
+        onPress: () => {
+          showAdAlert(null),
+            customLogEvent({ eventName: "create_news_no_image" });
+        }, // 이미지 없이 광고 알림으로 이동
       },
       {
         text: "예 (이미지 선택)",
-        onPress: pickImageAndShowAd, // 이미지 픽커 실행
+        onPress: () => {
+          pickImageAndShowAd(),
+            customLogEvent({ eventName: "create_news_with_image" });
+        }, // 이미지 픽커 실행
       },
       {
         text: "취소",
         style: "cancel",
+        onPress: () => {
+          customLogEvent({ eventName: "candel_create_news_in_image" });
+        },
       },
     ]);
   };

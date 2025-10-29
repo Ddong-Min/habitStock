@@ -10,6 +10,7 @@ import * as followApi from "../api/followApi";
 import { UserType } from "../types";
 import { useAuth } from "./authContext";
 import { useStock } from "./stockContext";
+import { customLogEvent } from "@/events/appEvent";
 interface FollowContextType {
   // 상태
   searchQuery: string;
@@ -63,7 +64,6 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
         setSearchResults([]);
         return;
       }
-      console.log("Searching users with query:", query);
       setLoading(true);
       try {
         // 이름과 이메일 모두 검색
@@ -112,11 +112,23 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         if (isCurrentlyFollowing) {
+          customLogEvent({
+            eventName: "unfollow_user",
+            payload: { targetUserId },
+          });
           await followApi.unfollowUser(currentUserId, targetUserId);
         } else {
+          customLogEvent({
+            eventName: "follow_user",
+            payload: { targetUserId },
+          });
           await followApi.followUser(currentUserId, targetUserId);
         }
       } catch (error) {
+        customLogEvent({
+          eventName: "error_toggle_follow",
+          payload: { targetUserId, error: (error as Error).message },
+        });
         console.error("Error toggling follow:", error);
         // 필요시 Alert나 Toast 추가
       }
@@ -133,6 +145,10 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const changeSelectedFollowId = (followId: string | null) => {
+    customLogEvent({
+      eventName: "choose_follow_user_for_detail",
+      payload: { followId },
+    });
     setSelectedFollowId(followId);
   };
   const value: FollowContextType = {

@@ -208,6 +208,10 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const changeSelectedPeriod = (period: "day" | "week" | "month") => {
+    customLogEvent({
+      eventName: "change_stock_selected_period",
+      payload: { period },
+    });
     setSelectedPeriod(period);
   };
 

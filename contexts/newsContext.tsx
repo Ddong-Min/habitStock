@@ -11,6 +11,7 @@ import { useAuth } from "./authContext";
 import { Alert } from "react-native";
 import { useFollow } from "./followContext";
 import { auth } from "../config/firebase";
+import { customLogEvent } from "@/events/appEvent";
 
 interface NewsContextType {
   currentUserId: string | null;
@@ -191,6 +192,28 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
       unsubscribe();
     };
   }, [selectedNews]);
+  // [추가] '내가 좋아요 누른 목록' 실시간 구독 (단 1회 읽기)
+  useEffect(() => {
+    if (!currentUserId) {
+      setMyNewsLikes({});
+      setFollowingNewsLikes({});
+      return;
+    }
+
+    const unsubscribe = newsService.subscribeToMyNewsLikes(
+      currentUserId,
+      (likesMap) => {
+        // 이 맵 하나로 '내 뉴스'와 '팔로잉 뉴스'의 좋아요 상태를 모두 관리
+        setMyNewsLikes(likesMap);
+        setFollowingNewsLikes(likesMap);
+      },
+      (error) => {
+        console.error("내 좋아요 목록 구독 실패(Context):", error);
+      }
+    ); // cleanup
+
+    return () => unsubscribe();
+  }, [currentUserId]); // currentUserId가 바뀔 때만 재구독
 
   const createNews = async (
     taskId: string,
@@ -214,8 +237,6 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
         token,
         imageURL
       );
-
-      Alert.alert("성공", "AI 뉴스가 생성되었습니다!");
       // 구독 방식이므로 자동으로 업데이트됨
     } catch (error) {
       console.error("뉴스 생성 실패:", error);
@@ -253,6 +274,7 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
       if (!currentUserId) return;
 
       try {
+        customLogEvent({ eventName: "delete_news" });
         await newsService.deleteNews(currentUserId, newsId);
 
         // 삭제된 뉴스가 현재 선택된 뉴스라면 선택 해제
@@ -270,6 +292,8 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const selectNews = useCallback((news: newsService.NewsItem | null) => {
+    const eventName = news ? "select_news" : "disSelect_news";
+    customLogEvent({ eventName: eventName });
     setSelectedNews(news);
     if (!news) {
       setComments([]);
@@ -281,6 +305,7 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
       if (!currentUserId || !currentUserData) return;
 
       try {
+        customLogEvent({ eventName: "add_comment" });
         await newsService.addComment(newsUserId, newsId, {
           userId: currentUserId,
           userName: currentUserData.name,
@@ -299,6 +324,7 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
   const deleteComment = useCallback(
     async (newsUserId: string, newsId: string, commentId: string) => {
       try {
+        customLogEvent({ eventName: "delete_comment" });
         await newsService.deleteComment(newsUserId, newsId, commentId);
         // 구독 방식이므로 자동으로 업데이트됨
       } catch (error) {
@@ -317,11 +343,13 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
       }
 
       try {
+        customLogEvent({ eventName: "toggle_news_like" });
         // toggleNewsLike 함수가 있다면 사용
-        // await newsService.toggleNewsLike(newsUserId, newsId, currentUserId);
+        await newsService.toggleNewsLike(newsUserId, newsId, currentUserId);
         // 구독 방식이므로 자동으로 업데이트됨
       } catch (error) {
         console.error("뉴스 좋아요 실패:", error);
+        customLogEvent({ eventName: "fail_toggle_news_like" });
         Alert.alert("오류", "좋아요 처리에 실패했습니다.");
       }
     },

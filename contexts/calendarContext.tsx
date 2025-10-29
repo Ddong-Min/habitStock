@@ -82,10 +82,10 @@ export const CalendarProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const handleViewToggle = (mode: "week" | "month") => {
-    setIsWeekView(mode === "week");
     const eventName = isWeekView
-      ? "toggle_to_week_view"
-      : "toggle_to_month_view";
+      ? "toggle_to_month_view"
+      : "toggle_to_week_view";
+    setIsWeekView(mode === "week");
     customLogEvent({
       eventName: eventName,
       payload: { source: "calendar_header" },

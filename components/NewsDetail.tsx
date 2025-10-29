@@ -11,6 +11,7 @@ import {
   Modal,
   Text,
   Image,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Typo from "@/components/Typo";
@@ -21,6 +22,9 @@ import { useNews } from "@/contexts/newsContext";
 import * as newsApi from "@/api/newsApi";
 import { useAuth } from "@/contexts/authContext";
 import * as ImagePicker from "expo-image-picker";
+import { customLogEvent } from "@/events/appEvent";
+
+const { width } = Dimensions.get("window");
 
 interface CommentWithReaction extends newsApi.Comment {
   userReaction?: "like" | "dislike";
@@ -64,7 +68,6 @@ const NewsDetail = ({
   const isLiked = isMyNews
     ? !!myNewsLikes[item.id]
     : !!followingNewsLikes[item.id];
-
   // Get the most up-to-date news item from the context
   const currentNewsItem = (
     isMyNews
@@ -166,6 +169,7 @@ const NewsDetail = ({
       return;
     }
     try {
+      customLogEvent({ eventName: "toggle_comment_like" });
       await newsApi.toggleCommentReaction(
         item.userId,
         item.id,
@@ -244,6 +248,23 @@ const NewsDetail = ({
     }
   };
 
+  // 수정 모달 열기
+  const openEditModal = () => {
+    setEditTitle(displayItem.title);
+    setEditContent(displayItem.content);
+    setEditImage(displayItem.imageURL || null);
+    setEditModalVisible(true);
+  };
+
+  // 수정 모달 닫기
+  const closeEditModal = () => {
+    setEditModalVisible(false);
+    // 원래 값으로 복원
+    setEditTitle(displayItem.title);
+    setEditContent(displayItem.content);
+    setEditImage(displayItem.imageURL || null);
+  };
+
   // --- 렌더링 ---
   return (
     <SafeAreaView
@@ -254,19 +275,11 @@ const NewsDetail = ({
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <Typo size={18} fontWeight={"600"} color={theme.text}>
-          뉴스 상세
-        </Typo>
         <View style={styles.headerRightContainer}>
           {isMyNews && (
             <View style={styles.headerActions}>
               <TouchableOpacity
-                onPress={() => {
-                  setEditTitle(displayItem.title);
-                  setEditContent(displayItem.content);
-                  setEditImage(displayItem.imageURL || null);
-                  setEditModalVisible(true);
-                }}
+                onPress={openEditModal}
                 style={styles.iconButton}
               >
                 <Ionicons name="pencil" size={20} color={theme.text} />
@@ -476,107 +489,194 @@ const NewsDetail = ({
         </View>
       </ScrollView>
 
-      {/* 뉴스 수정 모달 */}
+      {/* 개선된 뉴스 수정 모달 */}
       <Modal
         animationType="slide"
-        transparent={true}
+        transparent={false}
         visible={editModalVisible}
-        onRequestClose={() => setEditModalVisible(false)}
+        onRequestClose={closeEditModal}
       >
-        <View style={styles.modalContainer}>
+        <SafeAreaView
+          style={[styles.modalContainer, { backgroundColor: theme.background }]}
+        >
+          {/* 모달 헤더 */}
           <View
-            style={[styles.modalContent, { backgroundColor: theme.background }]}
+            style={[
+              styles.modalHeader,
+              { borderBottomColor: theme.neutral200 },
+            ]}
           >
-            <Typo
-              size={20}
-              fontWeight="600"
-              color={theme.text}
-              style={styles.modalTitle}
+            <TouchableOpacity
+              onPress={closeEditModal}
+              style={styles.modalBackButton}
             >
+              <Ionicons name="close" size={28} color={theme.text} />
+            </TouchableOpacity>
+            <Typo size={18} fontWeight="600" color={theme.text}>
               뉴스 수정
             </Typo>
-            <TextInput
-              style={[
-                styles.modalInput,
-                { borderColor: theme.neutral200, color: theme.text },
-              ]}
-              value={editTitle}
-              onChangeText={setEditTitle}
-              placeholder="제목"
-              placeholderTextColor={theme.neutral400}
-            />
-            <TextInput
-              style={[
-                styles.modalInput,
-                styles.modalContentInput,
-                { borderColor: theme.neutral200, color: theme.text },
-              ]}
-              value={editContent}
-              onChangeText={setEditContent}
-              placeholder="내용"
-              placeholderTextColor={theme.neutral400}
-              multiline
-            />
-
-            {editImage && (
-              <Image
-                source={{ uri: editImage }}
-                style={[
-                  styles.modalImagePreview,
-                  { backgroundColor: theme.neutral200 },
-                ]}
-              />
-            )}
-            <View style={styles.modalImageActions}>
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  {
-                    backgroundColor: theme.neutral200,
-                    flex: 1,
-                    marginRight: 5,
-                  },
-                ]}
-                onPress={handlePickImage}
-              >
-                <Text style={{ color: theme.text }}>이미지 변경</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  {
-                    backgroundColor: theme.red50 || "#FFEEEE",
-                    flex: 1,
-                    marginLeft: 5,
-                  },
-                ]}
-                onPress={() => setEditImage(null)}
-              >
-                <Text style={{ color: theme.red100 || "#CC0000" }}>
-                  이미지 삭제
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  { backgroundColor: theme.neutral200 },
-                ]}
-                onPress={() => setEditModalVisible(false)}
-              >
-                <Text style={{ color: theme.text }}>취소</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: theme.blue100 }]}
-                onPress={handleEditNews}
-              >
-                <Text style={{ color: "#FFFFFF" }}>저장</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={handleEditNews}
+              style={styles.modalSaveButton}
+            >
+              <Typo size={16} fontWeight="600" color={theme.blue100}>
+                완료
+              </Typo>
+            </TouchableOpacity>
           </View>
-        </View>
+
+          {/* 모달 콘텐츠 */}
+          <ScrollView style={styles.modalScrollView}>
+            <View style={styles.modalFormContainer}>
+              {/* 제목 입력 */}
+              <View style={styles.inputSection}>
+                <Typo
+                  size={14}
+                  fontWeight="600"
+                  color={theme.neutral500}
+                  style={styles.inputLabel}
+                >
+                  제목
+                </Typo>
+                <TextInput
+                  style={[
+                    styles.titleInput,
+                    {
+                      borderColor: theme.neutral200,
+                      color: theme.text,
+                      backgroundColor: theme.cardBackground,
+                    },
+                  ]}
+                  value={editTitle}
+                  onChangeText={setEditTitle}
+                  placeholder="제목을 입력하세요"
+                  placeholderTextColor={theme.neutral400}
+                  maxLength={100}
+                />
+                <Typo
+                  size={12}
+                  color={theme.neutral400}
+                  style={styles.charCount}
+                >
+                  {editTitle.length}/100
+                </Typo>
+              </View>
+
+              {/* 이미지 섹션 */}
+              <View style={styles.inputSection}>
+                <Typo
+                  size={14}
+                  fontWeight="600"
+                  color={theme.neutral500}
+                  style={styles.inputLabel}
+                >
+                  이미지
+                </Typo>
+                {editImage ? (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image
+                      source={{ uri: editImage }}
+                      style={[
+                        styles.imagePreview,
+                        { backgroundColor: theme.neutral200 },
+                      ]}
+                    />
+                    <View style={styles.imageActions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.imageActionButton,
+                          { backgroundColor: theme.blue100 },
+                        ]}
+                        onPress={handlePickImage}
+                      >
+                        <Ionicons
+                          name="images-outline"
+                          size={18}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.imageActionText}>변경</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.imageActionButton,
+                          { backgroundColor: "#FF4444" },
+                        ]}
+                        onPress={() => setEditImage(null)}
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={18}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.imageActionText}>삭제</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.imageUploadButton,
+                      {
+                        borderColor: theme.neutral200,
+                        backgroundColor: theme.cardBackground,
+                      },
+                    ]}
+                    onPress={handlePickImage}
+                  >
+                    <Ionicons
+                      name="image-outline"
+                      size={48}
+                      color={theme.neutral400}
+                    />
+                    <Typo
+                      size={14}
+                      color={theme.neutral400}
+                      style={styles.uploadText}
+                    >
+                      이미지를 추가하세요
+                    </Typo>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* 내용 입력 */}
+              <View style={styles.inputSection}>
+                <Typo
+                  size={14}
+                  fontWeight="600"
+                  color={theme.neutral500}
+                  style={styles.inputLabel}
+                >
+                  내용
+                </Typo>
+                <TextInput
+                  style={[
+                    styles.contentInput,
+                    {
+                      borderColor: theme.neutral200,
+                      color: theme.text,
+                      backgroundColor: theme.cardBackground,
+                    },
+                  ]}
+                  value={editContent}
+                  onChangeText={setEditContent}
+                  placeholder="내용을 입력하세요"
+                  placeholderTextColor={theme.neutral400}
+                  multiline
+                  textAlignVertical="top"
+                  maxLength={2000}
+                />
+                <Typo
+                  size={12}
+                  color={theme.neutral400}
+                  style={styles.charCount}
+                >
+                  {editContent.length}/2000
+                </Typo>
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -656,44 +756,94 @@ const styles = StyleSheet.create({
   },
   commentInput: { flex: 1, height: 40, fontSize: 16 },
   commentButton: { marginLeft: 8, padding: 8, borderRadius: 16 },
+
+  // 개선된 모달 스타일
   modalContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
-  modalContent: { width: "90%", padding: 20, borderRadius: 10, elevation: 5 },
-  modalTitle: { marginBottom: 20, textAlign: "center" },
-  modalInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
-    marginBottom: 15,
-  },
-  modalContentInput: { height: 150, textAlignVertical: "top" },
-  modalImagePreview: {
-    width: "100%",
-    height: 150,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  modalImageActions: {
+  modalHeader: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 15,
+    paddingHorizontal: spacingX._15,
+    paddingVertical: spacingY._15,
+    borderBottomWidth: 1,
   },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 10,
+  modalBackButton: {
+    padding: spacingX._5,
   },
-  modalButton: {
+  modalSaveButton: {
+    padding: spacingX._5,
+  },
+  modalScrollView: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+  },
+  modalFormContainer: {
+    padding: spacingX._20,
+  },
+  inputSection: {
+    marginBottom: spacingY._25,
+  },
+  inputLabel: {
+    marginBottom: spacingY._10,
+  },
+  titleInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacingX._15,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  charCount: {
+    textAlign: "right",
+    marginTop: spacingY._5,
+  },
+  imagePreviewContainer: {
+    width: "100%",
+  },
+  imagePreview: {
+    width: "100%",
+    height: verticalScale(200),
+    borderRadius: 12,
+    marginBottom: spacingY._10,
+  },
+  imageActions: {
+    flexDirection: "row",
+    gap: spacingX._10,
+  },
+  imageActionButton: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 5,
+    justifyContent: "center",
+    padding: spacingY._12,
+    borderRadius: 10,
+    gap: spacingX._8,
+  },
+  imageActionText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  imageUploadButton: {
+    width: "100%",
+    height: verticalScale(200),
+    borderWidth: 2,
+    borderStyle: "dashed",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadText: {
+    marginTop: spacingY._10,
+  },
+  contentInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: spacingX._15,
+    fontSize: 16,
+    height: verticalScale(250),
+    lineHeight: 24,
   },
 });
 
