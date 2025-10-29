@@ -36,7 +36,6 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(false);
   const [selectedFollowId, setSelectedFollowId] = useState<string | null>(null);
   const { user } = useAuth();
-  const { loadAllFriendStocksData } = useStock();
   const currentUserId = user?.uid || null;
 
   // 팔로잉 목록 실시간 업데이트

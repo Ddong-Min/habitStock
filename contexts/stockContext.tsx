@@ -12,8 +12,6 @@ import {
   subscribeToStockData,
   subscribeToStockSummary,
   updateStockSummaryOnChange,
-  loadFriendStockSummary as loadFriendStockSummaryApi,
-  loadFriendStockSummaries as loadFriendStockSummariesApi,
   subscribeToAllFriendStockData,
   subscribeToMultipleFriendStockSummaries,
 } from "@/api/stockApi";
@@ -21,6 +19,7 @@ import { StockSummaryType } from "@/types";
 import { useCalendar } from "./calendarContext";
 import { Task } from "@/types";
 import { customLogEvent } from "@/events/appEvent";
+import { useFollow } from "./followContext";
 
 type StockContextType = {
   stockData: StockDataByDateType | undefined;
@@ -36,15 +35,10 @@ type StockContextType = {
     | undefined
   >;
   changeSelectedPeriod: (period: "day" | "week" | "month") => void;
-  loadAllFriendStocksData: (followIds: string[]) => Promise<void>;
   changeStockAfterNews: (
     priceIncrease: number,
     percentageIncrease: number
   ) => Promise<any>;
-  loadFriendStockSummary: (
-    friendId: string
-  ) => Promise<StockSummaryType | null>;
-  loadAllFriendStockSummaries: (friendIds: string[]) => Promise<void>;
 };
 
 const StockContext = React.createContext<StockContextType | undefined>(
@@ -65,9 +59,9 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
   const [friendStockSummaries, setFriendStockSummaries] = useState<{
     [friendId: string]: StockSummaryType;
   }>({});
-  const [followingIds, setFollowingIds] = useState<string[]>([]);
   const { user, changeUserStock } = useAuth();
   const { selectedDate, isWeekView, today } = useCalendar();
+  const { followingIds } = useFollow();
   const isInitialSummaryLoad = useRef(true);
 
   // 🔥 실시간 구독: 주식 데이터
@@ -120,13 +114,13 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
   }, [stockData]); // 🔥 stockData 변경 시에만 실행
   // 🔥 NEW: 친구 주식 데이터 실시간 구독
   useEffect(() => {
-    if (!followingIds || followingIds.length === 0) {
+    if (!followingIds || followingIds.size === 0) {
       setFriendStockData({});
       return;
     }
 
     const unsubscribe = subscribeToAllFriendStockData(
-      followingIds,
+      Array.from(followingIds),
       (updatedFriendStockData) => {
         setFriendStockData(updatedFriendStockData);
       },
@@ -140,13 +134,13 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
 
   // 🔥 NEW: 친구 Summary 실시간 구독
   useEffect(() => {
-    if (!followingIds || followingIds.length === 0) {
+    if (!followingIds || followingIds.size === 0) {
       setFriendStockSummaries({});
       return;
     }
 
     const unsubscribe = subscribeToMultipleFriendStockSummaries(
-      followingIds,
+      Array.from(followingIds),
       (updatedSummaries) => {
         setFriendStockSummaries(updatedSummaries);
       },
@@ -222,18 +216,6 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     setSelectedPeriod(period);
   };
 
-  // 🔥 MODIFIED: 이제 구독 방식이므로 followingIds만 업데이트
-  const loadAllFriendStocksData = async (followIds: string[]) => {
-    if (!user?.uid) return;
-
-    setFollowingIds(followIds);
-
-    customLogEvent({
-      eventName: "subscribe_friend_stock_data",
-      payload: { friendCount: followIds.length },
-    });
-  };
-
   const changeStockAfterNews = async (
     priceIncrease: number,
     percentageIncrease: number
@@ -281,35 +263,6 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     return result;
   };
 
-  // 🔥 단일 친구의 Summary 로드 (일회성 - 호환성 유지)
-  const loadFriendStockSummary = async (friendId: string) => {
-    const summary = await loadFriendStockSummaryApi(friendId);
-    if (summary) {
-      setFriendStockSummaries((prev) => ({
-        ...prev,
-        [friendId]: summary,
-      }));
-    }
-    customLogEvent({
-      eventName: "load_friend_stock_summary",
-      payload: { friendId, success: summary ? true : false },
-    });
-    return summary;
-  };
-
-  // 🔥 MODIFIED: 이제 구독 방식이므로 followingIds만 업데이트
-  const loadAllFriendStockSummaries = async (friendIds: string[]) => {
-    if (!user?.uid) return;
-
-    // followingIds가 이미 설정되어 있으면 구독이 자동으로 시작됨
-    setFollowingIds(friendIds);
-
-    customLogEvent({
-      eventName: "subscribe_friend_stock_summaries",
-      payload: { friendCount: friendIds.length },
-    });
-  };
-
   return (
     <StockContext.Provider
       value={{
@@ -320,10 +273,7 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
         friendStockSummaries,
         changeStockData,
         changeSelectedPeriod,
-        loadAllFriendStocksData,
         changeStockAfterNews,
-        loadFriendStockSummary,
-        loadAllFriendStockSummaries,
       }}
     >
       {children}

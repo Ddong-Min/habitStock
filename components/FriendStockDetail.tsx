@@ -26,18 +26,9 @@ const FriendStockDetail = ({
   onBack: () => void;
 }) => {
   const { theme } = useTheme();
-  const { friendStockData, friendStockSummaries, loadFriendStockSummary } =
-    useStock();
+  const { friendStockData, friendStockSummaries } = useStock();
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const { today } = useCalendar();
-
-  // 🔥 친구의 Summary 데이터 로드
-  useEffect(() => {
-    if (followId) {
-      console.log("Loading friend stock summary for:", followId);
-      loadFriendStockSummary(followId);
-    }
-  }, [followId]);
 
   if (!friendStockData || !friendStockData[followId]) {
     return (

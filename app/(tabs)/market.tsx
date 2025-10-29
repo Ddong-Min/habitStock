@@ -39,7 +39,7 @@ const Market = () => {
     selectedFollowId,
     changeSelectedFollowId,
   } = useFollow();
-  const { friendStockData, loadAllFriendStocksData } = useStock();
+  const { friendStockData } = useStock();
   const { today } = useCalendar();
   const displayUsers = searchQuery ? searchResults : followingUsers;
 
@@ -67,14 +67,6 @@ const Market = () => {
     });
   };
   // -------------------------
-
-  // 데이터 로딩 (종속성 배열에서 loadAllFriendStocksData 제거)
-  useEffect(() => {
-    if (displayUsers.length > 0) {
-      const followIds = displayUsers.map((user) => user!.uid);
-      loadAllFriendStocksData(followIds);
-    }
-  }, [displayUsers]);
 
   // --- [추가] 1. 데이터 계산 로직 (useMemo) ---
   const processedUsers = useMemo(() => {

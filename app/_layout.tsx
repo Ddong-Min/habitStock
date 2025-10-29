@@ -61,15 +61,15 @@ function AppContent() {
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <ScreenWrapper>
         <CalendarProvider>
-          <StockProvider>
-            <TasksProvider>
-              <FollowProvider>
+          <FollowProvider>
+            <StockProvider>
+              <TasksProvider>
                 <NewsProvider>
                   <Stack screenOptions={{ headerShown: false }} />
                 </NewsProvider>
-              </FollowProvider>
-            </TasksProvider>
-          </StockProvider>
+              </TasksProvider>
+            </StockProvider>
+          </FollowProvider>
         </CalendarProvider>
       </ScreenWrapper>
     </View>

@@ -36,35 +36,6 @@ export const changeStockDataFirebase = async (
     return { success: false, msg: "Failed to change user stock." };
   }
 };
-
-// // 친구 주식 데이터 로드 (일회성 - 호환성 유지)
-// export const loadFriendStockDataFirebase = async (
-//   userIds: string[]
-// ): Promise<FriendStockType | null> => {
-//   try {
-//     if (!userIds || userIds.length === 0) return {};
-
-//     const allFriendStockData: FriendStockType = {};
-
-//     for (const userId of userIds) {
-//       const stocksRef = collection(firestore, "users", userId, "stocks");
-//       const snapshot = await getDocs(stocksRef);
-
-//       const stockDataByDate: StockDataByDateType = {};
-//       snapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-//         stockDataByDate[doc.id] = doc.data() as StockDataType;
-//       });
-
-//       allFriendStockData[userId] = stockDataByDate;
-//     }
-
-//     return allFriendStockData;
-//   } catch (error) {
-//     console.error("Error loading friend stock data: ", error);
-//     return null;
-//   }
-// };
-
 // 실시간 주식 데이터 구독 (특정 기간)
 export const subscribeToStockData = (
   userId: string,
@@ -381,26 +352,12 @@ export const saveStockSummary = async (
   summary: StockSummaryType
 ) => {
   try {
-    console.log("1231Saving stock summary for user:", userId, summary);
     const docRef = doc(firestore, "users", userId, "summary", "stockSummary");
     await setDoc(docRef, summary);
     return { success: true };
   } catch (error) {
     console.error("Error saving stock summary: ", error);
     return { success: false, msg: "Failed to save stock summary." };
-  }
-};
-
-export const loadStockSummary = async (
-  userId: string
-): Promise<StockSummaryType | null> => {
-  try {
-    const docRef = doc(firestore, "users", userId, "summary", "stockSummary");
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? (docSnap.data()! as StockSummaryType) : null;
-  } catch (error) {
-    console.error("Error loading stock summary: ", error);
-    return null;
   }
 };
 
@@ -412,39 +369,6 @@ export const subscribeToStockSummary = (
   return onSnapshot(docRef, (docSnap) =>
     onUpdate(docSnap.exists() ? (docSnap.data()! as StockSummaryType) : null)
   );
-};
-
-// 친구 Summary
-export const loadFriendStockSummary = async (friendId: string) => {
-  try {
-    const docRef = doc(firestore, "users", friendId, "summary", "stockSummary");
-    const docSnap = await getDoc(docRef);
-    return docSnap.exists() ? (docSnap.data()! as StockSummaryType) : null;
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-};
-
-export const loadFriendStockSummaries = async (friendIds: string[]) => {
-  if (!friendIds || friendIds.length === 0) return {};
-  try {
-    const promises = friendIds.map((id) => {
-      const docRef = doc(firestore, "users", id, "summary", "stockSummary");
-      return getDoc(docRef);
-    });
-    const docSnaps = await Promise.all(promises);
-
-    const result: { [key: string]: StockSummaryType } = {};
-    docSnaps.forEach((snap, i) => {
-      if (snap.exists())
-        result[friendIds[i]] = snap.data()! as StockSummaryType;
-    });
-    return result;
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
 };
 
 export const subscribeToFriendStockSummary = (
@@ -521,7 +445,6 @@ export const updateStockSummaryOnChange = async (
   registerDate: string
 ) => {
   try {
-    console.log("12312312312313Updating stock summary for user:", userId);
     const summary = calculateStockSummary(stockDataByDate, registerDate);
     await saveStockSummary(userId, summary);
     return { success: true };
