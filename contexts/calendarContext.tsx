@@ -13,6 +13,7 @@ import {
   getDay,
   getDate,
 } from "date-fns";
+import { customLogEvent } from "@/events/appEvent";
 
 // --- Step 1: Define the shape of the context data ---
 // This interface describes all the values and functions that our context will provide.
@@ -63,6 +64,10 @@ export const CalendarProvider = ({ children }: { children: ReactNode }) => {
       ? addWeeks(currentDate, 1)
       : addMonths(currentDate, 1);
     setSelectedDate(format(newDate, "yyyy-MM-dd"));
+    customLogEvent({
+      eventName: "calendar_navigate_next",
+      payload: { view: isWeekView ? "week" : "month" },
+    });
   };
 
   const handlePrevious = () => {
@@ -70,10 +75,21 @@ export const CalendarProvider = ({ children }: { children: ReactNode }) => {
       ? addWeeks(currentDate, -1)
       : addMonths(currentDate, -1);
     setSelectedDate(format(newDate, "yyyy-MM-dd"));
+    customLogEvent({
+      eventName: "calendar_navigate_previous",
+      payload: { view: isWeekView ? "week" : "month" },
+    });
   };
 
   const handleViewToggle = (mode: "week" | "month") => {
     setIsWeekView(mode === "week");
+    const eventName = isWeekView
+      ? "toggle_to_week_view"
+      : "toggle_to_month_view";
+    customLogEvent({
+      eventName: eventName,
+      payload: { source: "calendar_header" },
+    });
   };
 
   const onVisibleMonthsChange = (months: any[]) => {
@@ -89,6 +105,10 @@ export const CalendarProvider = ({ children }: { children: ReactNode }) => {
 
   const changeSelectedDate = (dateString: string) => {
     setSelectedDate(dateString);
+    customLogEvent({
+      eventName: "calendar_date_selected",
+      payload: { date: dateString, view: isWeekView ? "week" : "month" },
+    });
   };
 
   // Memoize the context value to prevent unnecessary re-renders of consuming components.

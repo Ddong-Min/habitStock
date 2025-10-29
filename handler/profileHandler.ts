@@ -13,7 +13,7 @@ import { useNotification } from "../contexts/notificationContext";
 // ✅ Firestore Modular API 사용
 
 export const useProfileHandlers = () => {
-  const { user, updateUserData, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { expoPushToken } = useNotification();
 
   const [userName, setUserName] = useState(user?.name || "");
@@ -38,7 +38,6 @@ export const useProfileHandlers = () => {
     try {
       const userRef = doc(firestore, "users", user.uid);
       await updateDoc(userRef, { [field]: value });
-      await updateUserData(user.uid);
       console.log(`✅ ${field} 업데이트 완료:`, value);
     } catch (error) {
       console.error(`❌ ${field} 업데이트 실패:`, error);
@@ -157,7 +156,6 @@ export const useProfileHandlers = () => {
             expoPushToken: newToken,
           });
           setNotifications(true);
-          await updateUserData(user.uid);
           Alert.alert("성공", "알림이 활성화되었습니다.");
         } else {
           Alert.alert(

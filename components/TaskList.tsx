@@ -25,14 +25,12 @@ import { ViewStyle } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 
 const TaskList: React.FC<{
-  isTodo: boolean;
   diffStyle?: ViewStyle;
   taskStyle?: ViewStyle;
   diffFontSize?: number;
   taskFontSize?: number;
   isNewsMode?: boolean;
 }> = ({
-  isTodo,
   diffStyle,
   taskStyle,
   diffFontSize,
@@ -196,7 +194,6 @@ const TaskList: React.FC<{
                   isAddMode={changeAddTaskState}
                   style={diffStyle}
                   fontSize={diffFontSize}
-                  isTodo={isTodo}
                 />
                 {selectedDifficulty === item.difficulty && isAddTask && (
                   <NewTask />

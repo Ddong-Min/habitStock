@@ -7,47 +7,33 @@ import React, {
 } from "react";
 import { Task, TasksByDate, TasksContextType, TasksState } from "../types";
 import {
-  addTaskFirebase,
+  saveTaskFirebase,
   deleteTaskFirebase,
-  updateTaskFirebase,
   subscribeToTasksByDate, // 🔥 NEW
 } from "@/api/taskApi";
 import { useAuth } from "@/contexts/authContext";
 import randomPriceGenerator from "@/handler/randomPriceGenerator";
 import { useCalendar } from "./calendarContext";
 import { useStock } from "./stockContext";
+import { customLogEvent } from "@/events/appEvent";
 
 const TasksContext = createContext<TasksContextType | undefined>(undefined);
-
-const initialTasksState: TasksState = {
-  easy: [],
-  medium: [],
-  hard: [],
-  extreme: [],
-};
-
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
-  const [newTaskText, setNewTaskText] = useState("");
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const [newTaskText, setNewTaskText] = useState(""); // 새로 추가할 Task의 내용
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null); //수정/삭제할 Task의 ID
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false); //수정,난이도 변경, 날짜변경, 삭제 BottomSheet 열림 여부
   const [selectedDifficulty, setSelectedDifficulty] = useState<
     keyof TasksState | null
-  >(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [isModifyDifficultySheet, setIsModifyDifficultySheet] = useState(false);
-  const [isEditText, setIsEditText] = useState(false);
-  const [isAddTask, setIsAddTask] = useState(false);
-  const [selectedText, setSelectedText] = useState("");
-  const [taskType, setTaskType] = useState<"todos" | "buckets">("todos");
+  >(null); //선택된 난이도
+  const [showDatePicker, setShowDatePicker] = useState(false); //날짜 선택기 표시 여부
+  const [isModifyDifficultySheet, setIsModifyDifficultySheet] = useState(false); //난이도 변경 시트 표시 여부
+  const [isEditText, setIsEditText] = useState(false); //텍스트 수정 모드 여부
+  const [isAddTask, setIsAddTask] = useState(false); //새로운 Task 추가 모드 여부
+  const [selectedText, setSelectedText] = useState(""); //선택된 Task의 텍스트 내용용
   const { user } = useAuth();
   const { changeStockAfterNews } = useStock();
-  const initialTaskTypeByDate: { todos: TasksByDate; buckets: TasksByDate } = {
-    todos: {},
-    buckets: {},
-  };
-  const [taskByDate, setTaskByDate] = useState<TasksByDate>(
-    initialTaskTypeByDate[taskType]
-  );
+
+  const [taskByDate, setTaskByDate] = useState<TasksByDate>({});
 
   const { selectedDate, changeSelectedDate } = useCalendar();
   const { changeStockData } = useStock();
@@ -115,6 +101,10 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     difficulty: keyof TasksState,
     text: string
   ) => {
+    customLogEvent({
+      eventName: "start_modify_task",
+      payload: { taskId, dueDate, difficulty },
+    });
     chooseTaskId(taskId);
     chooseDifficulty(difficulty);
     setSelectedText(text);
@@ -122,6 +112,10 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const finishModify = () => {
+    customLogEvent({
+      eventName: "finish_modify_task",
+      payload: { taskId: selectedTaskId },
+    });
     setSelectedTaskId(null);
     setSelectedDifficulty(null);
     setSelectedText("");
@@ -129,12 +123,15 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addNewTask = async (dueDate: string) => {
+    customLogEvent({
+      eventName: "finish_add_new_task",
+      payload: { dueDate },
+    });
     if (!newTaskText.trim() || !user) return;
-    const { randomPrice, randomPercent, priceChange } = randomPriceGenerator(
+    const { randomPercent, priceChange } = randomPriceGenerator(
       selectedDifficulty!,
       user.price ?? 100
     );
-    console.log("add new task called");
     const newTask: Task = {
       id: Date.now().toString(),
       text: newTaskText.trim(),
@@ -148,14 +145,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       appliedPercentage: 0,
     };
 
-    const res = await addTaskFirebase(newTask, user.uid);
-
-    // 🔥 onSnapshot이 자동으로 UI 업데이트하므로 수동 업데이트 제거!
-    // setTaskByDate 호출 삭제됨
-
-    if (!res.success) {
-      console.error(res.msg);
-    }
+    const res = await saveTaskFirebase(user.uid, newTask);
     finishModify();
     changeAddTaskState();
   };
@@ -177,11 +167,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         }
       });
     }
-
-    // 🔥 onSnapshot이 자동으로 UI 업데이트하므로 수동 업데이트 제거!
-    // setTaskByDate 호출 삭제됨
-
-    await deleteTaskFirebase(user.uid!, selectedTaskId, selectedDate);
+    await deleteTaskFirebase(user.uid!, selectedDate, selectedTaskId);
     finishModify();
   };
 
@@ -199,10 +185,18 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     let updatedTask = { ...taskList[taskIndex] };
 
     if (mode === "task") {
+      customLogEvent({
+        eventName: "edit_task_text",
+        payload: { taskId: selectedTaskId, newText: edit },
+      });
       updatedTask.text = edit;
       updatedTask.updatedAt = new Date().toISOString();
       changeEditTextState();
     } else if (mode === "difficulty") {
+      customLogEvent({
+        eventName: "edit_task_difficulty",
+        payload: { taskId: selectedTaskId, newDifficulty: edit },
+      });
       const { randomPrice, randomPercent, priceChange } = randomPriceGenerator(
         updatedTask.difficulty,
         user.price ?? 100
@@ -212,14 +206,17 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       updatedTask.percentage = randomPercent;
       updatedTask.priceChange = priceChange;
     } else if (mode === "dueDate") {
+      customLogEvent({
+        eventName: "edit_task_dueDate",
+        payload: { taskId: selectedTaskId, newDueDate: edit },
+      });
       const newDate = edit;
       updatedTask.dueDate = newDate;
       updatedTask.updatedAt = new Date().toISOString();
       changeSelectedDate(newDate);
     }
 
-    // 🔥 onSnapshot이 자동으로 UI 업데이트하므로 수동 업데이트 제거!
-    await updateTaskFirebase(updatedTask, user.uid!);
+    await saveTaskFirebase(user.uid!, updatedTask);
 
     setNewTaskText("");
     finishModify();
@@ -229,6 +226,10 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     taskId: string,
     difficulty: keyof TasksState
   ) => {
+    customLogEvent({
+      eventName: "toggle_task_completed",
+      payload: { taskId, difficulty },
+    });
     if (!user) return;
     const taskList = taskByDate[selectedDate][difficulty];
     const taskIndex = taskList.findIndex((task: Task) => task.id === taskId);
@@ -275,7 +276,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     // API 호출 - onSnapshot이 다시 한번 업데이트하지만 같은 데이터라 문제없음
-    await updateTaskFirebase(updatedTask, user.uid!, taskType);
+    await saveTaskFirebase(user.uid!, updatedTask);
     changeStockData(updatedTask).then((result) => {
       if (result && !result.success) {
         console.error(result.msg);
@@ -285,27 +286,44 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 
   const changeBottomSheetState = () => {
     setIsBottomSheetOpen((prev) => !prev);
+    customLogEvent({
+      eventName: isBottomSheetOpen ? "open_bottom_sheet" : "close_bottom_sheet",
+      payload: { taskId: selectedTaskId },
+    });
   };
 
   const changeShowDatePicker = () => {
     setShowDatePicker((prev) => !prev);
+    customLogEvent({
+      eventName: showDatePicker ? "open_date_picker" : "close_date_picker",
+      payload: { taskId: selectedTaskId },
+    });
   };
 
   const changeDifficultySheetState = () => {
     setIsModifyDifficultySheet((prev) => !prev);
+    customLogEvent({
+      eventName: isModifyDifficultySheet
+        ? "open_difficulty_sheet"
+        : "close_difficulty_sheet",
+      payload: { taskId: selectedTaskId },
+    });
   };
 
   const changeAddTaskState = () => {
     setIsAddTask((prev) => !prev);
+    customLogEvent({
+      eventName: isAddTask ? "open_add_task_mode" : "close_add_task_mode",
+      payload: {},
+    });
   };
 
   const changeEditTextState = () => {
     setIsEditText((prev) => !prev);
-  };
-
-  const changeTaskType = (type: "todos" | "buckets") => {
-    setTaskByDate(initialTaskTypeByDate[type]);
-    setTaskType(type);
+    customLogEvent({
+      eventName: isEditText ? "open_edit_text_mode" : "close_edit_text_mode",
+      payload: { taskId: selectedTaskId },
+    });
   };
 
   const changePriceAfterNews = async (
@@ -335,28 +353,19 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         Math.round(foundTask.appliedPercentage * 1.5 * 10) / 10,
       updatedAt: new Date().toISOString(),
     };
-    const updatedTaskList = [...taskList];
-    updatedTaskList[taskIndex] = updatedTask;
 
-    setTaskByDate((prev) => ({
-      ...prev,
-      [selectedDate]: {
-        ...prev[selectedDate],
-        [difficulty]: updatedTaskList,
-      },
-    }));
-
-    await updateTaskFirebase(updatedTask, user.uid!, taskType);
+    await saveTaskFirebase(user.uid!, updatedTask);
 
     // 🔥 완료된 task인 경우에만 stock 업데이트
-    if (foundTask.completed) {
-      await changeStockAfterNews(priceIncrease, percentageIncrease);
-    }
+    await changeStockAfterNews(priceIncrease, percentageIncrease);
+    customLogEvent({
+      eventName: "change_task_price_after_news",
+      payload: { taskId, difficulty },
+    });
   };
   return (
     <TasksContext.Provider
       value={{
-        taskType,
         taskByDate,
         newTaskText,
         selectedTaskId,
@@ -382,7 +391,6 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         changeAddTaskState,
         changeEditTextState,
         isEditText,
-        changeTaskType,
         changePriceAfterNews,
       }}
     >

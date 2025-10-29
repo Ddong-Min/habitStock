@@ -18,15 +18,7 @@ const DifficultyHeader: React.FC<{
   isAddMode: () => void;
   style?: ViewStyle;
   fontSize?: number;
-  isTodo: boolean;
-}> = ({
-  difficulty,
-  setNewTaskDifficulty,
-  isAddMode,
-  style,
-  fontSize,
-  isTodo,
-}) => {
+}> = ({ difficulty, setNewTaskDifficulty, isAddMode, style, fontSize }) => {
   const { theme, isDarkMode } = useTheme();
 
   return (

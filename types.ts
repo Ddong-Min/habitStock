@@ -166,7 +166,6 @@ export type AuthContextType = {
     password: string,
     name: string
   ) => Promise<{ success: boolean; msg?: string }>;
-  updateUserData: (userId: string) => Promise<void>;
   logout: () => Promise<void>;
   changeUserStock: (price: number) => void;
   isAuthLoading: boolean;
@@ -220,11 +219,6 @@ export interface TasksByDate {
   [date: string]: TasksState; // "2025-09-22": { easy: [...], medium: [...], ... }
 }
 
-export interface TaskTypeByDate {
-  todos: TasksByDate;
-  buckets: TasksByDate;
-}
-
 export interface CustomCalendarProps {
   selectedDate: string;
   onDateSelect: (date: string) => void;
@@ -275,7 +269,6 @@ export type VolumeProps = {
 };
 
 export type TasksContextType = {
-  taskType: "todos" | "buckets";
   taskByDate: TasksByDate;
   newTaskText: string;
   selectedTaskId: string | null;
@@ -312,7 +305,6 @@ export type TasksContextType = {
   changeDifficultySheetState: () => void;
   changeAddTaskState: () => void;
   changeEditTextState: () => void;
-  changeTaskType: (type: "todos" | "buckets") => void;
   changePriceAfterNews: (
     taskId: string,
     difficulty: keyof TasksState

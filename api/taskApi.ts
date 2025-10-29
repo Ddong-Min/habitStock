@@ -9,10 +9,13 @@ import {
   onSnapshot,
   serverTimestamp,
   deleteField,
+  query,
+  where,
+  getDocs,
 } from "@react-native-firebase/firestore";
 import { Task } from "@/types";
 
-// ✅ Firestore Modular API 사용
+// ✅ 날짜별 문서 구조: users/{userId}/todos/{date}
 
 // 🔥 특정 날짜의 Task 실시간 구독
 export const subscribeToTasksByDate = (
@@ -22,12 +25,11 @@ export const subscribeToTasksByDate = (
 ) => {
   console.log("👥 Subscribing to tasks for date:", dueDate);
 
-  // ✅ Modular 방식으로 문서 참조 생성
-  const docRef = doc(firestore, "users", userId, "data", "todos");
+  // ✅ 날짜별 문서 참조
+  const docRef = doc(firestore, "users", userId, "todos", dueDate);
 
   let lastTasksJson = "";
 
-  // ✅ onSnapshot 사용
   const unsubscribe = onSnapshot(
     docRef,
     (snap) => {
@@ -35,22 +37,21 @@ export const subscribeToTasksByDate = (
       console.log(`📡 Update from ${fromCache ? "CACHE ✅" : "SERVER 🌐"}`);
 
       if (!snap.exists()) {
-        if (lastTasksJson !== "") {
-          lastTasksJson = "";
+        const tasksJson = "[]";
+        if (lastTasksJson !== tasksJson) {
+          lastTasksJson = tasksJson;
           onUpdate([]);
         }
         return;
       }
 
-      const allData = snap.data()!;
-      const dateTasks = allData[dueDate];
+      const data = snap.data()!;
       const tasks: Task[] = [];
 
-      if (dateTasks) {
-        Object.values(dateTasks).forEach((task) => {
-          tasks.push(task as Task);
-        });
-      }
+      // 문서 내 모든 필드가 task
+      Object.values(data).forEach((task) => {
+        tasks.push(task as Task);
+      });
 
       tasks.sort((a, b) => {
         if (a.dueDate === b.dueDate) return a.id.localeCompare(b.id);
@@ -81,21 +82,20 @@ export const getTask = async (
   taskId: string
 ): Promise<Task | null> => {
   try {
-    const docRef = doc(firestore, "users", userId, "data", "todos");
+    const docRef = doc(firestore, "users", userId, "todos", dueDate);
     const snap = await getDoc(docRef);
 
     if (!snap.exists()) {
       return null;
     }
 
-    const allData = snap.data();
-    const dateTasks = allData?.[dueDate];
+    const data = snap.data();
 
-    if (!dateTasks || !dateTasks[taskId]) {
+    if (!data || !data[taskId]) {
       return null;
     }
 
-    return dateTasks[taskId] as Task;
+    return data[taskId] as Task;
   } catch (error) {
     console.error("Error getting task:", error);
     return null;
@@ -103,14 +103,21 @@ export const getTask = async (
 };
 
 // Task 생성/수정
-export const saveTask = async (userId: string, task: Task): Promise<void> => {
+export const saveTaskFirebase = async (
+  userId: string,
+  task: Task
+): Promise<void> => {
   try {
-    const docRef = doc(firestore, "users", userId, "data", "todos");
+    const docRef = doc(firestore, "users", userId, "todos", task.dueDate);
 
-    // ✅ Modular API에서는 updateDoc 사용
-    await updateDoc(docRef, {
-      [`${task.dueDate}.${task.id}`]: task,
-    });
+    // merge: true로 문서가 없으면 생성, 있으면 업데이트
+    await setDoc(
+      docRef,
+      {
+        [task.id]: task,
+      },
+      { merge: true }
+    );
 
     console.log("✅ Task saved:", task.id);
   } catch (error) {
@@ -120,20 +127,29 @@ export const saveTask = async (userId: string, task: Task): Promise<void> => {
 };
 
 // Task 삭제
-export const deleteTask = async (
+export const deleteTaskFirebase = async (
   userId: string,
   dueDate: string,
   taskId: string
 ): Promise<void> => {
   try {
-    const docRef = doc(firestore, "users", userId, "data", "todos");
+    const docRef = doc(firestore, "users", userId, "todos", dueDate);
 
-    // ✅ deleteField() 사용
     await updateDoc(docRef, {
-      [`${dueDate}.${taskId}`]: deleteField(),
+      [taskId]: deleteField(),
     });
 
     console.log("✅ Task deleted:", taskId);
+
+    // 문서가 비어있는지 확인하고 삭제 (선택사항)
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Object.keys(data ?? {}).length === 0) {
+        await deleteDoc(docRef);
+        console.log("🗑️ Empty document deleted:", dueDate);
+      }
+    }
   } catch (error) {
     console.error("Error deleting task:", error);
     throw error;
@@ -147,27 +163,25 @@ export const getTasksByDateRange = async (
   endDate: string
 ): Promise<Task[]> => {
   try {
-    const docRef = doc(firestore, "users", userId, "data", "todos");
-    const snap = await getDoc(docRef);
-
-    if (!snap.exists()) {
-      return [];
-    }
-
-    const allData = snap.data();
     const tasks: Task[] = [];
 
-    if (!allData) {
-      return [];
-    }
+    // 날짜 범위 생성 (startDate부터 endDate까지)
+    const dates = generateDateRange(startDate, endDate);
 
-    Object.keys(allData).forEach((date) => {
-      if (date >= startDate && date <= endDate) {
-        Object.values(allData[date]).forEach((task) => {
+    // 각 날짜별로 문서 가져오기
+    const promises = dates.map(async (date) => {
+      const docRef = doc(firestore, "users", userId, "todos", date);
+      const snap = await getDoc(docRef);
+
+      if (snap.exists()) {
+        const data = snap.data();
+        Object.values(data ?? {}).forEach((task) => {
           tasks.push(task as Task);
         });
       }
     });
+
+    await Promise.all(promises);
 
     tasks.sort((a, b) => {
       if (a.dueDate === b.dueDate) return a.id.localeCompare(b.id);
@@ -178,5 +192,35 @@ export const getTasksByDateRange = async (
   } catch (error) {
     console.error("Error getting tasks by date range:", error);
     return [];
+  }
+};
+
+// 날짜 범위 생성 헬퍼 함수
+const generateDateRange = (startDate: string, endDate: string): string[] => {
+  const dates: string[] = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const current = new Date(start);
+  while (current <= end) {
+    dates.push(current.toISOString().split("T")[0]);
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+};
+
+// 특정 날짜 문서 전체 삭제 (필요시)
+export const deleteAllTasksByDate = async (
+  userId: string,
+  dueDate: string
+): Promise<void> => {
+  try {
+    const docRef = doc(firestore, "users", userId, "todos", dueDate);
+    await deleteDoc(docRef);
+    console.log("✅ All tasks deleted for date:", dueDate);
+  } catch (error) {
+    console.error("Error deleting all tasks:", error);
+    throw error;
   }
 };

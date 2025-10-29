@@ -9,7 +9,7 @@ import React, {
 } from "react";
 import { AuthContextType, UserType } from "@/types";
 import { FirebaseAuthTypes } from "@react-native-firebase/auth";
-import { auth, firestore } from "@/config/firebase";
+import firebase, { auth, firestore } from "@/config/firebase";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -21,6 +21,8 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  Unsubscribe,
+  onSnapshot,
 } from "@react-native-firebase/firestore";
 import { router } from "expo-router";
 import { useNotification } from "./notificationContext";
@@ -33,124 +35,116 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [user, setUser] = useState<UserType>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const authListenerSetup = useRef(false);
-  const { expoPushToken, notification, error } = useNotification();
+  const { expoPushToken } = useNotification();
 
-  const updateUserData = useCallback(async (uid: string) => {
-    try {
-      // ✅ Modular API로 문서 참조 생성
-      const docRef = doc(firestore, "users", uid);
-
-      // 📌 캐시 우선 전략:
-      // 1. 먼저 캐시에서 데이터를 가져옴 (빠른 로딩)
-      // 2. 그 다음 서버에서 최신 데이터를 확인
-      // 3. 변경사항이 있으면 자동으로 업데이트됨
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-
-        if (!data) {
-          console.log("⚠️ Document exists but has no data");
-          return;
-        }
-
-        // 캐시된 데이터인지 확인 (디버깅용)
-        const isFromCache = docSnap.metadata.fromCache;
-        console.log(
-          `📦 User data loaded from ${isFromCache ? "CACHE ✅" : "SERVER 🌐"}`
-        );
-
-        const userData: UserType = {
-          uid: data.uid,
-          email: data.email || null,
-          name: data.name || null,
-          image: data.image || null,
-          price: data.price,
-          quantity: data.quantity,
-          lastUpdated: data.lastUpdated,
-          followersCount: data.followersCount || 0,
-          followingCount: data.followingCount || 0,
-          bio: data.bio || "",
-          isDarkMode: data.isDarkMode || false,
-          allowAlarm: data.allowAlarm || false,
-          duetime: data.duetime || "00:00",
-          words: data.words || "korean",
-          registerDate: data.registerDate || null,
-        };
-
-        setUser(userData);
-      }
-    } catch (error: any) {
-      console.log("❌ Error fetching user data:", error.message);
-
-      // 오프라인 상태에서도 캐시된 데이터를 사용하려고 시도
-      if (error.code === "unavailable") {
-        console.log("📴 Device is offline, trying to use cached data");
-        try {
-          const docRef = doc(firestore, "users", uid);
-          const docSnap = await getDoc(docRef);
-
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-
-            if (!data) {
-              console.log("⚠️ Cached document exists but has no data");
-              return;
-            }
-
-            const userData: UserType = {
-              uid: data.uid,
-              email: data.email || null,
-              name: data.name || null,
-              image: data.image || null,
-              price: data.price,
-              quantity: data.quantity,
-              lastUpdated: data.lastUpdated,
-              followersCount: data.followersCount || 0,
-              followingCount: data.followingCount || 0,
-              bio: data.bio || "",
-              isDarkMode: data.isDarkMode || false,
-              allowAlarm: data.allowAlarm || false,
-              duetime: data.duetime || "00:00",
-              words: data.words || "korean",
-              registerDate: data.registerDate || null,
-            };
-            console.log("✅ Successfully loaded user data from cache");
-            setUser(userData);
-          }
-        } catch (cacheError: any) {
-          console.log("❌ No cached data available:", cacheError.message);
-        }
-      }
-    }
-  }, []);
+  //firestore 구독해제(Unsubscribe) 보관함(Ref)
+  const firestoreUnsubRef = useRef<Unsubscribe | null>(null);
 
   useEffect(() => {
-    if (authListenerSetup.current) return;
-    console.log("🔧 Setting up auth listener...");
-    authListenerSetup.current = true;
-
-    // ✅ Modular API로 Auth 상태 감지
-    const unsub = onAuthStateChanged(
+    const authUnsub = onAuthStateChanged(
       auth,
       async (firebaseUser: FirebaseAuthTypes.User | null) => {
-        console.log("🔐 Auth State Changed:", firebaseUser?.uid || "null");
+        console.log("Auth state changed:", firebaseUser?.uid || "null");
 
-        if (firebaseUser) {
-          await updateUserData(firebaseUser.uid);
-        } else {
-          setUser(null);
+        if (firestoreUnsubRef.current) {
+          // 이전 Firestore 리스너가 있으면 구독 해제
+          //만약 사용자가 로그아웃하면 onAuthStateChanged가 호출되고
+          //이전 리스너를 해제해야함
+
+          console.log("Unsubscribing from previous Firestore listener");
+          firestoreUnsubRef.current(); // 이전 Firestore 리스너 구독 해제
+          firestoreUnsubRef.current = null; // 참조 초기화
         }
-        setIsAuthLoading(false);
+        if (firebaseUser) {
+          const docRef = doc(firestore, "users", firebaseUser.uid);
+          firestoreUnsubRef.current = onSnapshot(
+            //onSnapshot은 캐시우선전략 사용
+            docRef,
+            (docSnap) => {
+              if (docSnap.exists()) {
+                const data = docSnap.data();
+                const isFromCache = docSnap.metadata.fromCache;
+                console.log(
+                  `User data loaded from ${
+                    isFromCache ? "CACHE ✅" : "SERVER 🌐"
+                  }`
+                );
+                if (!data) {
+                  console.log("Document exists but has no data");
+                  setUser(null);
+                  return;
+                }
+                const userData: UserType = {
+                  uid: data.uid,
+                  email: data.email || null,
+                  name: data.name || null,
+                  image: data.image || null,
+                  price: data.price,
+                  quantity: data.quantity,
+                  lastUpdated: data.lastUpdated,
+                  followersCount: data.followersCount || 0,
+                  followingCount: data.followingCount || 0,
+                  bio: data.bio || "",
+                  isDarkMode: data.isDarkMode || false,
+                  allowAlarm: data.allowAlarm || false,
+                  duetime: data.duetime || "00:00",
+                  words: data.words || "korean",
+                  registerDate: data.registerDate || null,
+                  expoPushToken: data.expoPushToken || null,
+                };
+                setUser(userData);
+              } else {
+                console.log("No user document found for this UID");
+                setUser(null);
+              }
+              setIsAuthLoading(false);
+            },
+            (error) => {
+              console.log("Error in onSnapshot listener:", error.message);
+              setUser(null);
+              setIsAuthLoading(false);
+            }
+          );
+        } else {
+          //로그아웃 또는 아직 로그인 안된 상태
+          setUser(null);
+          setIsAuthLoading(false);
+        }
       }
     );
-
+    // useEffect 클린업: Auth 리스너와 Firestore 리스너 모두 구독 해제
     return () => {
-      console.log("🧹 Cleaning up auth listener");
-      authListenerSetup.current = false;
-      unsub();
+      //앱을 완전히 종료할 때만 실행됨
+      console.log("🧹 Cleaning up auth listener...");
+      authUnsub();
+      if (firestoreUnsubRef.current) {
+        console.log("🧹 Cleaning up Firestore listener...");
+        firestoreUnsubRef.current();
+      }
     };
-  }, [updateUserData]);
+  }, []);
+
+  // expoPushToken과 DB의 토큰이 다르면 업데이트
+  useEffect(() => {
+    const updatePushToken = async () => {
+      if (!user || !expoPushToken) return;
+
+      // DB의 토큰과 현재 토큰이 다르면 업데이트
+      if (user.expoPushToken !== expoPushToken) {
+        try {
+          const userRef = doc(firestore, "users", user.uid);
+          await updateDoc(userRef, {
+            expoPushToken: expoPushToken,
+          });
+          console.log("✅ Push token updated successfully");
+        } catch (error) {
+          console.log("❌ Failed to update push token:", error);
+        }
+      }
+    };
+
+    updatePushToken();
+  }, [expoPushToken, user?.uid]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -160,7 +154,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         email,
         password
       );
-      await updateUserData(userCredential.user.uid);
       router.replace("/(tabs)");
       return { success: true };
     } catch (error: any) {
@@ -208,8 +201,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         expoPushToken: expoPushToken || null,
         consecutiveNoTaskDays: 0,
       });
-
-      await updateUserData(response.user.uid);
       router.replace("/(tabs)");
       return { success: true };
     } catch (error: any) {
@@ -270,7 +261,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     isAuthLoading,
     login,
     register,
-    updateUserData,
     changeUserStock,
     logout,
   };

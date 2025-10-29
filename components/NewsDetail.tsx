@@ -10,7 +10,7 @@ import {
   Alert,
   Modal,
   Text,
-  Image, // Image 임포트 추가
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Typo from "@/components/Typo";
@@ -20,14 +20,14 @@ import { useTheme } from "@/contexts/themeContext";
 import { useNews } from "@/contexts/newsContext";
 import * as newsApi from "@/api/newsApi";
 import { useAuth } from "@/contexts/authContext";
-import * as ImagePicker from "expo-image-picker"; // ImagePicker 임포트 추가
+import * as ImagePicker from "expo-image-picker";
 
 interface CommentWithReaction extends newsApi.Comment {
-  userReaction?: "like";
+  userReaction?: "like" | "dislike";
 }
 
 const NewsDetail = ({
-  item, // 타입을 NewsItemWithImage로 변경
+  item,
   onBack,
 }: {
   item: newsApi.NewsItem;
@@ -36,23 +36,28 @@ const NewsDetail = ({
   // --- 상태 관리 ---
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState<CommentWithReaction[]>([]);
+  const [reactions, setReactions] = useState<
+    Record<string, "like" | "dislike">
+  >({});
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editTitle, setEditTitle] = useState(item.title);
   const [editContent, setEditContent] = useState(item.content);
-  // 수정 모달용 이미지 상태 추가
   const [editImage, setEditImage] = useState<string | null>(
     item.imageURL || null
   );
 
   const { theme } = useTheme();
   const {
-    loadMyNews,
     currentUserId,
     toggleNewsLike,
     myNewsLikes,
     followingNewsLikes,
     myNews,
     followingNews,
+    updateNews: contextUpdateNews,
+    deleteNews: contextDeleteNews,
+    addComment: contextAddComment,
+    deleteComment: contextDeleteComment,
   } = useNews();
   const { user } = useAuth();
   const isMyNews = currentUserId === item.userId;
@@ -65,37 +70,56 @@ const NewsDetail = ({
     isMyNews
       ? myNews.find((n) => n.id === item.id)
       : followingNews.find((n) => n.id === item.id)
-  ) as newsApi.NewsItem | undefined; // 타입 캐스팅
+  ) as newsApi.NewsItem | undefined;
 
   const displayItem = currentNewsItem || item;
 
-  // --- 데이터 로딩 ---
+  // --- 댓글 실시간 구독 ---
   useEffect(() => {
-    loadComments();
-  }, [item.id, currentUserId]);
+    if (!item.id || !item.userId) return;
 
-  // 댓글 목록 로드
-  const loadComments = async () => {
-    try {
-      const fetchedComments = await newsApi.getComments(item.userId, item.id);
-      if (currentUserId) {
-        const reactions = await newsApi.getUserCommentReactions(
-          item.userId,
-          item.id,
-          currentUserId
-        );
-        const commentsWithReactions = fetchedComments.map((c) => ({
-          ...c,
-          userReaction: reactions[c.id] as "like" | undefined,
-        }));
-        setComments(commentsWithReactions);
-      } else {
-        setComments(fetchedComments);
+    const unsubscribe = newsApi.subscribeToComments(
+      item.userId,
+      item.id,
+      (fetchedComments) => {
+        setComments(fetchedComments as CommentWithReaction[]);
+      },
+      (error) => {
+        console.error("댓글 구독 실패:", error);
       }
-    } catch (error) {
-      console.error("댓글 로드 실패:", error);
-    }
-  };
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [item.id, item.userId]);
+
+  // --- 댓글 반응 실시간 구독 ---
+  useEffect(() => {
+    if (!item.id || !item.userId || !currentUserId) return;
+
+    const unsubscribe = newsApi.subscribeToCommentReactions(
+      item.userId,
+      item.id,
+      currentUserId,
+      (fetchedReactions) => {
+        setReactions(fetchedReactions);
+      },
+      (error) => {
+        console.error("댓글 반응 구독 실패:", error);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [item.id, item.userId, currentUserId]);
+
+  // 댓글과 반응을 합쳐서 최종 데이터 생성
+  const commentsWithReactions: CommentWithReaction[] = comments.map((c) => ({
+    ...c,
+    userReaction: reactions[c.id],
+  }));
 
   // --- 핸들러 함수 ---
 
@@ -104,24 +128,19 @@ const NewsDetail = ({
     toggleNewsLike(item.userId, item.id);
   };
 
-  // 댓글 추가 핸들러
+  // 댓글 추가 핸들러 - Context 사용
   const handleAddComment = async () => {
     if (!comment.trim() || !currentUserId) return;
     try {
-      // NOTE: Add logic to get current user's name
-      await newsApi.addComment(item.userId, item.id, {
-        userId: user?.uid || "unknown", // Replace with actual user ID
-        userName: user?.name || "Unknown User", // Replace with actual user name
-        content: comment.trim(),
-      });
+      await contextAddComment(item.userId, item.id, comment.trim());
       setComment("");
-      await loadComments();
+      // 구독 방식이므로 자동 업데이트
     } catch (error) {
       Alert.alert("오류", "댓글 작성에 실패했습니다.");
     }
   };
 
-  // 댓글 삭제 핸들러
+  // 댓글 삭제 핸들러 - Context 사용
   const handleDeleteComment = async (commentId: string) => {
     Alert.alert("댓글 삭제", "이 댓글을 삭제하시겠습니까?", [
       { text: "취소", style: "cancel" },
@@ -130,8 +149,8 @@ const NewsDetail = ({
         style: "destructive",
         onPress: async () => {
           try {
-            await newsApi.deleteComment(item.userId, item.id, commentId);
-            await loadComments();
+            await contextDeleteComment(item.userId, item.id, commentId);
+            // 구독 방식이므로 자동 업데이트
           } catch (error) {
             Alert.alert("오류", "댓글 삭제에 실패했습니다.");
           }
@@ -154,13 +173,13 @@ const NewsDetail = ({
         currentUserId,
         "like"
       );
-      await loadComments();
+      // 구독 방식이므로 자동 업데이트
     } catch (error) {
       Alert.alert("오류", "반응 처리에 실패했습니다.");
     }
   };
 
-  // 뉴스 삭제 핸들러
+  // 뉴스 삭제 핸들러 - Context 사용
   const handleDeleteNews = () => {
     Alert.alert("뉴스 삭제", "이 뉴스를 삭제하시겠습니까?", [
       { text: "취소", style: "cancel" },
@@ -169,9 +188,8 @@ const NewsDetail = ({
         style: "destructive",
         onPress: async () => {
           try {
-            await newsApi.deleteNews(item.userId, item.id);
+            await contextDeleteNews(item.id);
             Alert.alert("성공", "뉴스가 삭제되었습니다.");
-            await loadMyNews();
             onBack();
           } catch (error) {
             Alert.alert("오류", "뉴스 삭제에 실패했습니다.");
@@ -181,7 +199,7 @@ const NewsDetail = ({
     ]);
   };
 
-  // (수정) 모달에서 사용할 이미지 픽커 핸들러
+  // 이미지 픽커 핸들러
   const handlePickImage = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -194,7 +212,7 @@ const NewsDetail = ({
     }
 
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // 최신 표준 사용
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [16, 9],
       quality: 0.7,
@@ -205,23 +223,22 @@ const NewsDetail = ({
     }
   };
 
-  // (수정) 뉴스 수정 핸들러
+  // 뉴스 수정 핸들러 - Context 사용
   const handleEditNews = async () => {
     if (!editTitle.trim() || !editContent.trim()) {
       Alert.alert("오류", "제목과 내용을 모두 입력해주세요.");
       return;
     }
     try {
-      // imageURL을 포함하여 API 호출
-      await newsApi.updateNews(item.userId, item.id, {
-        title: editTitle.trim(),
-        content: editContent.trim(),
-        imageUri: editImage || undefined, // 이미지 URL 추가
-      });
+      // Context의 updateNews 사용
+      await contextUpdateNews(
+        item.id,
+        editTitle.trim(),
+        editContent.trim(),
+        editImage || undefined
+      );
       setEditModalVisible(false);
       Alert.alert("성공", "뉴스가 수정되었습니다.");
-      await loadMyNews();
-      onBack();
     } catch (error) {
       Alert.alert("오류", "뉴스 수정에 실패했습니다.");
     }
@@ -245,7 +262,6 @@ const NewsDetail = ({
             <View style={styles.headerActions}>
               <TouchableOpacity
                 onPress={() => {
-                  // 모달 열 때 현재 아이템 상태로 리셋
                   setEditTitle(displayItem.title);
                   setEditContent(displayItem.content);
                   setEditImage(displayItem.imageURL || null);
@@ -281,7 +297,6 @@ const NewsDetail = ({
             {displayItem.title}
           </Typo>
 
-          {/* (추가) 이미지 표시 영역 */}
           {displayItem.imageURL && (
             <Image
               source={{ uri: displayItem.imageURL }}
@@ -334,10 +349,10 @@ const NewsDetail = ({
             style={styles.commentTitle}
             color={theme.text}
           >
-            댓글 ({comments.length})
+            댓글 ({commentsWithReactions.length})
           </Typo>
 
-          {comments.length === 0 ? (
+          {commentsWithReactions.length === 0 ? (
             <View style={styles.emptyComments}>
               <Typo size={16} color={theme.neutral400}>
                 아직 댓글이 없습니다.
@@ -345,7 +360,7 @@ const NewsDetail = ({
             </View>
           ) : (
             <FlatList
-              data={comments}
+              data={commentsWithReactions}
               keyExtractor={(c) => c.id}
               scrollEnabled={false}
               renderItem={({ item: commentItem }) => (
@@ -367,9 +382,11 @@ const NewsDetail = ({
                           {commentItem.userName}
                         </Typo>
                         <Typo size={12} color={theme.neutral400}>
-                          {new Date(
-                            commentItem.createdAt.toMillis()
-                          ).toLocaleString("ko-KR")}
+                          {commentItem.createdAt
+                            ? new Date(
+                                commentItem.createdAt.toMillis()
+                              ).toLocaleString("ko-KR")
+                            : "방금 전"}
                         </Typo>
                       </View>
                     </View>
@@ -459,7 +476,7 @@ const NewsDetail = ({
         </View>
       </ScrollView>
 
-      {/* (수정) 뉴스 수정 모달 */}
+      {/* 뉴스 수정 모달 */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -501,7 +518,6 @@ const NewsDetail = ({
               multiline
             />
 
-            {/* (추가) 이미지 프리뷰 및 버튼 */}
             {editImage && (
               <Image
                 source={{ uri: editImage }}
@@ -528,8 +544,6 @@ const NewsDetail = ({
               <TouchableOpacity
                 style={[
                   styles.modalButton,
-                  // theme에 red50, red100이 있다고 가정합니다.
-                  // 없다면 { backgroundColor: "#FFEEEE" } 등으로 수정하세요.
                   {
                     backgroundColor: theme.red50 || "#FFEEEE",
                     flex: 1,
@@ -543,7 +557,6 @@ const NewsDetail = ({
                 </Text>
               </TouchableOpacity>
             </View>
-            {/* --- --- */}
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -587,7 +600,6 @@ const styles = StyleSheet.create({
   detailContainer: { padding: spacingX._20 },
   date: { marginBottom: spacingY._10 },
   title: { marginBottom: spacingY._20, lineHeight: verticalScale(34) },
-  // (추가) 뉴스 상세 이미지 스타일
   newsImage: {
     width: "100%",
     height: verticalScale(250),
@@ -660,14 +672,12 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   modalContentInput: { height: 150, textAlignVertical: "top" },
-  // (추가) 모달 이미지 프리뷰
   modalImagePreview: {
     width: "100%",
     height: 150,
     borderRadius: 8,
     marginBottom: 10,
   },
-  // (추가) 모달 이미지 버튼 컨테이너
   modalImageActions: {
     flexDirection: "row",
     justifyContent: "space-between",

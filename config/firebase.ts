@@ -3,7 +3,6 @@ import { getApp } from "@react-native-firebase/app";
 import { getFirestore } from "@react-native-firebase/firestore";
 import { getAuth } from "@react-native-firebase/auth";
 import { getStorage } from "@react-native-firebase/storage";
-import { getAnalytics } from "@react-native-firebase/analytics";
 
 // ✅ 앱 인스턴스 가져오기
 const app = getApp();
@@ -20,18 +19,16 @@ firestore.settings({
 // ✅ 다른 서비스들
 const auth = getAuth(app);
 const storage = getStorage(app);
-const analytics = getAnalytics(app);
 
 // ✅ AI Functions URL
 export const AI_FUNCTIONS_URL = process.env.EXPO_PUBLIC_CREATE_NEWS_API_URL;
 
 // ✅ 내보내기
-export { app, firestore, auth, storage, analytics };
+export { app, firestore, auth, storage };
 
 export default {
   app,
   firestore,
   auth,
   storage,
-  analytics,
 };

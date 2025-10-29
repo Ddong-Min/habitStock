@@ -72,8 +72,6 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
           followApi.searchUsersByName(query, currentUserId),
           followApi.searchUsersByEmail(query, currentUserId),
         ]);
-        console.log("Name search results:", nameResults);
-        console.log("Email search results:", emailResults);
 
         // 중복 제거
         const usersMap = new Map<string, UserType>();
@@ -87,9 +85,7 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
             usersMap.set(user.uid, user);
           }
         });
-        console.log("Users map after name/email search:", usersMap);
         setSearchResults(Array.from(usersMap.values()));
-        console.log("Combined search results:", Array.from(usersMap.values()));
       } catch (error) {
         console.error("Error searching users:", error);
       } finally {

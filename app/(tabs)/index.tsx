@@ -17,9 +17,9 @@ import CustomDatePicker from "@/components/CustomDatePicker";
 import { useCalendar } from "@/contexts/calendarContext";
 import { useTheme } from "@/contexts/themeContext";
 import UserProfile from "../../components/UserProfile";
+import { customLogEvent } from "@/events/appEvent";
 const TodoScreen = () => {
   const {
-    taskType,
     isBottomSheetOpen,
     isModifyDifficultySheet,
     showDatePicker,
@@ -36,10 +36,18 @@ const TodoScreen = () => {
   const [isNewsMode, setIsNewsMode] = useState(false);
 
   // 뉴스 생성 버튼 토글
-  const toggleNewsMode = () => {
+  const toggleNewsMode = async () => {
     setIsNewsMode(!isNewsMode);
-  };
 
+    await customLogEvent({
+      eventName: "toggle_news_mode",
+      payload: {
+        previous_mode: isNewsMode,
+        new_mode: !isNewsMode,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  };
   // Z-index 계산: BottomSheet가 열려있으면 그 아래로
   const floatingButtonZIndex = 5;
 
@@ -54,7 +62,7 @@ const TodoScreen = () => {
         <CustomCalendar />
 
         <View style={{ flex: 1 }}>
-          <TaskList isTodo={true} isNewsMode={isNewsMode} />
+          <TaskList isNewsMode={isNewsMode} />
         </View>
       </ScrollView>
 

@@ -24,25 +24,18 @@ const news = () => {
   const { followingUsers, followingIds } = useFollow();
   const {
     followingNews,
-    loadFollowingNews,
     selectNews,
     selectedNews,
     toggleNewsLike,
     followingNewsLikes,
     loading,
     myNews,
-    loadMyNews,
     myNewsLikes,
     currentUserId,
   } = useNews();
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]); // 빈 배열 = 전체
-
-  useEffect(() => {
-    loadMyNews();
-    loadFollowingNews();
-  }, []);
 
   const combinedNews = [...(myNews || []), ...(followingNews || [])].sort(
     (a, b) => {
@@ -101,12 +94,6 @@ const news = () => {
     } catch (error) {
       return "날짜 오류";
     }
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([loadMyNews(), loadFollowingNews()]);
-    setRefreshing(false);
   };
 
   const handleNewsPress = (item: any) => {
@@ -513,7 +500,6 @@ const news = () => {
         scrollEventThrottle={16}
         onEndReachedThreshold={0.5}
         refreshing={refreshing}
-        onRefresh={handleRefresh}
         showsVerticalScrollIndicator={false}
         // --- 4. 변경점: ListHeaderComponent prop 추가 ---
         // 위에서 만든 헤더 + 필터 렌더링 함수를 여기에 전달합니다.

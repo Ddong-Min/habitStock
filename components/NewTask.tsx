@@ -10,7 +10,6 @@ import { useTheme } from "@/contexts/themeContext";
 
 const NewTask = () => {
   const {
-    taskType,
     newTaskText,
     putTaskText,
     addNewTask,
@@ -44,8 +43,6 @@ const NewTask = () => {
             onSubmitEditing={() =>
               isEditText
                 ? editTask("task", newTaskText)
-                : taskType === "buckets"
-                ? changeShowDatePicker()
                 : addNewTask(selectedDate)
             }
           />
@@ -67,8 +64,6 @@ const NewTask = () => {
             onPress={() =>
               isEditText
                 ? editTask("task", newTaskText)
-                : taskType === "buckets"
-                ? changeShowDatePicker()
                 : addNewTask(selectedDate)
             }
             style={styles.actionButton}
