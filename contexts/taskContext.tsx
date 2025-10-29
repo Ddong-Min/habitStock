@@ -348,9 +348,13 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       priceChange: Math.round(foundTask.priceChange * 1.5 * 10) / 10,
       percentage: Math.round(foundTask.percentage * 1.5 * 10) / 10,
       appliedPriceChange:
-        Math.round(foundTask.appliedPriceChange * 1.5 * 10) / 10,
+        Math.round(
+          (foundTask.appliedPriceChange + foundTask.priceChange * 0.5) * 10
+        ) / 10,
       appliedPercentage:
-        Math.round(foundTask.appliedPercentage * 1.5 * 10) / 10,
+        Math.round(
+          (foundTask.appliedPercentage + foundTask.percentage * 0.5) * 10
+        ) / 10,
       updatedAt: new Date().toISOString(),
     };
 

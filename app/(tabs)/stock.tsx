@@ -7,10 +7,11 @@ import { useStock } from "@/contexts/stockContext";
 import { useFollow } from "@/contexts/followContext";
 import { useTheme } from "@/contexts/themeContext";
 import { useCalendar } from "@/contexts/calendarContext";
+import { radius, spacingX, spacingY } from "@/constants/theme";
 
 const Stock = () => {
   const { theme } = useTheme();
-  const { stockData, stockTabType, stockSummary } = useStock();
+  const { stockData, stockSummary } = useStock();
   const { today } = useCalendar();
   const { selectedFollowId, changeSelectedFollowId } = useFollow();
 
@@ -35,138 +36,181 @@ const Stock = () => {
     <ScrollView
       style={[styles.container, { backgroundColor: theme.background }]}
     >
-      <UserProfile type={stockTabType} />
+      <UserProfile />
       <CustomChart stockData={stockData} />
 
       {/* 시세 섹션 */}
       {stockSummary && (
-        <View
-          style={[styles.section, { backgroundColor: theme.cardBackground }]}
-        >
-          <View style={styles.sectionHeader}>
-            <Typo size={18} fontWeight="bold" color={theme.text}>
-              시세
-            </Typo>
-          </View>
-
-          {/* 최근 7일 */}
-          <View style={styles.rangeContainer}>
-            <View
-              style={[styles.rangeBar, { backgroundColor: theme.neutral100 }]}
-            >
-              <View
-                style={[
-                  styles.rangeDot,
-                  {
-                    backgroundColor: theme.neutral400,
-                    left: `${calculatePosition(
-                      stockSummary.recent7Days.current,
-                      stockSummary.recent7Days.low,
-                      stockSummary.recent7Days.high
-                    )}%`,
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.rangeTextContainer}>
-              <View style={styles.rangeItem}>
-                <Typo size={13} color={theme.sub}>
-                  7일 최저가
-                </Typo>
-                <Typo size={15} fontWeight="medium" color={theme.text}>
-                  {stockSummary.recent7Days.low.toLocaleString()}원
-                </Typo>
-              </View>
-              <View style={styles.rangeItem}>
-                <Typo size={13} color={theme.sub}>
-                  7일 최고가
-                </Typo>
-                <Typo size={15} fontWeight="medium" color={theme.text}>
-                  {stockSummary.recent7Days.high.toLocaleString()}원
-                </Typo>
-              </View>
-            </View>
-          </View>
-
-          {/* 전체 기간 */}
-          <View style={styles.rangeContainer}>
-            <View
-              style={[styles.rangeBar, { backgroundColor: theme.neutral100 }]}
-            >
-              <View
-                style={[
-                  styles.rangeDot,
-                  {
-                    backgroundColor: theme.neutral400,
-                    left: `${calculatePosition(
-                      stockSummary.allTime.current,
-                      stockSummary.allTime.low,
-                      stockSummary.allTime.high
-                    )}%`,
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.rangeTextContainer}>
-              <View style={styles.rangeItem}>
-                <Typo size={13} color={theme.sub}>
-                  전체 최저가
-                </Typo>
-                <Typo size={15} fontWeight="medium" color={theme.text}>
-                  {stockSummary.allTime.low.toLocaleString()}원
-                </Typo>
-              </View>
-              <View style={styles.rangeItem}>
-                <Typo size={13} color={theme.sub}>
-                  전체 최고가
-                </Typo>
-                <Typo size={15} fontWeight="medium" color={theme.text}>
-                  {stockSummary.allTime.high.toLocaleString()}원
-                </Typo>
-              </View>
-            </View>
-          </View>
-
-          {/* 현재가 & 거래량 */}
+        <View style={styles.sectionContainer}>
           <View
-            style={[
-              styles.infoGrid,
-              { borderTopWidth: 1, borderTopColor: theme.neutral200 },
-            ]}
+            style={[styles.section, { backgroundColor: theme.cardBackground }]}
           >
-            <View style={styles.infoItem}>
-              <Typo size={13} color={theme.sub}>
-                현재가
-              </Typo>
-              <Typo size={16} fontWeight="medium" color={theme.text}>
-                {stockSummary.allTime.current.toLocaleString()}원
+            <View style={styles.sectionHeader}>
+              <Typo size={18} fontWeight="bold" color={theme.text}>
+                시세
               </Typo>
             </View>
-            <View style={styles.infoItem}>
-              <Typo size={13} color={theme.sub}>
-                최대 거래량
+
+            {/* 최근 7일 */}
+            <View style={styles.subsection}>
+              <Typo
+                size={15}
+                fontWeight="semibold"
+                color={theme.text}
+                style={styles.subsectionTitle}
+              >
+                최근 7일
               </Typo>
-              <Typo size={16} fontWeight="medium" color={theme.text}>
-                {stockSummary.maxVolume.volume.toLocaleString()}주
-              </Typo>
+              <View style={styles.rangeContainer}>
+                <View
+                  style={[
+                    styles.rangeBar,
+                    { backgroundColor: theme.neutral100 },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.rangeDot,
+                      {
+                        backgroundColor: theme.neutral400,
+                        left: `${calculatePosition(
+                          stockSummary.recent7Days.current,
+                          stockSummary.recent7Days.low,
+                          stockSummary.recent7Days.high
+                        )}%`,
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.rangeTextContainer}>
+                  <View style={styles.rangeItem}>
+                    <Typo size={13} color={theme.sub}>
+                      7일 최저가
+                    </Typo>
+                    <Typo size={15} fontWeight="medium" color={theme.text}>
+                      {stockSummary.recent7Days.low.toLocaleString()}원
+                    </Typo>
+                  </View>
+                  <View style={styles.rangeItem}>
+                    <Typo size={13} color={theme.sub}>
+                      7일 최고가
+                    </Typo>
+                    <Typo size={15} fontWeight="medium" color={theme.text}>
+                      {stockSummary.recent7Days.high.toLocaleString()}원
+                    </Typo>
+                  </View>
+                </View>
+              </View>
             </View>
-          </View>
-          <View style={styles.infoGrid}>
-            <View style={styles.infoItem}>
-              <Typo size={13} color={theme.sub}>
-                시작가
+
+            {/* 구분선 */}
+            <View
+              style={[styles.divider, { backgroundColor: theme.neutral200 }]}
+            />
+
+            {/* 전체 기간 */}
+            <View style={styles.subsection}>
+              <Typo
+                size={15}
+                fontWeight="semibold"
+                color={theme.text}
+                style={styles.subsectionTitle}
+              >
+                전체 기간
               </Typo>
-              <Typo size={16} fontWeight="medium" color={theme.text}>
-                {stockData[today].open.toLocaleString()}원
-              </Typo>
+              <View style={styles.rangeContainer}>
+                <View
+                  style={[
+                    styles.rangeBar,
+                    { backgroundColor: theme.neutral100 },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.rangeDot,
+                      {
+                        backgroundColor: theme.neutral400,
+                        left: `${calculatePosition(
+                          stockSummary.allTime.current,
+                          stockSummary.allTime.low,
+                          stockSummary.allTime.high
+                        )}%`,
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.rangeTextContainer}>
+                  <View style={styles.rangeItem}>
+                    <Typo size={13} color={theme.sub}>
+                      전체 최저가
+                    </Typo>
+                    <Typo size={15} fontWeight="medium" color={theme.text}>
+                      {stockSummary.allTime.low.toLocaleString()}원
+                    </Typo>
+                  </View>
+                  <View style={styles.rangeItem}>
+                    <Typo size={13} color={theme.sub}>
+                      전체 최고가
+                    </Typo>
+                    <Typo size={15} fontWeight="medium" color={theme.text}>
+                      {stockSummary.allTime.high.toLocaleString()}원
+                    </Typo>
+                  </View>
+                </View>
+              </View>
             </View>
-            <View style={styles.infoItem}>
-              <Typo size={13} color={theme.sub}>
-                종가가
+
+            {/* 구분선 */}
+            <View
+              style={[styles.divider, { backgroundColor: theme.neutral200 }]}
+            />
+
+            {/* 상세 정보 */}
+            <View style={styles.subsection}>
+              <Typo
+                size={15}
+                fontWeight="semibold"
+                color={theme.text}
+                style={styles.subsectionTitle}
+              >
+                상세 정보
               </Typo>
-              <Typo size={16} fontWeight="medium" color={theme.text}>
-                {stockData[today].close.toLocaleString()}원
-              </Typo>
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Typo size={13} color={theme.sub}>
+                    현재가
+                  </Typo>
+                  <Typo size={16} fontWeight="medium" color={theme.text}>
+                    {stockSummary.allTime.current.toLocaleString()}원
+                  </Typo>
+                </View>
+                <View style={styles.infoItem}>
+                  <Typo size={13} color={theme.sub}>
+                    최대 거래량
+                  </Typo>
+                  <Typo size={16} fontWeight="medium" color={theme.text}>
+                    {stockSummary.maxVolume.volume.toLocaleString()}주
+                  </Typo>
+                </View>
+              </View>
+              <View style={styles.infoGrid}>
+                <View style={styles.infoItem}>
+                  <Typo size={13} color={theme.sub}>
+                    시작가
+                  </Typo>
+                  <Typo size={16} fontWeight="medium" color={theme.text}>
+                    {stockData[today].open.toLocaleString()}원
+                  </Typo>
+                </View>
+                <View style={styles.infoItem}>
+                  <Typo size={13} color={theme.sub}>
+                    종가
+                  </Typo>
+                  <Typo size={16} fontWeight="medium" color={theme.text}>
+                    {stockData[today].close.toLocaleString()}원
+                  </Typo>
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -184,35 +228,55 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  sectionContainer: {
+    marginHorizontal: spacingX._12,
+    marginTop: spacingY._10,
+    marginBottom: spacingY._20,
+  },
   section: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 24,
-    padding: 20,
-    borderRadius: 16,
+    padding: spacingX._20,
+    borderRadius: radius._15,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: spacingY._15,
+  },
+  subsection: {
+    marginBottom: spacingY._3,
+  },
+  subsectionTitle: {
+    marginBottom: spacingY._15,
+  },
+  divider: {
+    height: 1,
+    marginVertical: spacingY._15,
   },
   rangeContainer: {
-    marginBottom: 20,
+    marginBottom: 0,
   },
   rangeBar: {
-    height: 6,
-    borderRadius: 3,
-    marginBottom: 12,
+    height: spacingY._8,
+    borderRadius: radius._3,
+    marginBottom: spacingY._10,
     position: "relative",
   },
   rangeDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: spacingX._10,
+    height: spacingX._10,
+    borderRadius: radius._100,
     position: "absolute",
-    top: -3,
-    marginLeft: -6, // 중앙 정렬을 위해 추가
+    top: -spacingX._3,
+    marginLeft: -spacingX._6, // 중앙 정렬을 위해 추가
   },
   rangeTextContainer: {
     flexDirection: "row",
@@ -224,7 +288,7 @@ const styles = StyleSheet.create({
   infoGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingTop: 16,
+    paddingTop: 12,
   },
   infoItem: {
     flex: 1,

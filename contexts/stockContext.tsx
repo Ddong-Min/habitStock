@@ -199,11 +199,6 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     );
 
     if (result.success) {
-      // Optimistic UI update (즉각 반응을 위해)
-      setStockData((prev) => ({
-        ...prev,
-        [date]: updatedStockData,
-      }));
       changeUserStock(updatedStockData.close);
     } else {
       console.error("Failed to update stock data:", result.msg);
@@ -250,11 +245,6 @@ export const StockProvider = ({ children }: { children: ReactNode }) => {
     );
 
     if (result.success) {
-      // Optimistic UI update
-      setStockData((prev) => ({
-        ...prev,
-        [date]: updatedStockData,
-      }));
       changeUserStock(updatedStockData.close);
     } else {
       console.error("Failed to update stock data:", result.msg);

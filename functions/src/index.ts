@@ -121,21 +121,20 @@ export const check1HourBeforeDeadline = onSchedule(
             targetDate = koreaTime.toISOString().split("T")[0];
           }
 
+          // 수정된 구조: users/{userId}/todos/{date}
           const todosDoc = await db
             .collection("users")
             .doc(userId)
-            .collection("data")
-            .doc("todos")
+            .collection("todos")
+            .doc(targetDate)
             .get();
 
           if (!todosDoc.exists) continue;
 
           const todosData = todosDoc.data();
-          const dateTodos = todosData?.[targetDate];
+          if (!todosData) continue;
 
-          if (!dateTodos) continue;
-
-          const incompleteTasks = Object.values(dateTodos).filter(
+          const incompleteTasks = Object.values(todosData).filter(
             (task: any) => !task.completed
           ).length;
 
@@ -210,21 +209,20 @@ export const check10MinutesBeforeDeadline = onSchedule(
             targetDate = koreaTime.toISOString().split("T")[0];
           }
 
+          // 수정된 구조: users/{userId}/todos/{date}
           const todosDoc = await db
             .collection("users")
             .doc(userId)
-            .collection("data")
-            .doc("todos")
+            .collection("todos")
+            .doc(targetDate)
             .get();
 
           if (!todosDoc.exists) continue;
 
           const todosData = todosDoc.data();
-          const dateTodos = todosData?.[targetDate];
+          if (!todosData) continue;
 
-          if (!dateTodos) continue;
-
-          const tasks = Object.values(dateTodos);
+          const tasks = Object.values(todosData);
           const incompleteTasks = tasks.filter((task: any) => !task.completed);
           const totalTasks = tasks.length;
 
@@ -260,7 +258,7 @@ export const check10MinutesBeforeDeadline = onSchedule(
 // ==================== 마감 후 처리 ====================
 
 /**
- * 🔥 MODIFIED: 할일이 하나도 없을 때 주가 하락, 알림, 주가 데이터 생성을 모두 처리
+ * 할일이 하나도 없을 때 주가 하락, 알림, 주가 데이터 생성을 모두 처리
  */
 async function applyNoTaskPenalty(
   userId: string,
@@ -291,14 +289,12 @@ async function applyNoTaskPenalty(
       Math.round((currentPrice - priceChange) * 10) / 10
     );
 
-    // 주가 데이터 생성
-    const stocksDocRef = db
+    // 수정된 구조: users/{userId}/stocks/{date}
+    const stockDocRef = db
       .collection("users")
       .doc(userId)
-      .collection("data")
-      .doc("stocks");
-    const stocksDoc = await stocksDocRef.get();
-    const stocksData = stocksDoc.exists ? stocksDoc.data() || {} : {};
+      .collection("stocks")
+      .doc(date);
 
     const stockUpdate = {
       date: date,
@@ -311,8 +307,7 @@ async function applyNoTaskPenalty(
       volume: 0, // 할일이 없었으므로 거래량은 0
     };
 
-    stocksData[date] = stockUpdate;
-    await stocksDocRef.set(stocksData, { merge: true });
+    await stockDocRef.set(stockUpdate);
 
     // 사용자 정보 업데이트
     await db
@@ -373,24 +368,22 @@ async function calculateStockPenalty(
       totalChangeRate += task.percentage || 0;
 
       if (task.id) {
-        const priceFieldPath = `${date}.${task.id}.appliedPriceChange`;
-        const percentFieldPath = `${date}.${task.id}.appliedPercentage`;
-
-        todoUpdates[priceFieldPath] = FieldValue.increment(
+        todoUpdates[`${task.id}.appliedPriceChange`] = FieldValue.increment(
           -(task.priceChange || 0)
         );
-        todoUpdates[percentFieldPath] = FieldValue.increment(
+        todoUpdates[`${task.id}.appliedPercentage`] = FieldValue.increment(
           -(task.percentage || 0)
         );
       }
     });
 
+    // 수정된 구조: users/{userId}/todos/{date}
     if (Object.keys(todoUpdates).length > 0) {
       const todosDocRef = db
         .collection("users")
         .doc(userId)
-        .collection("data")
-        .doc("todos");
+        .collection("todos")
+        .doc(date);
       await todosDocRef.update(todoUpdates);
     }
 
@@ -399,39 +392,40 @@ async function calculateStockPenalty(
       Math.round((currentPrice - totalChangePrice) * 10) / 10
     );
 
-    const stocksDocRef = db
+    // 수정된 구조: users/{userId}/stocks/{date}
+    const stockDocRef = db
       .collection("users")
       .doc(userId)
-      .collection("data")
-      .doc("stocks");
-    const stocksDoc = await stocksDocRef.get();
-    const stocksData = stocksDoc.exists ? stocksDoc.data() || {} : {};
-    const previousStock = stocksData[date] || {};
+      .collection("stocks")
+      .doc(date);
+    const stockDoc = await stockDocRef.get();
+    const previousStock = stockDoc.exists ? stockDoc.data() : null;
 
-    const low = previousStock.low
+    const low = previousStock?.low
       ? Math.min(previousStock.low, newPrice)
       : newPrice;
-    const changePrice = previousStock.changePrice
+    const changePrice = previousStock?.changePrice
       ? Math.round((previousStock.changePrice - totalChangePrice) * 10) / 10
       : -totalChangePrice;
-    const changeRate = previousStock.changeRate
+    const changeRate = previousStock?.changeRate
       ? Math.round((previousStock.changeRate - totalChangeRate) * 10) / 10
       : -totalChangeRate;
-    const open = previousStock.open ? previousStock.open : currentPrice;
+    const open = previousStock?.open || currentPrice;
     const volume =
       changePrice >= 0 ? completedTasks.length : incompleteTasks.length;
 
-    stocksData[date] = {
+    const stockData = {
       date: date,
       changePrice: changePrice,
       changeRate: changeRate,
       open: open,
       close: newPrice,
-      high: previousStock.high || currentPrice,
+      high: previousStock?.high || currentPrice,
       low: low,
-      volume: (previousStock.volume || 0) + volume,
+      volume: (previousStock?.volume || 0) + volume,
     };
-    await stocksDocRef.set(stocksData, { merge: true });
+
+    await stockDocRef.set(stockData);
 
     await db.collection("users").doc(userId).update({
       price: newPrice,
@@ -487,7 +481,7 @@ async function calculateStockPenalty(
 }
 
 /**
- * 🔥 MODIFIED: 특정 날짜의 할일 체크 및 분기 처리
+ * 특정 날짜의 할일 체크 및 분기 처리
  */
 async function checkTasksForDate(
   userId: string,
@@ -495,20 +489,19 @@ async function checkTasksForDate(
   userData: admin.firestore.DocumentData
 ): Promise<void> {
   try {
+    // 수정된 구조: users/{userId}/todos/{date}
     const todosDoc = await db
       .collection("users")
       .doc(userId)
-      .collection("data")
-      .doc("todos")
+      .collection("todos")
+      .doc(date)
       .get();
 
     const todosData = todosDoc.exists ? todosDoc.data() : null;
-    const dateTodos = todosData?.[date];
-    const totalTasks = dateTodos ? Object.keys(dateTodos).length : 0;
+    const totalTasks = todosData ? Object.keys(todosData).length : 0;
 
     if (totalTasks > 0) {
-      // --- 분기 1: 오늘 할일이 있는 경우 (완료/미완료 무관) ---
-      // 할일이 하나라도 등록되었으므로, 연속 할일 없음 카운트를 0으로 초기화합니다.
+      // 할일이 하나라도 등록되었으므로, 연속 할일 없음 카운트를 0으로 초기화
       if (
         userData.consecutiveNoTaskDays &&
         userData.consecutiveNoTaskDays > 0
@@ -520,7 +513,7 @@ async function checkTasksForDate(
         console.log(`🔄 ${userId}: 할일 등록 확인, 연속 카운트 초기화.`);
       }
 
-      const allTasks = Object.values(dateTodos);
+      const allTasks = todosData ? Object.values(todosData) : [];
       const incompleteTasks = allTasks.filter((task: any) => !task.completed);
       const completedTasks = allTasks.filter((task: any) => task.completed);
 
@@ -541,7 +534,7 @@ async function checkTasksForDate(
         console.log(`✅ ${userId}: ${date} 모든 할일 완료`);
       }
     } else {
-      // --- 분기 2: 오늘 할일이 아예 없는 경우 ---
+      // 오늘 할일이 아예 없는 경우
       console.log(`📭 ${userId}: ${date} 할일 없음. 페널티 적용.`);
       await applyNoTaskPenalty(userId, date, userData);
     }
@@ -550,7 +543,7 @@ async function checkTasksForDate(
   }
 }
 
-// ==================== 기존 스케줄링 함수 (수정됨) ====================
+// ==================== 스케줄링 함수 ====================
 
 export const checkUserTasksByTime = onSchedule(
   {
@@ -599,7 +592,6 @@ export const checkUserTasksByTime = onSchedule(
         console.log(
           `👤 ${userId}: duetime ${currentTime} → ${targetDate} 체크`
         );
-        // userData 전체를 전달하도록 수정
         await checkTasksForDate(userId, targetDate, userData);
       });
 
@@ -617,7 +609,6 @@ export const manualCheckUserTasks = onRequest(
   },
   async (req, res) => {
     try {
-      // --- FIX: req.body -> req.query로 변경 ---
       const userId = req.query.userId as string;
       const date = req.query.date as string;
 
@@ -646,7 +637,7 @@ export const manualCheckUserTasks = onRequest(
         res.status(404).json({ error: "유저 데이터를 찾을 수 없습니다" });
         return;
       }
-      // userData 전체를 전달하도록 수정
+
       await checkTasksForDate(userId, targetDate, userData);
 
       res.json({
@@ -715,7 +706,7 @@ export const batchCheckTasks = onRequest(
   }
 );
 
-// ==================== AI 뉴스 생성 (기존 코드 유지) ====================
+// ==================== AI 뉴스 생성 ====================
 
 async function generateNewsForTask(
   userName: string,
@@ -788,17 +779,18 @@ async function saveNewsToFirestore(
   userId: string,
   userName: string,
   userPhotoURL: string | undefined,
-  newsContent: { title: string; content: string; id: string }
+  newsContent: { title: string; content: string; id: string },
+  imageURL: string | null | undefined
 ) {
   try {
+    // 수정된 구조: users/{userId}/news/{newsId}
+    const newsId = newsContent.id;
     const docRef = db
       .collection("users")
       .doc(userId)
-      .collection("data")
-      .doc("news");
-    const docSnap = await docRef.get();
-    const currentData = docSnap.exists ? docSnap.data() ?? {} : {};
-    const newsId = newsContent.id;
+      .collection("news")
+      .doc(newsId);
+
     const now = new Date();
     const newNews = {
       id: newsId,
@@ -814,10 +806,10 @@ async function saveNewsToFirestore(
       createdAt: FieldValue.serverTimestamp(),
       likesCount: 0,
       commentsCount: 0,
+      imageURL: imageURL || null,
     };
 
-    currentData[newsId] = newNews;
-    await docRef.set(currentData, { merge: true });
+    await docRef.set(newNews);
   } catch (error) {
     console.error("❌ 뉴스 저장 실패:", error);
     throw error;
@@ -853,7 +845,7 @@ export const manualGenerateNews = onRequest(
       const taskId = req.query.taskId as string;
       const date =
         (req.query.date as string) || new Date().toISOString().split("T")[0];
-
+      const imageURL = req.query.imageURL as string | undefined;
       const userDoc = await db.collection("users").doc(requestedUserId).get();
 
       if (!userDoc.exists) {
@@ -863,11 +855,12 @@ export const manualGenerateNews = onRequest(
 
       const userData = userDoc.data()!;
 
+      // 수정된 구조: users/{userId}/todos/{date}
       const todosDoc = await db
         .collection("users")
         .doc(requestedUserId)
-        .collection("data")
-        .doc("todos")
+        .collection("todos")
+        .doc(date)
         .get();
 
       if (!todosDoc.exists) {
@@ -876,9 +869,7 @@ export const manualGenerateNews = onRequest(
       }
 
       const todosData = todosDoc.data();
-      const dateTodos = todosData?.[date];
-
-      if (!dateTodos) {
+      if (!todosData) {
         res.send({ message: `${date}에 할일이 없습니다` });
         return;
       }
@@ -886,13 +877,13 @@ export const manualGenerateNews = onRequest(
       let targetTask = null;
 
       if (taskId) {
-        targetTask = dateTodos[taskId];
+        targetTask = todosData[taskId];
         if (!targetTask) {
           res.status(404).send("해당 할일을 찾을 수 없습니다");
           return;
         }
       } else {
-        const tasks = Object.values(dateTodos);
+        const tasks = Object.values(todosData);
         const completedTasks = tasks.filter((task: any) => task.completed);
         if (completedTasks.length === 0) {
           res.send({ message: "완료된 할일이 없습니다" });
@@ -912,7 +903,8 @@ export const manualGenerateNews = onRequest(
           requestedUserId,
           userData.name || "사용자",
           userData.image,
-          newsContent
+          newsContent,
+          imageURL || null
         );
         res.send({
           message: "뉴스 생성 완료",

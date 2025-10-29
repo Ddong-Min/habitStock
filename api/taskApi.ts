@@ -119,7 +119,7 @@ export const saveTaskFirebase = async (
       { merge: true }
     );
 
-    console.log("✅ Task saved:", task.id);
+    console.log("✅ Task saved:", task.id, task);
   } catch (error) {
     console.error("Error saving task:", error);
     throw error;

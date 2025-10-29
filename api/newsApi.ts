@@ -102,24 +102,27 @@ export const createNews = async (
     if (!AI_FUNCTIONS_URL) {
       throw new Error("AI Functions URL is not defined.");
     }
-    console.log("3");
-    const params = new URLSearchParams({ userId, taskId, date: dueDate });
+    if (imageURL) {
+      console.log("Uploading news image...");
+      imageURL = await uploadNewsImage(userId, newsId, imageURL);
+    }
+    const params = new URLSearchParams({
+      userId,
+      taskId,
+      date: dueDate,
+      imageURL: imageURL || "",
+    });
     const res = await fetch(`${AI_FUNCTIONS_URL}?${params.toString()}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
-    console.log("4");
     if (!res.ok) {
       throw new Error(`AI Functions request failed with status ${res.status}`);
     }
     const result = await res.json();
     console.log("AI Functions response:", result);
-
-    if (imageURL) {
-      imageURL = await uploadNewsImage(userId, newsId, imageURL);
-    }
     return result;
   } catch (error) {
     console.error("뉴스 생성 실패:", error);

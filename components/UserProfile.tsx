@@ -8,11 +8,7 @@ import { useStock } from "@/contexts/stockContext";
 import { useCalendar } from "@/contexts/calendarContext";
 import { useTheme } from "@/contexts/themeContext";
 
-interface ProfileProps {
-  type: "todo" | "stocks" | "news";
-}
-
-const UserProfile: React.FC<ProfileProps> = ({ type }) => {
+const UserProfile: React.FC<{}> = ({}) => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { stockData } = useStock();
@@ -37,43 +33,40 @@ const UserProfile: React.FC<ProfileProps> = ({ type }) => {
       </View>
       <View style={styles.userInfo}>
         <Typo
-          size={type === "news" ? 26 : 20}
+          size={20}
           fontWeight="600"
           color={theme.text}
           style={{ lineHeight: verticalScale(24), letterSpacing: -0.3 }}
         >
           {user?.name || "사용자"}
         </Typo>
-        {type !== "news" && (
-          <View style={styles.stockInfo}>
-            <Typo
-              size={20}
-              fontWeight="600"
-              color={theme.text}
-              style={{ marginRight: 6, letterSpacing: -0.2 }}
-            >
-              ₩{todayStock?.close!}
+
+        <View style={styles.stockInfo}>
+          <Typo
+            size={20}
+            fontWeight="600"
+            color={theme.text}
+            style={{ marginRight: 6, letterSpacing: -0.2 }}
+          >
+            ₩{todayStock?.close!}
+          </Typo>
+
+          <Typo size={15} color={theme.neutral400} fontWeight={"500"}>
+            어제보다{" "}
+          </Typo>
+
+          <View
+            style={[
+              styles.changeBadge,
+              { backgroundColor: `${changeColor}15` },
+            ]}
+          >
+            <Typo size={15} fontWeight="500" style={{ color: changeColor }}>
+              {isPositive ? "▲" : isZero ? "" : "▼"} {todayStock?.changePrice} (
+              {todayStock?.changeRate}%)
             </Typo>
-
-            {type === "stocks" && (
-              <Typo size={15} color={theme.neutral400} fontWeight={"500"}>
-                어제보다{" "}
-              </Typo>
-            )}
-
-            <View
-              style={[
-                styles.changeBadge,
-                { backgroundColor: `${changeColor}15` },
-              ]}
-            >
-              <Typo size={15} fontWeight="500" style={{ color: changeColor }}>
-                {isPositive ? "▲" : isZero ? "" : "▼"} {todayStock?.changePrice}{" "}
-                ({todayStock?.changeRate}%)
-              </Typo>
-            </View>
           </View>
-        )}
+        </View>
       </View>
     </View>
   );
