@@ -35,31 +35,25 @@ const Login = () => {
 
     if (!res.success) {
       if (res.needVerification) {
-        // 이메일 인증이 필요한 경우
+        // 이메일 인증이 필요한 경우 인증 대기 화면으로 이동
         Alert.alert(
           "이메일 인증 필요",
-          "이메일 인증이 완료되지 않았습니다. 인증 이메일을 다시 보내시겠습니까?",
+          res.msg || "이메일 인증이 필요합니다.",
           [
             {
-              text: "취소",
-              style: "cancel",
-            },
-            {
-              text: "재발송",
-              onPress: async () => {
-                const result = await resendVerificationEmail();
-                Alert.alert(
-                  result.success ? "발송 완료" : "발송 실패",
-                  result.msg || ""
-                );
-              },
+              text: "확인",
+              onPress: () => router.replace("/(auth)/emailVerification"),
             },
           ]
         );
       } else {
-        Alert.alert("로그인 실패", res.msg);
+        Alert.alert(
+          "로그인 실패",
+          res.msg || "알 수 없는 오류가 발생했습니다."
+        );
       }
     }
+    // 성공시에는 login 함수 내부에서 router.replace("/(tabs)") 실행됨
   };
 
   const handleGoogleSignIn = async () => {

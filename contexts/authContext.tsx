@@ -34,8 +34,9 @@ const AuthContext = createContext<AuthContextType | null>(null);
 type LoginResponse = {
   success: boolean;
   msg?: string;
-  needVerification?: boolean; // ✅ 추가됨
+  needVerification?: boolean;
 };
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -45,15 +46,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   //firestore 구독해제(Unsubscribe) 보관함(Ref)
   const firestoreUnsubRef = useRef<Unsubscribe | null>(null);
+
   useEffect(() => {
     GoogleSignin.configure({
-      // ✅ Android/Web용 (client_type: 3)
       webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-      // ✅ iOS용 (GoogleService-Info.plist의 CLIENT_ID)
       iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
       offlineAccess: true,
     });
   }, []);
+
   useEffect(() => {
     const authUnsub = onAuthStateChanged(
       auth,
@@ -197,6 +198,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         password
       );
 
+      // 언어 설정 (한국어)
+      auth.languageCode = "ko";
+
       // 이메일 인증 메일 발송
       await sendEmailVerification(response.user);
 
@@ -223,9 +227,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         consecutiveNoTaskDays: 0,
       });
 
-      // 로그아웃 (이메일 인증 후 로그인하도록)
-      await signOut(auth);
-
+      // 로그아웃하지 않음! 사용자가 로그인 상태를 유지하여 이메일 재전송 및 인증 확인 가능
       return {
         success: true,
         msg: "회원가입이 완료되었습니다. 이메일을 확인하여 인증을 완료해주세요.",
@@ -247,8 +249,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        return { success: false, msg: "로그인이 필요합니다." };
+        return { success: false, msg: "사용자 정보를 찾을 수 없습니다." };
       }
+
+      // 이미 인증된 경우
+      if (currentUser.emailVerified) {
+        return { success: false, msg: "이미 이메일 인증이 완료되었습니다." };
+      }
+
+      // 언어 설정 (한국어)
+      auth.languageCode = "ko";
 
       await sendEmailVerification(currentUser);
       return { success: true, msg: "인증 이메일이 재발송되었습니다." };
@@ -258,6 +268,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         msg = "너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.";
       }
       return { success: false, msg };
+    }
+  };
+
+  // 이메일 인증 상태 확인
+  const checkEmailVerification = async (): Promise<boolean> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return false;
+
+      // Firebase에서 최신 사용자 정보를 다시 가져옴
+      await currentUser.reload();
+
+      return currentUser.emailVerified;
+    } catch (error) {
+      console.log("Error checking email verification:", error);
+      return false;
     }
   };
 
@@ -388,6 +414,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     logout,
     resendVerificationEmail,
     googleSignIn,
+    checkEmailVerification,
   };
 
   return (
@@ -398,7 +425,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must b e wrapped inside AuthProvider");
+    throw new Error("useAuth must be wrapped inside AuthProvider");
   }
   return context;
 };

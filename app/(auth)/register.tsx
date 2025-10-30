@@ -49,7 +49,7 @@ const Register = () => {
         [
           {
             text: "확인",
-            onPress: () => router.replace("/(auth)/login"),
+            onPress: () => router.replace("/(auth)/emailVerification"),
           },
         ]
       );

@@ -172,6 +172,7 @@ export type AuthContextType = {
   isAuthLoading: boolean;
   resendVerificationEmail: () => Promise<{ success: boolean; msg?: string }>;
   googleSignIn: () => Promise<{ success: boolean; msg?: string }>;
+  checkEmailVerification: () => Promise<boolean>;
 };
 
 export type ResponseType = {
