@@ -148,6 +148,7 @@ export type UserType = {
   registerDate?: string;
   consecutiveNoTaskDays?: number;
   expoPushToken?: string | null;
+  emailVerified?: boolean;
 } | null;
 
 export type UserDataType = {
@@ -160,7 +161,7 @@ export type AuthContextType = {
   login: (
     email: string,
     password: string
-  ) => Promise<{ success: boolean; msg?: string }>;
+  ) => Promise<{ success: boolean; msg?: string; needVerification?: boolean }>;
   register: (
     email: string,
     password: string,
@@ -169,6 +170,8 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   changeUserStock: (price: number) => void;
   isAuthLoading: boolean;
+  resendVerificationEmail: () => Promise<{ success: boolean; msg?: string }>;
+  googleSignIn: () => Promise<{ success: boolean; msg?: string }>;
 };
 
 export type ResponseType = {

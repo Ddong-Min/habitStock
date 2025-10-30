@@ -24,23 +24,53 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const { register: registerUser } = useAuth();
+  const { register: registerUser, googleSignIn } = useAuth();
+
   const handleRegister = async () => {
-    // 여기에 실제 회원가입 로직을 추가하세요 (e.g., Firebase, API 연동)
     if (!name || !email || !password) {
       Alert.alert("입력 오류", "모든 필드를 입력해주세요.");
       return;
     }
+
+    if (password.length < 6) {
+      Alert.alert("입력 오류", "비밀번호는 최소 6자 이상이어야 합니다.");
+      return;
+    }
+
     setIsLoading(true);
     const res = await registerUser(email, password, name);
     setIsLoading(false);
-    console.log("res", res);
-    if (!res.success) {
+
+    if (res.success) {
+      Alert.alert(
+        "회원가입 완료",
+        res.msg ||
+          "회원가입이 완료되었습니다. 이메일을 확인하여 인증을 완료해주세요.",
+        [
+          {
+            text: "확인",
+            onPress: () => router.replace("/(auth)/login"),
+          },
+        ]
+      );
+    } else {
       Alert.alert(
         "회원가입 실패",
         res.msg || "알 수 없는 오류가 발생했습니다."
       );
-      return;
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    const res = await googleSignIn();
+    setIsLoading(false);
+
+    if (!res.success) {
+      Alert.alert(
+        "구글 로그인 실패",
+        res.msg || "알 수 없는 오류가 발생했습니다."
+      );
     }
   };
 
@@ -74,7 +104,7 @@ const Register = () => {
             }
           />
           <Input
-            placeholder="비밀번호"
+            placeholder="비밀번호 (최소 6자)"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -87,6 +117,25 @@ const Register = () => {
         <Button loading={isLoading} onPress={handleRegister}>
           <Typo size={20} fontWeight={"700"}>
             회원가입
+          </Typo>
+        </Button>
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Typo size={14} color={colors.textLight} style={styles.dividerText}>
+            또는
+          </Typo>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <Button
+          loading={isLoading}
+          onPress={handleGoogleSignIn}
+          style={styles.googleButton}
+        >
+          <Icons.GoogleLogo size={24} color={colors.text} weight="bold" />
+          <Typo size={18} fontWeight={"600"} style={{ marginLeft: 10 }}>
+            Google로 계속하기
           </Typo>
         </Button>
 
@@ -121,6 +170,27 @@ const styles = StyleSheet.create({
   formContainer: {
     gap: 16,
     marginBottom: 30,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 25,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.neutral300,
+  },
+  dividerText: {
+    marginHorizontal: 15,
+  },
+  googleButton: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.neutral300,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   footer: {
     flexDirection: "row",

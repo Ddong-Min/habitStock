@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.habitstock"
+      "bundleIdentifier": "com.yourcompany.habitstock",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "adaptiveIcon": {
@@ -39,6 +40,15 @@
         {
           "photosPermission": "앱에서 사진을 선택하고 업로드하기 위해 갤러리 접근 권한이 필요합니다.",
           "cameraPermission": "프로필 사진을 촬영하기 위해 카메라 접근 권한이 필요합니다."
+        }
+      ],
+      "@react-native-google-signin/google-signin",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "delay_app_measurement_init": true
         }
       ]
     ],

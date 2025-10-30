@@ -4,17 +4,19 @@ import React, {
   useEffect,
   useState,
   ReactNode,
-  useCallback,
   useRef,
 } from "react";
 import { AuthContextType, UserType } from "@/types";
 import { FirebaseAuthTypes } from "@react-native-firebase/auth";
-import firebase, { auth, firestore } from "@/config/firebase";
+import { auth, firestore } from "@/config/firebase";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  sendEmailVerification,
+  signInWithCredential,
+  GoogleAuthProvider,
 } from "@react-native-firebase/auth";
 import {
   doc,
@@ -26,20 +28,32 @@ import {
 } from "@react-native-firebase/firestore";
 import { router } from "expo-router";
 import { useNotification } from "./notificationContext";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 const AuthContext = createContext<AuthContextType | null>(null);
-
+type LoginResponse = {
+  success: boolean;
+  msg?: string;
+  needVerification?: boolean; // ✅ 추가됨
+};
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<UserType>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const authListenerSetup = useRef(false);
   const { expoPushToken } = useNotification();
 
   //firestore 구독해제(Unsubscribe) 보관함(Ref)
   const firestoreUnsubRef = useRef<Unsubscribe | null>(null);
-
+  useEffect(() => {
+    GoogleSignin.configure({
+      // ✅ Android/Web용 (client_type: 3)
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+      // ✅ iOS용 (GoogleService-Info.plist의 CLIENT_ID)
+      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      offlineAccess: true,
+    });
+  }, []);
   useEffect(() => {
     const authUnsub = onAuthStateChanged(
       auth,
@@ -47,18 +61,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         console.log("Auth state changed:", firebaseUser?.uid || "null");
 
         if (firestoreUnsubRef.current) {
-          // 이전 Firestore 리스너가 있으면 구독 해제
-          //만약 사용자가 로그아웃하면 onAuthStateChanged가 호출되고
-          //이전 리스너를 해제해야함
-
           console.log("Unsubscribing from previous Firestore listener");
-          firestoreUnsubRef.current(); // 이전 Firestore 리스너 구독 해제
-          firestoreUnsubRef.current = null; // 참조 초기화
+          firestoreUnsubRef.current();
+          firestoreUnsubRef.current = null;
         }
         if (firebaseUser) {
           const docRef = doc(firestore, "users", firebaseUser.uid);
           firestoreUnsubRef.current = onSnapshot(
-            //onSnapshot은 캐시우선전략 사용
             docRef,
             (docSnap) => {
               if (docSnap.exists()) {
@@ -91,6 +100,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
                   words: data.words || "korean",
                   registerDate: data.registerDate || null,
                   expoPushToken: data.expoPushToken || null,
+                  emailVerified: firebaseUser.emailVerified,
                 };
                 setUser(userData);
               } else {
@@ -106,15 +116,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             }
           );
         } else {
-          //로그아웃 또는 아직 로그인 안된 상태
           setUser(null);
           setIsAuthLoading(false);
         }
       }
     );
-    // useEffect 클린업: Auth 리스너와 Firestore 리스너 모두 구독 해제
+
     return () => {
-      //앱을 완전히 종료할 때만 실행됨
       console.log("🧹 Cleaning up auth listener...");
       authUnsub();
       if (firestoreUnsubRef.current) {
@@ -129,7 +137,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     const updatePushToken = async () => {
       if (!user || !expoPushToken) return;
 
-      // DB의 토큰과 현재 토큰이 다르면 업데이트
       if (user.expoPushToken !== expoPushToken) {
         try {
           const userRef = doc(firestore, "users", user.uid);
@@ -146,14 +153,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     updatePushToken();
   }, [expoPushToken, user?.uid]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<LoginResponse> => {
     try {
-      // ✅ Modular API로 로그인
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
         password
       );
+
+      // 이메일 인증 확인
+      if (!userCredential.user.emailVerified) {
+        return {
+          success: false,
+          msg: "이메일 인증이 필요합니다. 이메일을 확인해주세요.",
+          needVerification: true,
+        };
+      }
+
       router.replace("/(tabs)");
       return { success: true };
     } catch (error: any) {
@@ -172,14 +191,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const register = async (email: string, password: string, name: string) => {
     try {
-      // ✅ Modular API로 회원가입
       const response = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
 
-      // ✅ Modular API로 사용자 데이터 생성
+      // 이메일 인증 메일 발송
+      await sendEmailVerification(response.user);
+
+      // Firestore에 사용자 데이터 생성
       const userRef = doc(firestore, "users", response.user.uid);
       await setDoc(userRef, {
         name,
@@ -201,14 +222,113 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         expoPushToken: expoPushToken || null,
         consecutiveNoTaskDays: 0,
       });
-      router.replace("/(tabs)");
-      return { success: true };
+
+      // 로그아웃 (이메일 인증 후 로그인하도록)
+      await signOut(auth);
+
+      return {
+        success: true,
+        msg: "회원가입이 완료되었습니다. 이메일을 확인하여 인증을 완료해주세요.",
+      };
     } catch (error: any) {
       let msg = error.message;
       if (error.code === "auth/email-already-in-use")
         msg = "이미 사용 중인 이메일입니다.";
       else if (error.code === "auth/invalid-email")
         msg = "이메일 형식이 올바르지 않습니다.";
+      else if (error.code === "auth/weak-password")
+        msg = "비밀번호는 최소 6자 이상이어야 합니다.";
+      return { success: false, msg };
+    }
+  };
+
+  // 이메일 인증 재발송
+  const resendVerificationEmail = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        return { success: false, msg: "로그인이 필요합니다." };
+      }
+
+      await sendEmailVerification(currentUser);
+      return { success: true, msg: "인증 이메일이 재발송되었습니다." };
+    } catch (error: any) {
+      let msg = error.message;
+      if (error.code === "auth/too-many-requests") {
+        msg = "너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.";
+      }
+      return { success: false, msg };
+    }
+  };
+
+  // 네이티브 Google Sign-In
+  const googleSignIn = async () => {
+    try {
+      // Google Play Services 확인
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+
+      // Google 계정 선택
+      await GoogleSignin.signIn();
+
+      // 토큰 가져오기
+      const tokens = await GoogleSignin.getTokens();
+
+      if (!tokens.idToken) {
+        throw new Error("No ID token present!");
+      }
+
+      // Firebase 인증
+      const googleCredential = GoogleAuthProvider.credential(tokens.idToken);
+      const userCredential = await signInWithCredential(auth, googleCredential);
+
+      // Firestore에 사용자 정보 확인/생성
+      const userRef = doc(firestore, "users", userCredential.user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        // 새 사용자인 경우 Firestore에 데이터 생성
+        await setDoc(userRef, {
+          name: userCredential.user.displayName || "사용자",
+          email: userCredential.user.email,
+          uid: userCredential.user.uid,
+          image: userCredential.user.photoURL || null,
+          price: 100,
+          quantity: 1,
+          lastUpdated: new Date().toISOString(),
+          name_lower: (
+            userCredential.user.displayName || "사용자"
+          ).toLowerCase(),
+          followersCount: 0,
+          followingCount: 0,
+          bio: "",
+          isDarkMode: false,
+          allowAlarm: expoPushToken ? true : false,
+          duetime: "00:00",
+          words: "한국어",
+          registerDate: new Date().toISOString().split("T")[0],
+          expoPushToken: expoPushToken || null,
+          consecutiveNoTaskDays: 0,
+        });
+      }
+
+      router.replace("/(tabs)");
+      return { success: true };
+    } catch (error: any) {
+      let msg = "구글 로그인에 실패했습니다.";
+
+      if (error.code === "7") {
+        msg = "구글 로그인이 취소되었습니다.";
+      } else if (error.code === "SIGN_IN_CANCELLED") {
+        msg = "구글 로그인이 취소되었습니다.";
+      } else if (error.code === "IN_PROGRESS") {
+        msg = "이미 로그인 진행 중입니다.";
+      } else if (error.code === "PLAY_SERVICES_NOT_AVAILABLE") {
+        msg = "Google Play Services를 사용할 수 없습니다.";
+      }
+
+      console.log("Google Sign-In Error:", error);
       return { success: false, msg };
     }
   };
@@ -216,26 +336,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const changeUserStock = async (price: number) => {
     if (!user) return { success: false, msg: "User not logged in." };
 
-    // 🔄 낙관적 업데이트: UI를 먼저 업데이트
     setUser({ ...user, price });
 
-    // ✅ Modular API로 문서 업데이트
     const userRef = doc(firestore, "users", user.uid);
     try {
-      // 서버에 업데이트 (오프라인 시 자동으로 큐에 저장되고 온라인 시 실행됨)
       await updateDoc(userRef, { price });
       console.log("✅ User stock updated successfully");
       return { success: true };
     } catch (error: any) {
       console.log("❌ Failed to update user stock:", error);
 
-      // 실패 시 원래 값으로 롤백
       setUser(user);
 
-      // 오프라인 상태라면 성공으로 처리 (나중에 동기화됨)
       if (error.code === "unavailable") {
         console.log("📴 Offline: Update will sync when online");
-        setUser({ ...user, price }); // 다시 업데이트
+        setUser({ ...user, price });
         return {
           success: true,
           msg: "오프라인 상태입니다. 온라인 시 자동 동기화됩니다.",
@@ -248,7 +363,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const logout = async () => {
     try {
-      // ✅ Modular API로 로그아웃
+      // Google 로그아웃 시도 (에러 무시)
+      try {
+        await GoogleSignin.signOut();
+        console.log("✅ Google signed out");
+      } catch (googleError) {
+        console.log("Google sign out skipped:", googleError);
+      }
+
+      // Firebase 로그아웃
       await signOut(auth);
       router.replace("/(auth)/welcome");
     } catch (error) {
@@ -263,6 +386,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     register,
     changeUserStock,
     logout,
+    resendVerificationEmail,
+    googleSignIn,
   };
 
   return (
@@ -273,7 +398,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be wrapped inside AuthProvider");
+    throw new Error("useAuth must b e wrapped inside AuthProvider");
   }
   return context;
 };

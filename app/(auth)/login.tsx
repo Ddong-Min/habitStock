@@ -21,8 +21,8 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { login: loginUser } = useAuth();
-  // Use the router object directly from expo-router
+  const { login: loginUser, resendVerificationEmail, googleSignIn } = useAuth();
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("입력 오류", "이메일과 비밀번호를 입력해주세요.");
@@ -32,8 +32,46 @@ const Login = () => {
     setIsLoading(true);
     const res = await loginUser(email, password);
     setIsLoading(false);
+
     if (!res.success) {
-      Alert.alert("로그인 실패", res.msg);
+      if (res.needVerification) {
+        // 이메일 인증이 필요한 경우
+        Alert.alert(
+          "이메일 인증 필요",
+          "이메일 인증이 완료되지 않았습니다. 인증 이메일을 다시 보내시겠습니까?",
+          [
+            {
+              text: "취소",
+              style: "cancel",
+            },
+            {
+              text: "재발송",
+              onPress: async () => {
+                const result = await resendVerificationEmail();
+                Alert.alert(
+                  result.success ? "발송 완료" : "발송 실패",
+                  result.msg || ""
+                );
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert("로그인 실패", res.msg);
+      }
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    const res = await googleSignIn();
+    setIsLoading(false);
+
+    if (!res.success) {
+      Alert.alert(
+        "구글 로그인 실패",
+        res.msg || "알 수 없는 오류가 발생했습니다."
+      );
     }
   };
 
@@ -95,6 +133,26 @@ const Login = () => {
             로그인
           </Typo>
         </Button>
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Typo size={14} color={colors.textLight} style={styles.dividerText}>
+            또는
+          </Typo>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <Button
+          loading={isLoading}
+          onPress={handleGoogleSignIn}
+          style={styles.googleButton}
+        >
+          <Icons.GoogleLogo size={24} color={colors.text} weight="bold" />
+          <Typo size={18} fontWeight={"600"} style={{ marginLeft: 10 }}>
+            Google로 로그인
+          </Typo>
+        </Button>
+
         <View style={styles.footer}>
           <Pressable onPress={() => router.push("/(auth)/register")}>
             <Typo size={14} color={colors.textLight}>
@@ -127,6 +185,27 @@ const styles = StyleSheet.create({
   formContainer: {
     gap: verticalScale(15),
     marginBottom: verticalScale(25),
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 25,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.neutral300,
+  },
+  dividerText: {
+    marginHorizontal: 15,
+  },
+  googleButton: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.neutral300,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   footer: {
     flexDirection: "row",
