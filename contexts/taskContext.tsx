@@ -210,10 +210,14 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         eventName: "edit_task_dueDate",
         payload: { taskId: selectedTaskId, newDueDate: edit },
       });
+      const oldDate = selectedDate; // 이전 날짜 저장
       const newDate = edit;
+
       updatedTask.dueDate = newDate;
       updatedTask.updatedAt = new Date().toISOString();
-      changeSelectedDate(newDate);
+
+      // 이전 날짜에서 task 삭제
+      await deleteTaskFirebase(user.uid!, oldDate, selectedTaskId);
     }
 
     await saveTaskFirebase(user.uid!, updatedTask);

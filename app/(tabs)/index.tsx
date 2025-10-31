@@ -56,7 +56,7 @@ const TodoScreen = () => {
       style={[styles.container, { backgroundColor: theme.background }]}
     >
       <ScrollView showsVerticalScrollIndicator={false}>
-        <UserProfile type="todo" />
+        <UserProfile />
         {/* <Toggle /> */}
 
         <CustomCalendar />

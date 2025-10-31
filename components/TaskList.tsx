@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
   ScrollView,
@@ -21,9 +21,13 @@ import { useNews } from "@/contexts/newsContext";
 import { useAuth } from "@/contexts/authContext";
 import { useTheme } from "@/contexts/themeContext";
 import { ViewStyle } from "react-native";
-// ImagePicker 임포트 추가
 import * as ImagePicker from "expo-image-picker";
 import { customLogEvent } from "@/events/appEvent";
+import {
+  RewardedAd,
+  RewardedAdEventType,
+  TestIds,
+} from "react-native-google-mobile-ads";
 
 const TaskList: React.FC<{
   diffStyle?: ViewStyle;
@@ -60,6 +64,33 @@ const TaskList: React.FC<{
     new Set()
   );
 
+  // 보상형 광고 인스턴스
+  const [rewardedAd, setRewardedAd] = useState<RewardedAd | null>(null);
+  const [adLoaded, setAdLoaded] = useState(false);
+
+  // 광고 로드
+  useEffect(() => {
+    const rewarded = RewardedAd.createForAdRequest(TestIds.REWARDED, {
+      requestNonPersonalizedAdsOnly: false,
+    });
+
+    // 광고 로드 완료 이벤트
+    const loadedListener = rewarded.addAdEventListener(
+      RewardedAdEventType.LOADED,
+      () => {
+        setAdLoaded(true);
+        console.log("✅ 보상형 광고 로드 완료");
+      }
+    );
+
+    rewarded.load();
+    setRewardedAd(rewarded);
+
+    return () => {
+      loadedListener();
+    };
+  }, []);
+
   const flatData = useMemo(() => {
     const tasksForSelectedDate = taskByDate[selectedDate] || [];
     return (
@@ -73,7 +104,64 @@ const TaskList: React.FC<{
     ]);
   }, [selectedDate, taskByDate]);
 
-  // --- 여기부터 handleNewsGeneration 로직이 수정되었습니다 ---
+  // 보상형 광고 시청 후 뉴스 생성
+  const showRewardedAdAndCreateNews = async (
+    taskId: string,
+    dueDate: string,
+    difficulty: keyof TasksState,
+    imageUrl: string | null
+  ) => {
+    if (!rewardedAd || !adLoaded) {
+      Alert.alert(
+        "오류",
+        "광고를 불러오는 중입니다. 잠시 후 다시 시도해주세요."
+      );
+      customLogEvent({ eventName: "ad_not_loaded" });
+      return;
+    }
+
+    try {
+      // 보상 획득 리스너 등록
+      const earnedListener = rewardedAd.addAdEventListener(
+        RewardedAdEventType.EARNED_REWARD,
+        async (reward) => {
+          console.log("🎁 보상 획득:", reward);
+          customLogEvent({
+            eventName: "rewarded_ad_earned",
+            payload: { amount: reward.amount, type: reward.type },
+          });
+
+          // 뉴스 생성
+          try {
+            await createNews(taskId, dueDate, true, imageUrl || "");
+            setNewsGeneratedTasks((prev) => new Set(prev).add(taskId));
+            Alert.alert("완료", "AI 뉴스가 생성되었습니다!");
+            customLogEvent({ eventName: "success_create_news" });
+            changePriceAfterNews(taskId, difficulty);
+          } catch (error) {
+            console.error("뉴스 생성 실패:", error);
+            Alert.alert("오류", "뉴스 생성에 실패했습니다.");
+            customLogEvent({ eventName: "fail_create_news" });
+          }
+
+          // 새 광고 로드
+          earnedListener();
+          setAdLoaded(false);
+          const newAd = RewardedAd.createForAdRequest(TestIds.REWARDED);
+          newAd.load();
+          setRewardedAd(newAd);
+        }
+      );
+
+      // 광고 표시
+      customLogEvent({ eventName: "rewarded_ad_show" });
+      rewardedAd.show();
+    } catch (error) {
+      console.error("광고 표시 실패:", error);
+      Alert.alert("오류", "광고를 표시할 수 없습니다.");
+      customLogEvent({ eventName: "rewarded_ad_show_fail" });
+    }
+  };
 
   const handleNewsGeneration = async (
     taskId: string,
@@ -83,50 +171,35 @@ const TaskList: React.FC<{
   ) => {
     // 3. 광고 시청 알림창 (이미지 URL을 파라미터로 받음)
     const showAdAlert = (imageUrl: string | null = null) => {
-      try {
-        Alert.alert(
-          "광고 시청",
-          "15초 광고를 시청하고 뉴스를 생성하시겠습니까?",
-          [
-            {
-              text: "취소",
-              style: "cancel",
-              onPress: () => {
-                customLogEvent({ eventName: "cancel_create_news_in_ad" });
-              },
+      Alert.alert(
+        "광고 시청",
+        "15초 보상형 광고를 시청하고 뉴스를 생성하시겠습니까?",
+        [
+          {
+            text: "취소",
+            style: "cancel",
+            onPress: () => {
+              customLogEvent({ eventName: "cancel_create_news_in_ad" });
             },
-            {
-              text: "시청하기",
-              onPress: async () => {
-                setTimeout(async () => {
-                  try {
-                    // createNews 호출 시 imageUrl 전달
-                    customLogEvent({ eventName: "ad_watch_for_news" });
-                    await createNews(taskId, dueDate, true, imageUrl || "");
-                    setNewsGeneratedTasks((prev) => new Set(prev).add(taskId));
-                    Alert.alert("완료", "AI 뉴스가 생성되었습니다!");
-                    customLogEvent({ eventName: "success_create_news" });
-                    changePriceAfterNews(taskId, difficulty);
-                  } catch (error) {
-                    console.error("뉴스 생성 실패:", error);
-                    Alert.alert("오류", "뉴스 생성에 실패했습니다.");
-                    customLogEvent({ eventName: "fail_create_news" });
-                  }
-                }, 1000); // 광고 시청 시뮬레이션
-              },
+          },
+          {
+            text: "시청하기",
+            onPress: () => {
+              // 실제 보상형 광고 표시
+              showRewardedAdAndCreateNews(
+                taskId,
+                dueDate,
+                difficulty,
+                imageUrl
+              );
             },
-          ]
-        );
-      } catch (error) {
-        console.error("광고 로드 실패:", error);
-        Alert.alert("오류", "광고를 불러올 수 없습니다.");
-        customLogEvent({ eventName: "ad_load_fail" });
-      }
+          },
+        ]
+      );
     };
 
     // 2. 이미지 픽커 실행 함수
     const pickImageAndShowAd = async () => {
-      // 권한 요청
       const permissionResult =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permissionResult.granted === false) {
@@ -137,23 +210,19 @@ const TaskList: React.FC<{
         return;
       }
 
-      // 이미지 픽커 실행
       const pickerResult = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [16, 9], // 뉴스 썸네일 비율
+        aspect: [16, 9],
         quality: 0.7,
       });
 
-      // 이미지 선택을 취소한 경우
       if (pickerResult.canceled) {
-        // 취소하면 아무것도 안함 (혹은 showAdAlert(null)을 호출하여 이미지 없이 진행 가능)
         console.log("Image picker cancelled");
         customLogEvent({ eventName: "cancel_image_picker" });
         return;
       }
 
-      // 이미지 선택 완료 -> 광고 알림창 호출
       if (pickerResult.assets && pickerResult.assets.length > 0) {
         customLogEvent({ eventName: "image_selected_for_news" });
         showAdAlert(pickerResult.assets[0].uri);
@@ -165,28 +234,26 @@ const TaskList: React.FC<{
       {
         text: "아니요 (이미지 없이 생성)",
         onPress: () => {
-          showAdAlert(null),
-            customLogEvent({ eventName: "create_news_no_image" });
-        }, // 이미지 없이 광고 알림으로 이동
+          showAdAlert(null);
+          customLogEvent({ eventName: "create_news_no_image" });
+        },
       },
       {
         text: "예 (이미지 선택)",
         onPress: () => {
-          pickImageAndShowAd(),
-            customLogEvent({ eventName: "create_news_with_image" });
-        }, // 이미지 픽커 실행
+          pickImageAndShowAd();
+          customLogEvent({ eventName: "create_news_with_image" });
+        },
       },
       {
         text: "취소",
         style: "cancel",
         onPress: () => {
-          customLogEvent({ eventName: "candel_create_news_in_image" });
+          customLogEvent({ eventName: "cancel_create_news_in_image" });
         },
       },
     ]);
   };
-
-  // --- 여기까지 handleNewsGeneration 로직이 수정되었습니다 ---
 
   return (
     <KeyboardAvoidingView
@@ -287,7 +354,7 @@ const TaskList: React.FC<{
                       <TouchableOpacity
                         style={[
                           styles.newsButton,
-                          { backgroundColor: theme.main },
+                          //{ backgroundColor: theme.main },
                           hasNewsGenerated && styles.newsButtonActive,
                         ]}
                         onPress={() =>
@@ -304,7 +371,7 @@ const TaskList: React.FC<{
                         <Feather
                           name={hasNewsGenerated ? "check" : "edit-3"}
                           size={16}
-                          color={theme.white}
+                          color={theme.text}
                         />
                       </TouchableOpacity>
                     )}

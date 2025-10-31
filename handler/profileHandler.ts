@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Alert, Linking } from "react-native";
 import storage from "@react-native-firebase/storage";
 import { firestore } from "@/config/firebase";
-import { doc, updateDoc } from "@react-native-firebase/firestore";
+import { doc, updateDoc, deleteDoc } from "@react-native-firebase/firestore";
 import auth from "@react-native-firebase/auth";
 import * as ImagePicker from "expo-image-picker";
 import { registerForPushNotificationsAsync } from "../utils/registerForPushNotificationsAsync";
@@ -31,6 +31,10 @@ export const useProfileHandlers = () => {
   const [tempBio, setTempBio] = useState(bio);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   /** ✅ Firestore 유저 데이터 업데이트 */
   const updateUserSettings = async (field: string, value: any) => {
@@ -208,6 +212,127 @@ export const useProfileHandlers = () => {
     ]);
   };
 
+  /** ✅ 비밀번호 변경 */
+  const handlePasswordChange = () => {
+    setShowPasswordModal(true);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  const handlePasswordConfirm = async () => {
+    // 유효성 검사
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return Alert.alert("오류", "모든 필드를 입력해주세요.");
+    }
+
+    if (newPassword.length < 6) {
+      return Alert.alert("오류", "새 비밀번호는 최소 6자 이상이어야 합니다.");
+    }
+
+    if (newPassword !== confirmPassword) {
+      return Alert.alert("오류", "새 비밀번호가 일치하지 않습니다.");
+    }
+
+    try {
+      const currentUser = auth().currentUser;
+      if (!currentUser || !currentUser.email) {
+        return Alert.alert("오류", "로그인 정보를 찾을 수 없습니다.");
+      }
+
+      // 재인증 (보안을 위해 필수)
+      const credential = auth.EmailAuthProvider.credential(
+        currentUser.email,
+        currentPassword
+      );
+      await currentUser.reauthenticateWithCredential(credential);
+
+      // 비밀번호 변경
+      await currentUser.updatePassword(newPassword);
+
+      setShowPasswordModal(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+
+      Alert.alert("성공", "비밀번호가 변경되었습니다.");
+    } catch (error: any) {
+      console.error("비밀번호 변경 실패:", error);
+      
+      if (error.code === "auth/wrong-password") {
+        Alert.alert("오류", "현재 비밀번호가 올바르지 않습니다.");
+      } else if (error.code === "auth/weak-password") {
+        Alert.alert("오류", "새 비밀번호가 너무 약합니다.");
+      } else if (error.code === "auth/requires-recent-login") {
+        Alert.alert(
+          "재로그인 필요",
+          "보안을 위해 다시 로그인한 후 시도해주세요."
+        );
+      } else {
+        Alert.alert("오류", "비밀번호 변경에 실패했습니다.");
+      }
+    }
+  };
+
+  /** ✅ 회원탈퇴 */
+  const handleDeleteAccount = () => {
+    setShowDeleteModal(true);
+    setDeletePassword("");
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletePassword.trim()) {
+      return Alert.alert("오류", "비밀번호를 입력해주세요.");
+    }
+
+    try {
+      const currentUser = auth().currentUser;
+      if (!currentUser || !currentUser.email) {
+        return Alert.alert("오류", "로그인 정보를 찾을 수 없습니다.");
+      }
+
+      // 재인증 (보안을 위해 필수)
+      const credential = auth.EmailAuthProvider.credential(
+        currentUser.email,
+        deletePassword
+      );
+      await currentUser.reauthenticateWithCredential(credential);
+
+      // Firestore 데이터 삭제
+      if (user?.uid) {
+        const userRef = doc(firestore, "users", user.uid);
+        await deleteDoc(userRef);
+      }
+
+      // Firebase Auth 계정 삭제
+      await currentUser.delete();
+
+      setShowDeleteModal(false);
+      Alert.alert("탈퇴 완료", "회원탈퇴가 완료되었습니다.", [
+        {
+          text: "확인",
+          onPress: () => {
+            logout();
+            router.replace("/(auth)/welcome");
+          },
+        },
+      ]);
+    } catch (error: any) {
+      console.error("회원탈퇴 실패:", error);
+      
+      if (error.code === "auth/wrong-password") {
+        Alert.alert("오류", "비밀번호가 올바르지 않습니다.");
+      } else if (error.code === "auth/requires-recent-login") {
+        Alert.alert(
+          "재로그인 필요",
+          "보안을 위해 다시 로그인한 후 시도해주세요."
+        );
+      } else {
+        Alert.alert("오류", "회원탈퇴에 실패했습니다.");
+      }
+    }
+  };
+
   /** ✅ 로그아웃 */
   const handleLogout = () => {
     Alert.alert("로그아웃", "정말 로그아웃 하시겠습니까?", [
@@ -240,12 +365,22 @@ export const useProfileHandlers = () => {
     tempBio,
     showDeleteModal,
     deletePassword,
+    showPasswordModal,
+    currentPassword,
+    newPassword,
+    confirmPassword,
     // Setters
     setShowTimePicker,
     setShowNameModal,
     setTempName,
     setShowBioModal,
     setTempBio,
+    setShowDeleteModal,
+    setDeletePassword,
+    setShowPasswordModal,
+    setCurrentPassword,
+    setNewPassword,
+    setConfirmPassword,
     // Handlers
     handleImagePicker,
     handleNameConfirm,
@@ -257,6 +392,10 @@ export const useProfileHandlers = () => {
     handleIncreaseHour,
     handleDecreaseHour,
     handleLanguageChange,
+    handlePasswordChange,
+    handlePasswordConfirm,
+    handleDeleteAccount,
+    handleDeleteConfirm,
     handleLogout,
   };
 };
