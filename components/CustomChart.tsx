@@ -6,6 +6,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Text as RNText,
+  ActivityIndicator, // ✅ ActivityIndicator 임포트
 } from "react-native";
 import {
   Canvas,
@@ -28,6 +29,7 @@ import { aggregateData } from "@/handler/aggregateData";
 import { StockDataByDateType } from "@/types";
 import Typo from "./Typo";
 import { useTheme } from "@/contexts/themeContext";
+import { useAuth } from "@/contexts/authContext"; // ✅ 1. useAuth 임포트
 
 type ChartType = "candle" | "line";
 
@@ -62,6 +64,23 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
   const { theme } = useTheme();
   const { selectedPeriod, changeSelectedPeriod } = useStock();
   const [chartType, setChartType] = useState<ChartType>("candle");
+
+  // ✅ 2. useAuth 훅 사용
+  const { user } = useAuth();
+
+  // ✅ 3. 사용자 설정값 가져오기 (기본값 설정)
+  // (user가 로드되기 전이나, 로그아웃 상태일 수 있으므로 기본값 설정)
+  const showMovingAverage = user?.showMovingAverage ?? true;
+  const chartColorScheme = user?.chartColorScheme ?? "red-up";
+  // (theme.ts에 blue100이 있으므로 theme.blue100을 기본값으로 사용)
+  const chartLineColor = user?.chartLineColor ?? theme.blue100;
+
+  // ✅ 4. 설정에 따른 동적 색상 결정
+  // (theme.ts에 green100이 추가되었음)
+  const stockColors = {
+    up: chartColorScheme === "red-up" ? theme.red100 : theme.green100,
+    down: chartColorScheme === "red-up" ? theme.blue100 : theme.red100,
+  };
 
   const [fullDataArray, setFullDataArray] = useState<
     [string, number, number, number, number, number][]
@@ -197,19 +216,23 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
 
   // Moving averages 계산
   const fullMa5 = useMemo(() => {
+    // ✅ 5. MA 계산은 설정값이 켜져있을 때만 수행
+    if (!showMovingAverage) return [];
     const allClose = fullDataArray.map((d) => d[2]);
     return calculateMovingAverage(allClose, 5);
-  }, [fullDataArray]);
+  }, [fullDataArray, showMovingAverage]);
 
   const fullMa20 = useMemo(() => {
+    if (!showMovingAverage) return [];
     const allClose = fullDataArray.map((d) => d[2]);
     return calculateMovingAverage(allClose, 20);
-  }, [fullDataArray]);
+  }, [fullDataArray, showMovingAverage]);
 
   const fullMa60 = useMemo(() => {
+    if (!showMovingAverage) return [];
     const allClose = fullDataArray.map((d) => d[2]);
     return calculateMovingAverage(allClose, 60);
-  }, [fullDataArray]);
+  }, [fullDataArray, showMovingAverage]);
 
   // 현재 보이는 데이터 계산
   const {
@@ -239,32 +262,36 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     const startIndex = Math.max(0, startFloor);
     const offsetFraction = startFloor < 0 ? fraction : fraction + 1;
 
+    // ✅ MA 데이터 슬라이스 (showMovingAverage가 false면 fullMa 배열이 비어있음)
     const ma5 = fullMa5.slice(startIndex, startIndex + dataArray.length);
     const ma20 = fullMa20.slice(startIndex, startIndex + dataArray.length);
     const ma60 = fullMa60.slice(startIndex, startIndex + dataArray.length);
 
-    // Y축 범위 계산
-    const rawCandleYMax = Math.max(
-      ...dataArray.map((d) => d[3]),
-      ...ma5.filter((v): v is number => v !== null),
-      ...ma20.filter((v): v is number => v !== null),
-      ...ma60.filter((v): v is number => v !== null)
-    );
-    const rawCandleYMin = Math.min(
-      ...dataArray.map((d) => d[4]),
-      ...ma5.filter((v): v is number => v !== null),
-      ...ma20.filter((v): v is number => v !== null),
-      ...ma60.filter((v): v is number => v !== null)
-    );
+    // Y축 범위 계산 (MA 포함)
+    const maValues = showMovingAverage
+      ? [
+          ...ma5.filter((v): v is number => v !== null),
+          ...ma20.filter((v): v is number => v !== null),
+          ...ma60.filter((v): v is number => v !== null),
+        ]
+      : [];
 
-    const rawRange = rawCandleYMax - rawCandleYMin;
-    const padding = rawRange * 0.05;
-    const candleYMax = rawCandleYMax + padding;
-    const candleYMin = rawCandleYMin - padding;
+    const rawCandleYMax = Math.max(...dataArray.map((d) => d[3]), ...maValues);
+    const rawCandleYMin = Math.min(...dataArray.map((d) => d[4]), ...maValues);
+
+    // (데이터가 없는 경우 0으로 처리)
+    const validYMax = isFinite(rawCandleYMax) ? rawCandleYMax : 0;
+    const validYMin = isFinite(rawCandleYMin) ? rawCandleYMin : 0;
+
+    const rawRange = validYMax - validYMin;
+    const padding = rawRange * 0.05 || 1; // (범위가 0일 때 padding 1)
+    const candleYMax = validYMax + padding;
+    const candleYMin = validYMin - padding;
     const candleYRange = candleYMax - candleYMin;
 
     // Nice 값 계산
     const getNiceNumber = (range: number, round: boolean) => {
+      if (range === 0) return 1; // (범위가 0일 때)
       const exponent = Math.floor(Math.log10(range));
       const fraction = range / Math.pow(10, exponent);
       let niceFraction;
@@ -286,11 +313,11 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
 
     const numYTicks = 7;
     const niceRange = getNiceNumber(candleYRange, false);
-    const niceTick = getNiceNumber(niceRange / (numYTicks - 1), true);
+    const niceTick = getNiceNumber(niceRange / (numYTicks - 1), true) || 1; // (0 방지)
     const niceMin = Math.floor(candleYMin / niceTick) * niceTick;
     const niceMax = Math.ceil(candleYMax / niceTick) * niceTick;
 
-    const volumeYMax = Math.max(...dataArray.map((d) => d[5]));
+    const volumeYMax = Math.max(...dataArray.map((d) => d[5]), 0);
     const barPlotWidth = xAxisLength / renderVisibleRange;
 
     return {
@@ -312,9 +339,10 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     fullMa60,
     renderScrollOffset,
     renderVisibleRange,
+    showMovingAverage, // ✅ Y축 범위 계산에 MA가 포함되므로 의존성 추가
   ]);
 
-  // Font 정의 수정 - fontWeight 제거
+  // Font 정의
   const font = useMemo(
     () =>
       matchFont({
@@ -336,7 +364,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
   const numYTicks = 7;
   const numXTicks = 5;
 
-  // Y축 라벨 데이터 미리 계산
+  // Y축 라벨
   const yAxisLabels = useMemo(() => {
     return Array.from({ length: numYTicks }).map((_, i) => {
       const yValue = niceMin + i * niceTick;
@@ -348,7 +376,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     });
   }, [niceMin, niceMax, niceTick, candleY0, candleYAxisLength]);
 
-  // 거래량 Y축 라벨 데이터 미리 계산
+  // 거래량 Y축 라벨
   const volumeYAxisLabels = useMemo(() => {
     return Array.from({ length: 5 }).map((_, i) => {
       const y = volumeY0 + i * (volumeYAxisLength / 4);
@@ -356,6 +384,24 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
       return { yValue, y };
     });
   }, [volumeY0, volumeYAxisLength, volumeYMax]);
+
+  // (데이터 로딩 중 표시)
+  if (!user || fullDataArray.length === 0) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            height: TOTAL_HEIGHT,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        ]}
+      >
+        <ActivityIndicator color={theme.text} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.cardBackground }]}>
@@ -490,7 +536,9 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                   .domain([niceMin, niceMax])
                   .range([candleYAxisLength, 0]);
 
-                const fill = open > close ? theme.blue100 : theme.red100;
+                // ✅ 6. 동적 색상 적용 (stockColors 사용)
+                const fill = open > close ? stockColors.down : stockColors.up;
+
                 const highY = candleY0 + scaleY(high);
                 const lowY = candleY0 + scaleY(low);
                 const maxY = candleY0 + scaleY(max);
@@ -548,7 +596,8 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                       barPlotWidth / 2;
                     const y = candleY0 + scaleY(closePrice);
 
-                    if (index === 0) {
+                    if (index === 0 || x < x0) {
+                      // (클리핑 영역 밖에서 시작 방지)
                       path.moveTo(x, y);
                     } else {
                       path.lineTo(x, y);
@@ -558,7 +607,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                   return (
                     <Path
                       path={path}
-                      color={theme.blue100}
+                      color={chartLineColor} // ✅ 7. 라인 차트 색상 적용
                       style="stroke"
                       strokeWidth={2.5}
                     />
@@ -569,7 +618,8 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                   const [day, open, close, high, low, volume] = data;
                   const x = x0 + (index - offsetFraction) * barPlotWidth;
                   const sidePadding = barPlotWidth / 6;
-                  const fill = open > close ? theme.blue100 : theme.red100;
+                  // ✅ 6. 동적 색상 적용 (stockColors 사용)
+                  const fill = open > close ? stockColors.down : stockColors.up;
 
                   const volumeScaleY = scaleLinear()
                     .domain([0, volumeYMax])
@@ -592,69 +642,76 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               </Group>
             )}
 
-            {/* 이동평균선 */}
-            {[
-              { data: ma5, color: "#FF6B6B" },
-              { data: ma20, color: "#4ECDC4" },
-              { data: ma60, color: "#9B59B6" },
-            ].map((ma, maIndex) => {
-              const path = Skia.Path.Make();
-              const scaleY = scaleLinear()
-                .domain([niceMin, niceMax])
-                .range([candleYAxisLength, 0]);
+            {/* ✅ 8. 이동평균선 조건부 렌더링 */}
+            {showMovingAverage &&
+              [
+                // (theme.ts에 yellow, purple, red75가 정의됨)
+                { data: ma5, color: theme.yellow },
+                { data: ma20, color: theme.purple },
+                { data: ma60, color: theme.red75 }, // (ma60 색상 예시)
+              ].map((ma, maIndex) => {
+                const path = Skia.Path.Make();
+                const scaleY = scaleLinear()
+                  .domain([niceMin, niceMax])
+                  .range([candleYAxisLength, 0]);
 
-              let started = false;
-              ma.data.forEach((value, index) => {
-                if (value !== null) {
-                  const x =
-                    x0 +
-                    (index - offsetFraction) * barPlotWidth +
-                    barPlotWidth / 2;
-                  const y = candleY0 + scaleY(value);
+                let started = false;
+                ma.data.forEach((value, index) => {
+                  if (value !== null) {
+                    const x =
+                      x0 +
+                      (index - offsetFraction) * barPlotWidth +
+                      barPlotWidth / 2;
+                    const y = candleY0 + scaleY(value);
 
-                  if (!started) {
-                    path.moveTo(x, y);
-                    started = true;
-                  } else {
-                    path.lineTo(x, y);
+                    // (클리핑 영역 밖에서 시작 방지)
+                    if (!started && x >= x0) {
+                      path.moveTo(x, y);
+                      started = true;
+                    } else if (started) {
+                      path.lineTo(x, y);
+                    }
                   }
-                }
-              });
+                });
 
-              return (
-                <Path
-                  key={`ma-${maIndex}`}
-                  path={path}
-                  color={ma.color}
-                  style="stroke"
-                  strokeWidth={1.5}
-                />
-              );
-            })}
+                return (
+                  <Path
+                    key={`ma-${maIndex}`}
+                    path={path}
+                    color={ma.color}
+                    style="stroke"
+                    strokeWidth={1.5}
+                  />
+                );
+              })}
           </Group>
 
-          {/* 이동평균선 범례 */}
-          <Text
-            x={x0}
-            y={candleY0 - 5}
-            text="MA5"
-            font={font}
-            color="#FF6B6B"
-          />
-          <Text
-            x={x0 + 50}
-            y={candleY0 - 5}
-            text="MA20"
-            font={font}
-            color="#4ECDC4"
-          />
-          <Text
-            x={x0 + 110}
-            y={candleY0 - 5}
-            text="MA60"
-            font={font}
-            color="#9B59B6"
-          />
+          {/* ✅ 9. 이동평균선 범례 조건부 렌더링 */}
+          {showMovingAverage && (
+            <>
+              <Text
+                x={x0}
+                y={candleY0 - 5}
+                text="MA5"
+                font={font}
+                color={theme.yellow} // (theme.ts에 정의된 색상)
+              />
+              <Text
+                x={x0 + 50}
+                y={candleY0 - 5}
+                text="MA20"
+                font={font}
+                color={theme.purple} // (theme.ts에 정의된 색상)
+              />
+              <Text
+                x={x0 + 110}
+                y={candleY0 - 5}
+                text="MA60"
+                font={font}
+                color={theme.red75} // (theme.ts에 정의된 색상)
+              />
+            </>
+          )}
         </Canvas>
       </GestureDetector>
 

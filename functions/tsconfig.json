@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "module": "commonjs",
+    "moduleResolution": "node",
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "outDir": "lib",
@@ -9,14 +10,10 @@
     "target": "es2017",
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "lib": [
-      "es2017"
-    ]
+    "lib": ["es2017"]
   },
   "compileOnSave": true,
-  "include": [
-    "src"
-  ],
+  "include": ["src"],
   "exclude": [
     "node_modules",
     "../node_modules",
@@ -26,6 +23,5 @@
     "../constants",
     "../contexts",
     "../config"
-  ],
-  "extends": "expo/tsconfig.base"
+  ]
 }

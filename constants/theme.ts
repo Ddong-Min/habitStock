@@ -14,6 +14,11 @@ const baseColors = {
   blue50: "#7693a580",
   blue75: "#7693a5BF",
   blue100: "#7693a5",
+
+  // ✅ 차트 설정용 색상 수정
+  green100: "#5A9C74", // ✅ (기존 #22C55E에서 톤 다운된 녹색으로 변경)
+  yellow: "#F59E0B", // MA 1 (예시)
+  purple: "#8B5CF6", // MA 2 (예시)
 };
 
 // 라이트모드 색상
@@ -127,15 +132,29 @@ export const radius = {
 };
 
 // 테마 타입
-export type Theme = typeof lightColors;
+export type Theme = typeof lightColors & {
+  // ✅ 차트 색상을 테마 타입에 포함
+  green100: string;
+  yellow: string;
+  purple: string;
+};
 
 // 테마 가져오기 함수
 export const getTheme = (isDarkMode: boolean): Theme => {
-  return isDarkMode ? darkColors : lightColors;
+  // ✅ 라이트/다크 공통으로 green, yellow, purple 추가
+  const baseChartColors = {
+    green100: baseColors.green100,
+    yellow: baseColors.yellow,
+    purple: baseColors.purple,
+  };
+
+  return isDarkMode
+    ? { ...darkColors, ...baseChartColors }
+    : { ...lightColors, ...baseChartColors };
 };
 
 // 기본 export (라이트모드) - 기존 코드 호환성 유지
-export const colors = lightColors;
+export const colors = getTheme(false);
 
 // 난이도별 색상 함수
 export const difficultyColors = (key: keyof TasksState, isDarkMode = false) => {

@@ -14,6 +14,16 @@ import {
   ViewStyle,
 } from "react-native";
 
+// ✅ 차트 색상 스킴
+export type ChartColorScheme = "red-up" | "green-up";
+
+// ✅ 차트 설정 타입
+export type UserChartSettings = {
+  showMovingAverage: boolean;
+  chartColorScheme: ChartColorScheme;
+  chartLineColor: string;
+};
+
 export type ScreenWrapperProps = {
   style?: ViewStyle;
   children: React.ReactNode;
@@ -149,6 +159,15 @@ export type UserType = {
   consecutiveNoTaskDays?: number;
   expoPushToken?: string | null;
   emailVerified?: boolean;
+
+  // 차트 설정
+  showMovingAverage?: boolean;
+  chartColorScheme?: ChartColorScheme;
+  chartLineColor?: string;
+
+  // ✅ 뉴스 생성 횟수 제한 필드
+  newsGenerationCount?: number;
+  newsGenerationLastReset?: string | null; // (YYYY-MM-DD 형식)
 } | null;
 
 export type UserDataType = {
@@ -168,7 +187,14 @@ export type AuthContextType = {
     name: string
   ) => Promise<{ success: boolean; msg?: string }>;
   logout: () => Promise<void>;
-  changeUserStock: (price: number) => void;
+  changeUserStock: (
+    price: number
+  ) => Promise<
+    | { success: boolean; msg?: undefined }
+    | { success: boolean; msg: string }
+    | { success: boolean; msg: string }
+    | undefined
+  >;
   isAuthLoading: boolean;
   resendVerificationEmail: () => Promise<{ success: boolean; msg?: string }>;
   googleSignIn: () => Promise<{ success: boolean; msg?: string }>;
@@ -203,13 +229,7 @@ export interface Task {
   updatedDate?: string;
   appliedPriceChange: number;
   appliedPercentage: number;
-}
-
-export interface TasksState {
-  easy: Task[];
-  medium: Task[];
-  hard: Task[];
-  extreme: Task[];
+  updatedAt?: string;
 }
 
 export interface TasksState {
@@ -220,7 +240,7 @@ export interface TasksState {
 }
 
 export interface TasksByDate {
-  [date: string]: TasksState; // "2025-09-22": { easy: [...], medium: [...], ... }
+  [date: string]: TasksState;
 }
 
 export interface CustomCalendarProps {
@@ -230,7 +250,7 @@ export interface CustomCalendarProps {
 
 export interface TodoListProps {
   tasks: TasksState;
-  onToggleTask: (id: string) => void; // 이 부분을 추가 또는 수정합니다.
+  onToggleTask: (id: string) => void;
 }
 
 export interface CustomDatePickerProps {
@@ -331,6 +351,7 @@ export type StockDataByDateType = {
 export type FriendStockType = {
   [uid: string]: StockDataByDateType;
 };
+
 export type StockSummaryType = {
   recent7Days: {
     high: number;

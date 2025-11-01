@@ -84,15 +84,33 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 
   const putTaskText = (text: string) => setNewTaskText(text);
 
-  const findIndex = () => {
-    if (!selectedDate || !selectedDifficulty || !user) return [-1, []];
-    const newTaskByDate = JSON.parse(JSON.stringify(taskByDate));
-    console.log(selectedDate);
-    const taskList = newTaskByDate[selectedDate][selectedDifficulty];
+  // ✅ [수정됨] : 비효율적인 JSON.parse(JSON.stringify()) 제거
+  const findIndex = (): [Task | null, number] => {
+    if (
+      !selectedDate ||
+      !selectedDifficulty ||
+      !user ||
+      !taskByDate[selectedDate]
+    ) {
+      return [null, -1];
+    }
+
+    const taskList = taskByDate[selectedDate][selectedDifficulty];
+
+    if (!taskList) {
+      return [null, -1];
+    }
+
     const taskIndex = taskList.findIndex(
       (task: Task) => task.id === selectedTaskId
     );
-    return [newTaskByDate, taskIndex];
+
+    if (taskIndex === -1) {
+      return [null, -1];
+    }
+
+    // 원본 Task 객체와 인덱스 반환
+    return [taskList[taskIndex], taskIndex];
   };
 
   const startModify = (
@@ -150,18 +168,18 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     changeAddTaskState();
   };
 
+  // ✅ [수정됨] : 변경된 findIndex 반환값 사용
   const deleteTask = async () => {
     if (!user || !selectedTaskId || !selectedDate || !selectedDifficulty)
       return;
-    const [newTaskByDate, taskIndex] = findIndex();
-    if (taskIndex === -1) return;
 
-    const updatedData =
-      newTaskByDate[selectedDate][selectedDifficulty][taskIndex];
-    if (updatedData.completed) {
-      updatedData.updatedDate = new Date().toISOString().split("T")[0];
-      updatedData.completed = false;
-      changeStockData(updatedData).then((result) => {
+    const [taskData, taskIndex] = findIndex(); // [Task | null, number] 반환
+    if (taskIndex === -1 || !taskData) return;
+
+    if (taskData.completed) {
+      taskData.updatedDate = new Date().toISOString().split("T")[0];
+      taskData.completed = false;
+      changeStockData(taskData).then((result) => {
         if (result && !result.success) {
           console.error(result.msg);
         }
@@ -171,6 +189,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     finishModify();
   };
 
+  // ✅ [수정됨] : 변경된 findIndex 반환값 사용
   const editTask = async (
     mode: "task" | "difficulty" | "dueDate" | "completed",
     edit: string
@@ -178,11 +197,10 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     if (!user || !selectedTaskId || !selectedDate || !selectedDifficulty)
       return;
 
-    const [newTaskByDate, taskIndex] = findIndex();
-    if (taskIndex === -1) return;
+    const [taskData, taskIndex] = findIndex(); // [Task | null, number] 반환
+    if (taskIndex === -1 || !taskData) return;
 
-    let taskList = newTaskByDate[selectedDate][selectedDifficulty];
-    let updatedTask = { ...taskList[taskIndex] };
+    let updatedTask = { ...taskData }; // 원본 Task 객체로부터 복사본 생성
 
     if (mode === "task") {
       customLogEvent({
@@ -190,7 +208,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         payload: { taskId: selectedTaskId, newText: edit },
       });
       updatedTask.text = edit;
-      updatedTask.updatedAt = new Date().toISOString();
+      updatedTask.updatedDate = new Date().toISOString();
       changeEditTextState();
     } else if (mode === "difficulty") {
       customLogEvent({
@@ -202,7 +220,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         user.price ?? 100
       );
       updatedTask.difficulty = edit as keyof TasksState;
-      updatedTask.updatedAt = new Date().toISOString();
+      updatedTask.updatedDate = new Date().toISOString();
       updatedTask.percentage = randomPercent;
       updatedTask.priceChange = priceChange;
     } else if (mode === "dueDate") {
@@ -214,7 +232,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       const newDate = edit;
 
       updatedTask.dueDate = newDate;
-      updatedTask.updatedAt = new Date().toISOString();
+      updatedTask.updatedDate = new Date().toISOString();
 
       // 이전 날짜에서 task 삭제
       await deleteTaskFirebase(user.uid!, oldDate, selectedTaskId);

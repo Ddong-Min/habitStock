@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react"; // ✅ useCallback 임포트
 import { Alert, Linking } from "react-native";
 import storage from "@react-native-firebase/storage";
 import { firestore } from "@/config/firebase";
@@ -9,26 +9,42 @@ import { registerForPushNotificationsAsync } from "../utils/registerForPushNotif
 import { router } from "expo-router";
 import { useAuth } from "../contexts/authContext";
 import { useNotification } from "../contexts/notificationContext";
-
-// ✅ Firestore Modular API 사용
+import { ChartColorScheme } from "@/types";
+import { customLogEvent } from "../events/appEvent";
 
 export const useProfileHandlers = () => {
   const { user, logout } = useAuth();
   const { expoPushToken } = useNotification();
 
+  // --- Local State ---
+  // (authContext의 user가 변경될 때마다 이 state들도 동기화됩니다)
   const [userName, setUserName] = useState(user?.name || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [darkMode, setDarkMode] = useState(user?.isDarkMode || false);
   const [notifications, setNotifications] = useState(user?.allowAlarm || false);
-  const [deadlineTime, setDeadlineTime] = useState(user?.duetime || "24:00");
+  const [deadlineTime, setDeadlineTime] = useState(user?.duetime || "00:00");
   const [words, setWords] = useState(user?.words || "한국어");
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [selectedHour, setSelectedHour] = useState(24);
+  // ✅ 차트 설정 Local State 추가
+  const [showMovingAverage, setShowMovingAverage] = useState(
+    user?.showMovingAverage ?? true
+  );
+  const [chartColorScheme, setChartColorScheme] = useState(
+    user?.chartColorScheme ?? "red-up"
+  );
+  const [chartLineColor, setChartLineColor] = useState(
+    user?.chartLineColor ?? "#6A8BFF"
+  );
+
+  // Modals
   const [isUploading, setIsUploading] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
-  const [tempName, setTempName] = useState(userName);
+  const [tempName, setTempName] = useState(user?.name || "");
   const [showBioModal, setShowBioModal] = useState(false);
-  const [tempBio, setTempBio] = useState(bio);
+  const [tempBio, setTempBio] = useState(user?.bio || "");
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [selectedHour, setSelectedHour] = useState(
+    parseInt(user?.duetime?.split(":")[0] || "0")
+  );
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -36,22 +52,52 @@ export const useProfileHandlers = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  /** ✅ Firestore 유저 데이터 업데이트 */
-  const updateUserSettings = async (field: string, value: any) => {
-    if (!user?.uid) return;
-    try {
-      const userRef = doc(firestore, "users", user.uid);
-      await updateDoc(userRef, { [field]: value });
-      console.log(`✅ ${field} 업데이트 완료:`, value);
-    } catch (error) {
-      console.error(`❌ ${field} 업데이트 실패:`, error);
-      Alert.alert("오류", "설정을 저장하는데 실패했습니다.");
-    }
-  };
+  /** ✅ user 객체(from authContext)가 변경될 때 로컬 상태 동기화 */
+  useEffect(() => {
+    if (user) {
+      setUserName(user.name || "");
+      setBio(user.bio || "");
+      setDarkMode(user.isDarkMode || false);
+      setNotifications(user.allowAlarm || false);
+      setDeadlineTime(user.duetime || "00:00");
+      setWords(user.words || "한국어");
+      setSelectedHour(parseInt(user.duetime?.split(":")[0] || "0"));
 
-  /** ✅ Firebase Storage 업로드 */
-  const uploadImageToFirebase = async (uri: string) => {
-    try {
+      // ✅ 차트 설정 동기화
+      setShowMovingAverage(user.showMovingAverage ?? true);
+      setChartColorScheme(user.chartColorScheme ?? "red-up");
+      setChartLineColor(user.chartLineColor ?? "#6A8BFF");
+    }
+  }, [user]); // (authContext의 user가 바뀔 때마다 실행)
+
+  /** ✅ Firestore 유저 데이터 업데이트 (useCallback) */
+  const updateUserSettings = useCallback(
+    async (field: string, value: any) => {
+      if (!user?.uid) return;
+      try {
+        const userRef = doc(firestore, "users", user.uid);
+        await updateDoc(userRef, { [field]: value });
+        console.log(`✅ ${field} 업데이트 완료:`, value);
+
+        await customLogEvent({
+          eventName: "profile_setting_update",
+          payload: {
+            uid: user.uid,
+            field: field,
+            value: String(value),
+          },
+        });
+      } catch (error) {
+        console.error(`❌ ${field} 업데이트 실패:`, error);
+        Alert.alert("오류", "설정을 저장하는데 실패했습니다.");
+      }
+    },
+    [user]
+  ); // ✅ user가 바뀔 때만 함수 재생성
+
+  /** ✅ Firebase Storage 업로드 (useCallback) */
+  const uploadImageToFirebase = useCallback(
+    async (uri: string) => {
       if (!user) throw new Error("User not logged in.");
       const filename = `profile_${user.uid}_${Date.now()}.jpg`;
       const refPath = storage().ref(`profiles/${filename}`);
@@ -59,27 +105,28 @@ export const useProfileHandlers = () => {
       await refPath.putFile(uri);
       const downloadURL = await refPath.getDownloadURL();
       return downloadURL;
-    } catch (error) {
-      console.error("이미지 업로드 실패:", error);
-      throw error;
-    }
-  };
+    },
+    [user]
+  );
 
-  const uploadAndUpdateImage = async (uri: string) => {
-    try {
-      setIsUploading(true);
-      const imageUrl = await uploadImageToFirebase(uri);
-      await updateUserSettings("image", imageUrl);
-      setIsUploading(false);
-      Alert.alert("성공", "프로필 사진이 변경되었습니다.");
-    } catch (error) {
-      setIsUploading(false);
-      Alert.alert("오류", "이미지 업로드에 실패했습니다.");
-    }
-  };
+  const uploadAndUpdateImage = useCallback(
+    async (uri: string) => {
+      try {
+        setIsUploading(true);
+        const imageUrl = await uploadImageToFirebase(uri);
+        await updateUserSettings("image", imageUrl); // (await 유지)
+        setIsUploading(false);
+        Alert.alert("성공", "프로필 사진이 변경되었습니다.");
+      } catch (error) {
+        setIsUploading(false);
+        Alert.alert("오류", "이미지 업로드에 실패했습니다.");
+      }
+    },
+    [uploadImageToFirebase, updateUserSettings]
+  );
 
-  /** ✅ 카메라 촬영 */
-  const handleCamera = async () => {
+  /** ✅ 카메라 촬영 (useCallback) */
+  const handleCamera = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted")
       return Alert.alert("권한 필요", "카메라 접근 권한이 필요합니다.");
@@ -93,10 +140,10 @@ export const useProfileHandlers = () => {
     if (!result.canceled && result.assets[0]) {
       await uploadAndUpdateImage(result.assets[0].uri);
     }
-  };
+  }, [uploadAndUpdateImage]);
 
-  /** ✅ 갤러리 선택 */
-  const handleGallery = async () => {
+  /** ✅ 갤러리 선택 (useCallback) */
+  const handleGallery = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted")
       return Alert.alert(
@@ -113,123 +160,149 @@ export const useProfileHandlers = () => {
     if (!result.canceled && result.assets[0]) {
       await uploadAndUpdateImage(result.assets[0].uri);
     }
-  };
+  }, [uploadAndUpdateImage]);
 
-  const handleImagePicker = () => {
+  const handleImagePicker = useCallback(() => {
     Alert.alert("프로필 사진 변경", "사진을 어떻게 선택하시겠습니까?", [
       { text: "카메라로 촬영", onPress: handleCamera },
       { text: "갤러리에서 선택", onPress: handleGallery },
       { text: "취소", style: "cancel" },
     ]);
-  };
+  }, [handleCamera, handleGallery]);
 
-  /** ✅ 이름 변경 */
-  const handleNameConfirm = async () => {
+  /** ✅ 이름 변경 (useCallback + await 제거) */
+  const handleNameConfirm = useCallback(() => {
     if (!tempName.trim()) return Alert.alert("오류", "이름을 입력해주세요.");
-    setUserName(tempName);
-    await updateUserSettings("name", tempName);
+    setUserName(tempName); // ✅ 1. 로컬 상태 즉시 변경
+    updateUserSettings("name", tempName); // ✅ 2. DB 업데이트 (await 없음)
     setShowNameModal(false);
     Alert.alert("성공", "이름이 변경되었습니다.");
-  };
+  }, [tempName, updateUserSettings]);
 
-  /** ✅ 한 줄 소개 변경 */
-  const handleBioConfirm = async () => {
+  /** ✅ 한 줄 소개 변경 (useCallback + await 제거) */
+  const handleBioConfirm = useCallback(() => {
     const trimmedBio = tempBio.substring(0, 150);
-    setBio(trimmedBio);
-    await updateUserSettings("bio", trimmedBio);
+    setBio(trimmedBio); // ✅ 1. 로컬 상태 즉시 변경
+    updateUserSettings("bio", trimmedBio); // ✅ 2. DB 업데이트 (await 없음)
     setShowBioModal(false);
     Alert.alert("성공", "소개가 변경되었습니다.");
-  };
+  }, [tempBio, updateUserSettings]);
 
-  /** ✅ 다크 모드 토글 */
-  const handleDarkModeToggle = async (value: boolean) => {
-    setDarkMode(value);
-    await updateUserSettings("isDarkMode", value);
-  };
+  /** ✅ 다크 모드 토글 (useCallback + await 제거) */
+  const handleDarkModeToggle = useCallback(
+    (value: boolean) => {
+      setDarkMode(value); // ✅ 1. 로컬 상태 즉시 변경
+      updateUserSettings("isDarkMode", value); // ✅ 2. DB 업데이트 (await 없음)
+    },
+    [updateUserSettings]
+  );
 
-  /** ✅ 알림 설정 토글 */
-  const handleNotificationToggle = async (value: boolean) => {
-    if (!user?.uid) return;
-    if (value) {
-      if (!expoPushToken) {
-        const newToken = await registerForPushNotificationsAsync();
-        if (newToken) {
-          const userRef = doc(firestore, "users", user.uid);
-          await updateDoc(userRef, {
-            allowAlarm: true,
-            expoPushToken: newToken,
-          });
-          setNotifications(true);
-          Alert.alert("성공", "알림이 활성화되었습니다.");
+  /** ✅ 알림 설정 토글 (useCallback + await 최적화) */
+  const handleNotificationToggle = useCallback(
+    async (value: boolean) => {
+      if (!user?.uid) return;
+
+      // (이벤트 로깅은 즉시 실행)
+      customLogEvent({
+        eventName: "setting_notification_toggle",
+        payload: { uid: user.uid, value },
+      });
+
+      setNotifications(value); // ✅ 1. 로컬 상태 즉시 변경
+
+      if (value) {
+        if (!expoPushToken) {
+          const newToken = await registerForPushNotificationsAsync();
+          if (newToken) {
+            const userRef = doc(firestore, "users", user.uid);
+            // (이 로직은 토큰 등록이 선행되어야 하므로 await 유지)
+            await updateDoc(userRef, {
+              allowAlarm: true,
+              expoPushToken: newToken,
+            });
+            Alert.alert("성공", "알림이 활성화되었습니다.");
+          } else {
+            setNotifications(false); // (권한 실패 시 로컬 상태 롤백)
+            Alert.alert(
+              "권한 필요",
+              "알림 권한을 허용하려면 기기 설정으로 이동하세요.",
+              [
+                { text: "취소", style: "cancel" },
+                {
+                  text: "설정으로 이동",
+                  onPress: () => Linking.openSettings(),
+                },
+              ]
+            );
+          }
         } else {
-          Alert.alert(
-            "권한 필요",
-            "알림 권한을 허용하려면 기기 설정으로 이동하세요.",
-            [
-              { text: "취소", style: "cancel" },
-              { text: "설정으로 이동", onPress: () => Linking.openSettings() },
-            ]
-          );
+          updateUserSettings("allowAlarm", true); // ✅ 2. DB 업데이트 (await 없음)
         }
       } else {
-        setNotifications(true);
-        await updateUserSettings("allowAlarm", true);
+        updateUserSettings("allowAlarm", false); // ✅ 2. DB 업데이트 (await 없음)
       }
-    } else {
-      setNotifications(false);
-      await updateUserSettings("allowAlarm", false);
-    }
-  };
+    },
+    [user, expoPushToken, updateUserSettings]
+  );
 
-  /** ✅ 마감시간 설정 */
-  const handleDeadlineChange = () => {
-    const hour = parseInt(deadlineTime.split(":")[0]);
-    setSelectedHour(hour);
+  /** ✅ 마감시간 설정 (useCallback + await 제거) */
+  const handleDeadlineChange = useCallback(() => {
+    setSelectedHour(parseInt(user?.duetime?.split(":")[0] || "0"));
     setShowTimePicker(true);
-  };
+  }, [user]);
 
-  const handleTimeConfirm = async () => {
+  const handleTimeConfirm = useCallback(() => {
     const timeString = `${selectedHour.toString().padStart(2, "0")}:00`;
-    setDeadlineTime(timeString);
-    await updateUserSettings("duetime", timeString);
+    setDeadlineTime(timeString); // ✅ 1. 로컬 상태 즉시 변경
+    updateUserSettings("duetime", timeString); // ✅ 2. DB 업데이트 (await 없음)
     setShowTimePicker(false);
-  };
+  }, [selectedHour, updateUserSettings]);
 
-  const handleIncreaseHour = () =>
-    setSelectedHour((prev) => (prev === 24 ? 0 : prev + 1));
-  const handleDecreaseHour = () =>
-    setSelectedHour((prev) => (prev === 0 ? 24 : prev - 1));
+  const handleIncreaseHour = useCallback(
+    () => setSelectedHour((prev) => (prev >= 23 ? 0 : prev + 1)),
+    []
+  );
+  const handleDecreaseHour = useCallback(
+    () => setSelectedHour((prev) => (prev <= 0 ? 23 : prev - 1)),
+    []
+  );
 
-  /** ✅ 언어 변경 */
-  const handleLanguageChange = () => {
+  /** ✅ 언어 변경 (useCallback) */
+  const handleLanguageChange = useCallback(() => {
     Alert.alert("언어 선택", "언어를 선택하세요", [
-      { text: "한국어", onPress: () => updateUserSettings("words", "한국어") },
+      {
+        text: "한국어",
+        onPress: () => {
+          setWords("한국어"); // ✅ 1. 로컬 상태 즉시 변경
+          updateUserSettings("words", "한국어"); // ✅ 2. DB 업데이트 (await 없음)
+        },
+      },
       {
         text: "English",
-        onPress: () => updateUserSettings("words", "English"),
+        onPress: () => {
+          setWords("English"); // ✅ 1. 로컬 상태 즉시 변경
+          updateUserSettings("words", "English"); // ✅ 2. DB 업데이트 (await 없음)
+        },
       },
       { text: "취소", style: "cancel" },
     ]);
-  };
+  }, [updateUserSettings]);
 
-  /** ✅ 비밀번호 변경 */
-  const handlePasswordChange = () => {
+  /** ✅ 비밀번호 변경 (useCallback, 내부 await는 유지) */
+  const handlePasswordChange = useCallback(() => {
     setShowPasswordModal(true);
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
-  };
+  }, []);
 
-  const handlePasswordConfirm = async () => {
-    // 유효성 검사
+  const handlePasswordConfirm = useCallback(async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       return Alert.alert("오류", "모든 필드를 입력해주세요.");
     }
-
     if (newPassword.length < 6) {
       return Alert.alert("오류", "새 비밀번호는 최소 6자 이상이어야 합니다.");
     }
-
     if (newPassword !== confirmPassword) {
       return Alert.alert("오류", "새 비밀번호가 일치하지 않습니다.");
     }
@@ -240,14 +313,11 @@ export const useProfileHandlers = () => {
         return Alert.alert("오류", "로그인 정보를 찾을 수 없습니다.");
       }
 
-      // 재인증 (보안을 위해 필수)
       const credential = auth.EmailAuthProvider.credential(
         currentUser.email,
         currentPassword
       );
       await currentUser.reauthenticateWithCredential(credential);
-
-      // 비밀번호 변경
       await currentUser.updatePassword(newPassword);
 
       setShowPasswordModal(false);
@@ -255,10 +325,20 @@ export const useProfileHandlers = () => {
       setNewPassword("");
       setConfirmPassword("");
 
+      await customLogEvent({
+        eventName: "profile_password_update_success",
+        payload: { uid: user!.uid },
+      });
+
       Alert.alert("성공", "비밀번호가 변경되었습니다.");
     } catch (error: any) {
       console.error("비밀번호 변경 실패:", error);
-      
+
+      await customLogEvent({
+        eventName: "profile_password_update_fail",
+        payload: { uid: user?.uid, error: error.code },
+      });
+
       if (error.code === "auth/wrong-password") {
         Alert.alert("오류", "현재 비밀번호가 올바르지 않습니다.");
       } else if (error.code === "auth/weak-password") {
@@ -272,42 +352,45 @@ export const useProfileHandlers = () => {
         Alert.alert("오류", "비밀번호 변경에 실패했습니다.");
       }
     }
-  };
+  }, [user, currentPassword, newPassword, confirmPassword]);
 
-  /** ✅ 회원탈퇴 */
-  const handleDeleteAccount = () => {
+  /** ✅ 회원탈퇴 (useCallback, 내부 await는 유지) */
+  const handleDeleteAccount = useCallback(() => {
     setShowDeleteModal(true);
     setDeletePassword("");
-  };
+  }, []);
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     if (!deletePassword.trim()) {
       return Alert.alert("오류", "비밀번호를 입력해주세요.");
     }
 
     try {
       const currentUser = auth().currentUser;
-      if (!currentUser || !currentUser.email) {
+      if (!currentUser || !currentUser.email || !user?.uid) {
         return Alert.alert("오류", "로그인 정보를 찾을 수 없습니다.");
       }
 
-      // 재인증 (보안을 위해 필수)
+      const uid = user.uid;
+
       const credential = auth.EmailAuthProvider.credential(
         currentUser.email,
         deletePassword
       );
       await currentUser.reauthenticateWithCredential(credential);
 
-      // Firestore 데이터 삭제
-      if (user?.uid) {
-        const userRef = doc(firestore, "users", user.uid);
-        await deleteDoc(userRef);
-      }
+      const userRef = doc(firestore, "users", user.uid);
+      await deleteDoc(userRef);
 
-      // Firebase Auth 계정 삭제
       await currentUser.delete();
 
       setShowDeleteModal(false);
+
+      await customLogEvent({
+        eventName: "profile_account_delete_success",
+        payload: { uid: uid },
+      });
+
       Alert.alert("탈퇴 완료", "회원탈퇴가 완료되었습니다.", [
         {
           text: "확인",
@@ -319,7 +402,12 @@ export const useProfileHandlers = () => {
       ]);
     } catch (error: any) {
       console.error("회원탈퇴 실패:", error);
-      
+
+      await customLogEvent({
+        eventName: "profile_account_delete_fail",
+        payload: { uid: user?.uid, error: error.code },
+      });
+
       if (error.code === "auth/wrong-password") {
         Alert.alert("오류", "비밀번호가 올바르지 않습니다.");
       } else if (error.code === "auth/requires-recent-login") {
@@ -331,44 +419,81 @@ export const useProfileHandlers = () => {
         Alert.alert("오류", "회원탈퇴에 실패했습니다.");
       }
     }
-  };
+  }, [user, deletePassword, logout]);
 
-  /** ✅ 로그아웃 */
-  const handleLogout = () => {
+  /** ✅ 로그아웃 (useCallback) */
+  const handleLogout = useCallback(() => {
     Alert.alert("로그아웃", "정말 로그아웃 하시겠습니까?", [
       { text: "취소", style: "cancel" },
       {
         text: "로그아웃",
         style: "destructive",
-        onPress: () => {
+        onPress: async () => {
+          await customLogEvent({
+            eventName: "profile_logout",
+            payload: { uid: user?.uid },
+          });
+
           logout();
           router.replace("/(auth)/welcome");
         },
       },
     ]);
-  };
+  }, [user, logout]);
+
+  // --- ✅ 차트 설정 핸들러 (useCallback + await 제거) ---
+
+  const handleMovingAverageToggle = useCallback(
+    (value: boolean) => {
+      setShowMovingAverage(value); // ✅ 1. 로컬 상태 즉시 변경
+      updateUserSettings("showMovingAverage", value); // ✅ 2. DB 업데이트 (await 없음)
+    },
+    [updateUserSettings]
+  );
+
+  const handleChartColorSchemeChange = useCallback(
+    (value: ChartColorScheme) => {
+      setChartColorScheme(value); // ✅ 1. 로컬 상태 즉시 변경
+      updateUserSettings("chartColorScheme", value); // ✅ 2. DB 업데이트 (await 없음)
+    },
+    [updateUserSettings]
+  );
+
+  const handleChartLineColorChange = useCallback(
+    (value: string) => {
+      setChartLineColor(value); // ✅ 1. 로컬 상태 즉시 변경
+      updateUserSettings("chartLineColor", value); // ✅ 2. DB 업데이트 (await 없음)
+    },
+    [updateUserSettings]
+  );
 
   return {
-    // States
+    // States (로컬 상태 반환)
     userName,
     bio,
     darkMode,
     notifications,
     deadlineTime,
     words,
-    showTimePicker,
-    selectedHour,
+    showMovingAverage,
+    chartColorScheme,
+    chartLineColor,
+
+    // Modals
     isUploading,
     showNameModal,
     tempName,
     showBioModal,
     tempBio,
+    showTimePicker,
+    selectedHour,
     showDeleteModal,
     deletePassword,
     showPasswordModal,
     currentPassword,
     newPassword,
     confirmPassword,
+
     // Setters
     setShowTimePicker,
     setShowNameModal,
@@ -381,7 +506,9 @@ export const useProfileHandlers = () => {
     setCurrentPassword,
     setNewPassword,
     setConfirmPassword,
-    // Handlers
+    setSelectedHour,
+
+    // Handlers (모두 useCallback으로 메모이제이션됨)
     handleImagePicker,
     handleNameConfirm,
     handleBioConfirm,
@@ -397,5 +524,8 @@ export const useProfileHandlers = () => {
     handleDeleteAccount,
     handleDeleteConfirm,
     handleLogout,
+    handleMovingAverageToggle,
+    handleChartColorSchemeChange,
+    handleChartLineColorChange,
   };
 };

@@ -93,7 +93,8 @@ export const createNews = async (
   dueDate: string,
   token: string,
   imageURL?: string
-): Promise<string> => {
+): Promise<any> => {
+  // ✅ 반환 타입을 any 또는 구체적인 타입으로
   try {
     const now = new Date();
     const newsId = `news_${now.getTime()}_${Math.random()
@@ -103,31 +104,53 @@ export const createNews = async (
     if (!AI_FUNCTIONS_URL) {
       throw new Error("AI Functions URL is not defined.");
     }
+
+    let uploadedImageURL = ""; // ✅ 업로드된 URL 변수
     if (imageURL) {
       console.log("Uploading news image...");
-      imageURL = await uploadNewsImage(userId, newsId, imageURL);
+      const resultURL = await uploadNewsImage(userId, newsId, imageURL);
+      if (resultURL) {
+        uploadedImageURL = resultURL;
+      }
     }
+
     const params = new URLSearchParams({
       userId,
       taskId,
       date: dueDate,
-      imageURL: imageURL || "",
+      imageURL: uploadedImageURL, // ✅ 업로드된 URL 또는 빈 문자열
     });
+
     const res = await fetch(`${AI_FUNCTIONS_URL}?${params.toString()}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
+
+    // ✅ 429 오류(한도 초과)를 백엔드에서 받았을 때 처리
+    if (res.status === 429) {
+      const errorData = await res.json();
+      console.error("뉴스 생성 한도 초과 (서버):", errorData.error);
+      // 사용자에게 보여줄 에러 메시지를 throw
+      throw new Error(
+        errorData.error || "하루에 최대 3개의 뉴스만 생성할 수 있습니다."
+      );
+    }
+
     if (!res.ok) {
+      // (429 외의 다른 서버 오류)
+      const errorText = await res.text();
+      console.error("AI Functions request failed:", errorText);
       throw new Error(`AI Functions request failed with status ${res.status}`);
     }
+
     const result = await res.json();
     console.log("AI Functions response:", result);
     return result;
   } catch (error) {
-    console.error("뉴스 생성 실패:", error);
-    throw error;
+    console.error("뉴스 생성 실패 (createNews):", error);
+    throw error; // (오류를 TaskList.tsx로 다시 throw하여 Alert 띄우기)
   }
 };
 

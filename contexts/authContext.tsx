@@ -6,7 +6,7 @@ import React, {
   ReactNode,
   useRef,
 } from "react";
-import { AuthContextType, UserType } from "@/types";
+import { AuthContextType, UserType, ChartColorScheme } from "@/types";
 import { FirebaseAuthTypes } from "@react-native-firebase/auth";
 import { auth, firestore } from "@/config/firebase";
 import {
@@ -102,6 +102,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
                   registerDate: data.registerDate || null,
                   expoPushToken: data.expoPushToken || null,
                   emailVerified: firebaseUser.emailVerified,
+
+                  // 차트 설정
+                  showMovingAverage:
+                    data.showMovingAverage === undefined
+                      ? true
+                      : data.showMovingAverage,
+                  chartColorScheme:
+                    (data.chartColorScheme as ChartColorScheme) || "red-up",
+                  chartLineColor: data.chartLineColor || "#6A8BFF",
+
+                  // ✅ 뉴스 생성 횟수 (기본값 처리)
+                  newsGenerationCount: data.newsGenerationCount || 0,
+                  newsGenerationLastReset: data.newsGenerationLastReset || null,
                 };
                 setUser(userData);
               } else {
@@ -198,10 +211,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         password
       );
 
-      // 언어 설정 (한국어)
       auth.languageCode = "ko";
-
-      // 이메일 인증 메일 발송
       await sendEmailVerification(response.user);
 
       // Firestore에 사용자 데이터 생성
@@ -225,9 +235,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         registerDate: new Date().toISOString().split("T")[0],
         expoPushToken: expoPushToken || null,
         consecutiveNoTaskDays: 0,
+
+        // 차트 설정 기본값
+        showMovingAverage: true,
+        chartColorScheme: "red-up",
+        chartLineColor: "#6A8BFF",
+
+        // ✅ 뉴스 생성 횟수 기본값
+        newsGenerationCount: 0,
+        newsGenerationLastReset: null,
       });
 
-      // 로그아웃하지 않음! 사용자가 로그인 상태를 유지하여 이메일 재전송 및 인증 확인 가능
       return {
         success: true,
         msg: "회원가입이 완료되었습니다. 이메일을 확인하여 인증을 완료해주세요.",
@@ -252,14 +270,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         return { success: false, msg: "사용자 정보를 찾을 수 없습니다." };
       }
 
-      // 이미 인증된 경우
       if (currentUser.emailVerified) {
         return { success: false, msg: "이미 이메일 인증이 완료되었습니다." };
       }
 
-      // 언어 설정 (한국어)
       auth.languageCode = "ko";
-
       await sendEmailVerification(currentUser);
       return { success: true, msg: "인증 이메일이 재발송되었습니다." };
     } catch (error: any) {
@@ -277,9 +292,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       const currentUser = auth.currentUser;
       if (!currentUser) return false;
 
-      // Firebase에서 최신 사용자 정보를 다시 가져옴
       await currentUser.reload();
-
       return currentUser.emailVerified;
     } catch (error) {
       console.log("Error checking email verification:", error);
@@ -290,31 +303,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   // 네이티브 Google Sign-In
   const googleSignIn = async () => {
     try {
-      // Google Play Services 확인
       await GoogleSignin.hasPlayServices({
         showPlayServicesUpdateDialog: true,
       });
-
-      // Google 계정 선택
       await GoogleSignin.signIn();
-
-      // 토큰 가져오기
       const tokens = await GoogleSignin.getTokens();
-
       if (!tokens.idToken) {
         throw new Error("No ID token present!");
       }
 
-      // Firebase 인증
       const googleCredential = GoogleAuthProvider.credential(tokens.idToken);
       const userCredential = await signInWithCredential(auth, googleCredential);
 
-      // Firestore에 사용자 정보 확인/생성
       const userRef = doc(firestore, "users", userCredential.user.uid);
       const userDoc = await getDoc(userRef);
 
       if (!userDoc.exists()) {
-        // 새 사용자인 경우 Firestore에 데이터 생성
         await setDoc(userRef, {
           name: userCredential.user.displayName || "사용자",
           email: userCredential.user.email,
@@ -336,6 +340,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           registerDate: new Date().toISOString().split("T")[0],
           expoPushToken: expoPushToken || null,
           consecutiveNoTaskDays: 0,
+
+          // 차트 설정 기본값
+          showMovingAverage: true,
+          chartColorScheme: "red-up",
+          chartLineColor: "#6A8BFF",
+
+          // ✅ 뉴스 생성 횟수 기본값
+          newsGenerationCount: 0,
+          newsGenerationLastReset: null,
         });
       }
 
@@ -343,17 +356,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       return { success: true };
     } catch (error: any) {
       let msg = "구글 로그인에 실패했습니다.";
-
-      if (error.code === "7") {
-        msg = "구글 로그인이 취소되었습니다.";
-      } else if (error.code === "SIGN_IN_CANCELLED") {
+      if (error.code === "7" || error.code === "SIGN_IN_CANCELLED") {
         msg = "구글 로그인이 취소되었습니다.";
       } else if (error.code === "IN_PROGRESS") {
         msg = "이미 로그인 진행 중입니다.";
       } else if (error.code === "PLAY_SERVICES_NOT_AVAILABLE") {
         msg = "Google Play Services를 사용할 수 없습니다.";
       }
-
       console.log("Google Sign-In Error:", error);
       return { success: false, msg };
     }
@@ -362,7 +371,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const changeUserStock = async (price: number) => {
     if (!user) return { success: false, msg: "User not logged in." };
 
-    setUser({ ...user, price });
+    setUser((prevUser) => (prevUser ? { ...prevUser, price } : null));
 
     const userRef = doc(firestore, "users", user.uid);
     try {
@@ -371,33 +380,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       return { success: true };
     } catch (error: any) {
       console.log("❌ Failed to update user stock:", error);
-
-      setUser(user);
-
+      setUser((prevUser) =>
+        prevUser ? { ...prevUser, price: user.price } : null
+      );
       if (error.code === "unavailable") {
         console.log("📴 Offline: Update will sync when online");
-        setUser({ ...user, price });
+        setUser((prevUser) => (prevUser ? { ...prevUser, price } : null));
         return {
           success: true,
           msg: "오프라인 상태입니다. 온라인 시 자동 동기화됩니다.",
         };
       }
-
       return { success: false, msg: "주식 변경에 실패했습니다." };
     }
   };
 
   const logout = async () => {
     try {
-      // Google 로그아웃 시도 (에러 무시)
       try {
         await GoogleSignin.signOut();
         console.log("✅ Google signed out");
       } catch (googleError) {
         console.log("Google sign out skipped:", googleError);
       }
-
-      // Firebase 로그아웃
       await signOut(auth);
       router.replace("/(auth)/welcome");
     } catch (error) {

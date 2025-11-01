@@ -6,6 +6,7 @@ import {
   View,
   TouchableOpacity,
   Text,
+  Alert, // ✅ Alert 임포트
 } from "react-native";
 import { colors, radius, spacingX, spacingY } from "../../constants/theme";
 import CustomCalendar from "../../components/CustomCalendar";
@@ -18,6 +19,8 @@ import { useCalendar } from "@/contexts/calendarContext";
 import { useTheme } from "@/contexts/themeContext";
 import UserProfile from "../../components/UserProfile";
 import { customLogEvent } from "@/events/appEvent";
+import { useAuth } from "@/contexts/authContext"; // ✅ useAuth 임포트
+
 const TodoScreen = () => {
   const {
     isBottomSheetOpen,
@@ -31,12 +34,45 @@ const TodoScreen = () => {
   } = useTasks();
   const { selectedDate } = useCalendar();
   const { theme } = useTheme();
+  const { user } = useAuth(); // ✅ user 객체 가져오기
 
   // 뉴스 생성 모드 상태
   const [isNewsMode, setIsNewsMode] = useState(false);
 
   // 뉴스 생성 버튼 토글
   const toggleNewsMode = async () => {
+    // ✅ 4. 뉴스 생성 모드 "진입 시"에만 횟수 체크
+    if (!isNewsMode) {
+      if (!user) return; // 유저 정보 없으면 중단
+
+      // ✅ [오류 수정] KST(UTC+9) 날짜 계산 로직 변경
+      // (new Date().toLocaleString()는 React Native에서 불안정)
+      const now = new Date();
+      const localOffsetInMs = now.getTimezoneOffset() * 60000;
+      const kstOffsetInMs = 9 * 3600000; // UTC+9
+      const kstTime = new Date(now.getTime() + localOffsetInMs + kstOffsetInMs);
+      const todayKST = kstTime.toISOString().split("T")[0];
+      // ✅ 수정 끝
+
+      const lastReset = user.newsGenerationLastReset || null;
+      let currentCount = user.newsGenerationCount || 0;
+
+      // 날짜가 다르면 카운트 0으로 간주 (체크용)
+      if (lastReset !== todayKST) {
+        currentCount = 0;
+      }
+
+      // 횟수 제한 체크
+      if (currentCount >= 3) {
+        Alert.alert(
+          "한도 초과",
+          `오늘 뉴스 생성 횟수(${currentCount}/3)를 모두 사용했습니다. 내일 다시 시도해주세요.`
+        );
+        return; // 모드 변경(setIsNewsMode)을 막음
+      }
+    }
+
+    // ✅ 5. 횟수 제한에 걸리지 않으면 모드 변경
     setIsNewsMode(!isNewsMode);
 
     await customLogEvent({
@@ -138,7 +174,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: spacingX._20,
     bottom: spacingY._30,
-    backgroundColor: colors.blue100,
+    backgroundColor: colors.blue100, // (theme.ts에 blue100이 정의되어 있어야 함)
     paddingVertical: spacingY._12,
     paddingHorizontal: spacingX._25,
     borderRadius: radius._50,
@@ -152,10 +188,10 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   floatingButtonActive: {
-    backgroundColor: colors.sub,
+    backgroundColor: colors.sub, // (theme.ts에 sub가 정의되어 있어야 함)
   },
   floatingButtonText: {
-    color: colors.white,
+    color: colors.white, // (theme.ts에 white가 정의되어 있어야 함)
     fontSize: 16,
     fontWeight: "600",
   },
