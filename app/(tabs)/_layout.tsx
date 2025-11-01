@@ -1,5 +1,5 @@
 import { StyleSheet, View, Text, Image } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, memo } from "react";
 import { Tabs } from "expo-router";
 import { CustomTabs } from "@/components/CustomTabs";
 import { useTheme } from "@/contexts/themeContext";
@@ -10,7 +10,8 @@ import {
   TestIds,
 } from "react-native-google-mobile-ads";
 
-const SmallNativeAdBanner = ({ theme }: { theme: any }) => {
+// 광고 컴포넌트를 memo로 감싸서 불필요한 리렌더링 방지
+const SmallNativeAdBanner = memo(({ theme }: { theme: any }) => {
   const [nativeAd, setNativeAd] = useState<NativeAd | null>(null);
 
   useEffect(() => {
@@ -88,23 +89,34 @@ const SmallNativeAdBanner = ({ theme }: { theme: any }) => {
       </View>
     </NativeAdView>
   );
-};
+});
+
+SmallNativeAdBanner.displayName = "SmallNativeAdBanner";
+
+// CustomTabBarWithAd를 별도 컴포넌트로 분리하고 memo 적용
+const CustomTabBarWithAd = memo(({ theme, ...props }: any) => {
+  return (
+    <View style={styles.tabBarContainer}>
+      <CustomTabs {...props} theme={theme} />
+      <SmallNativeAdBanner theme={theme} />
+    </View>
+  );
+});
+
+CustomTabBarWithAd.displayName = "CustomTabBarWithAd";
 
 const TabLayout = () => {
   const { theme } = useTheme();
 
-  const CustomTabBarWithAd = (props: any) => {
-    return (
-      <View style={styles.tabBarContainer}>
-        <CustomTabs {...props} theme={theme} />
-        <SmallNativeAdBanner theme={theme} />
-      </View>
-    );
-  };
+  // tabBar 함수를 useMemo로 메모이제이션
+  const tabBarComponent = useMemo(
+    () => (props: any) => <CustomTabBarWithAd {...props} theme={theme} />,
+    [theme]
+  );
 
   return (
     <Tabs
-      tabBar={(props) => <CustomTabBarWithAd {...props} />}
+      tabBar={tabBarComponent}
       screenOptions={{ headerShown: false }}
       screenListeners={({ route }) => ({
         focus: () => {
