@@ -372,6 +372,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
         .domain([niceMin, niceMax])
         .range([candleYAxisLength, 0]);
       const y = candleY0 + scaleY(yValue);
+
       return { yValue, y };
     });
   }, [niceMin, niceMax, niceTick, candleY0, candleYAxisLength]);
@@ -444,13 +445,16 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               >
                 <DashPathEffect intervals={[3, 3]} />
               </Line>
-              <Text
-                x={x1 + 5}
-                y={y}
-                text={String(Math.round(yValue))}
-                font={font}
-                color="#666666"
-              />
+              {/* 마지막 라벨 거래량이랑 겹처서 지움 */}
+              {i !== 0 && (
+                <Text
+                  x={x1 + 5}
+                  y={y}
+                  text={String(Math.round(yValue))}
+                  font={font}
+                  color="#666666"
+                />
+              )}
             </Group>
           ))}
 
