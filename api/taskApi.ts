@@ -224,3 +224,23 @@ export const deleteAllTasksByDate = async (
     throw error;
   }
 };
+export const setTaskNewsGenerated = async (
+  userId: string,
+  task: Task
+): Promise<void> => {
+  try {
+    const docRef = doc(firestore, "users", userId, "todos", task.dueDate);
+
+    // merge: true로 문서가 없으면 생성, 있으면 업데이트
+    await setDoc(
+      docRef,
+      {
+        [task.id]: task,
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.error("뉴스 생성 상태 업데이트 실패 (API):", error);
+    throw error;
+  }
+};

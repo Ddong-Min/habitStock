@@ -230,6 +230,7 @@ export interface Task {
   appliedPriceChange: number;
   appliedPercentage: number;
   updatedAt?: string;
+  hasGeneratedNews?: boolean;
 }
 
 export interface TasksState {
@@ -330,6 +331,10 @@ export type TasksContextType = {
   changeAddTaskState: () => void;
   changeEditTextState: () => void;
   changePriceAfterNews: (
+    taskId: string,
+    difficulty: keyof TasksState
+  ) => Promise<void>;
+  markTaskAsNewsGenerated: (
     taskId: string,
     difficulty: keyof TasksState
   ) => Promise<void>;

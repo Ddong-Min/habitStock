@@ -10,6 +10,7 @@ import {
   saveTaskFirebase,
   deleteTaskFirebase,
   subscribeToTasksByDate, // 🔥 NEW
+  setTaskNewsGenerated,
 } from "@/api/taskApi";
 import { useAuth } from "@/contexts/authContext";
 import randomPriceGenerator from "@/handler/randomPriceGenerator";
@@ -375,6 +376,25 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
       payload: { taskId, difficulty },
     });
   };
+
+  const markTaskAsNewsGenerated = async (
+    taskId: string,
+    difficulty: keyof TasksState
+  ) => {
+    if (!user) return;
+    try {
+      const task = taskByDate[selectedDate][difficulty].find(
+        (task) => task.id === taskId
+      );
+      if (!task) return;
+      task.hasGeneratedNews = true;
+      await setTaskNewsGenerated(user.uid, task);
+    } catch (error) {
+      console.error("Failed to mark task as news generated (Context):", error);
+      throw error;
+    }
+  };
+
   return (
     <TasksContext.Provider
       value={{
@@ -404,6 +424,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         changeEditTextState,
         isEditText,
         changePriceAfterNews,
+        markTaskAsNewsGenerated,
       }}
     >
       {children}
