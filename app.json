@@ -1,10 +1,11 @@
 {
   "expo": {
-    "name": "habitStock",
+    "name": "HabitStock",
     "slug": "habitStock",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/habitStockLogo.png",
+
     "scheme": "habitstock",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -15,7 +16,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.habitstock",
+      "bundleIdentifier": "com.ddongmin.habitstock",
+
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
@@ -23,7 +25,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.yourcompany.habitstock",
+      "package": "com.ddongmin.habitstock",
+
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "pan",
       "googleServicesFile": "./google-services.json"

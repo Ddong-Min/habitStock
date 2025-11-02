@@ -29,7 +29,8 @@ import {
 import { router } from "expo-router";
 import { useNotification } from "./notificationContext";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
-
+import { serverTimestamp } from "@react-native-firebase/firestore"; //
+import { version } from "../package.json"; // 1. package.json에서 버전 가져오기
 const AuthContext = createContext<AuthContextType | null>(null);
 type LoginResponse = {
   success: boolean;
@@ -220,6 +221,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         name,
         email,
         uid: response.user.uid,
+        agreedToTermsVersion: version, // "1.0.0" (package.json 버전)
+        agreedToPrivacyVersion: version, // "1.0.0"
+        agreedAt: serverTimestamp(), // 서버 시간으로 동의한 시각 저장
         image: null,
         price: 100,
         quantity: 1,

@@ -143,6 +143,9 @@ export type UserType = {
   uid: string;
   email?: string | null;
   name: string | null;
+  agreedToTermsVersion?: string; // "1.0.0" (package.json 버전)
+  agreedToPrivacyVersion?: string; // "1.0.0"
+  agreedAt?: FirebaseFirestore.Timestamp; // 서버 시간으로 동의한 시각 저장
   name_lowercase?: string | null;
   image?: any;
   price?: number;

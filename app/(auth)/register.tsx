@@ -18,15 +18,97 @@ import { useAuth } from "@/contexts/authContext";
 import BackButton from "@/components/BackButton";
 import { verticalScale } from "@/utils/styling";
 
+// --- ADDED ---
+// "자세히 보기" 등의 링크를 위한 헬퍼 컴포넌트
+// (나중에 'termsOfService'나 'privacyPolicy' 같은 별도 화면으로 라우팅하세요)
+const LinkButton = ({
+  title,
+  onPress,
+}: {
+  title: string;
+  onPress: () => void;
+}) => (
+  <Pressable onPress={onPress}>
+    <Typo
+      size={14}
+      fontWeight="600"
+      color={colors.textLight}
+      style={styles.linkText}
+    >
+      {title}
+    </Typo>
+  </Pressable>
+);
+
+// --- ADDED ---
+// 체크박스 행 컴포넌트
+const AgreementRow = ({
+  label,
+  value,
+  onValueChange,
+  linkTitle,
+  onLinkPress,
+}: {
+  label: string;
+  value: boolean;
+  onValueChange: () => void;
+  linkTitle?: string;
+  onLinkPress?: () => void;
+}) => (
+  <View style={styles.agreementRow}>
+    <TouchableOpacity onPress={onValueChange} style={styles.checkbox}>
+      {value ? (
+        <Icons.CheckSquare size={24} color={colors.text} weight="fill" />
+      ) : (
+        <Icons.Square size={24} color={colors.neutral300} />
+      )}
+    </TouchableOpacity>
+    <Typo size={14} color={colors.text}>
+      {label}
+    </Typo>
+    <View style={{ flex: 1 }} />
+    {linkTitle && onLinkPress && (
+      <LinkButton title={linkTitle} onPress={onLinkPress} />
+    )}
+  </View>
+);
+
 const Register = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // --- ADDED ---
+  // 약관 동의를 위한 State 추가
+  const [isOver14, setIsOver14] = useState(false);
+  const [agreedToToS, setAgreedToToS] = useState(false);
+  const [agreedToPP, setAgreedToPP] = useState(false);
+
+  // --- ADDED ---
+  // 모든 필수 약관에 동의했는지 확인하는 변수
+  const allAgreed = isOver14 && agreedToToS && agreedToPP;
+
   const { register: registerUser, googleSignIn } = useAuth();
 
+  // --- ADDED ---
+  // 약관 동의 확인 로직 (공통 사용)
+  const checkAgreements = () => {
+    if (!allAgreed) {
+      Alert.alert(
+        "약관 동의 필요",
+        "회원가입을 계속하려면 모든 필수 약관에 동의해야 합니다."
+      );
+      return false;
+    }
+    return true;
+  };
+
   const handleRegister = async () => {
+    // --- MODIFIED ---
+    // 약관 동의 여부를 먼저 확인
+    if (!checkAgreements()) return;
+
     if (!name || !email || !password) {
       Alert.alert("입력 오류", "모든 필드를 입력해주세요.");
       return;
@@ -62,6 +144,10 @@ const Register = () => {
   };
 
   const handleGoogleSignIn = async () => {
+    // --- MODIFIED ---
+    // 구글 로그인 시에도 약관 동의 여부를 먼저 확인
+    if (!checkAgreements()) return;
+
     setIsLoading(true);
     const res = await googleSignIn();
     setIsLoading(false);
@@ -72,6 +158,19 @@ const Register = () => {
         res.msg || "알 수 없는 오류가 발생했습니다."
       );
     }
+  };
+
+  // --- ADDED ---
+  // 약관 "자세히 보기"를 눌렀을 때의 임시 핸들러
+  // TODO: 나중에 실제 약관 페이지로 연결하세요 (예: router.push('/terms'))
+  const showTerms = () => {
+    // app/(legal)/terms.tsx 스크린으로 이동
+    router.push("/(legal)/terms");
+  };
+
+  const showPrivacyPolicy = () => {
+    // app/(legal)/privacy.tsx 스크린으로 이동
+    router.push("/(legal)/privacy");
   };
 
   return (
@@ -114,8 +213,53 @@ const Register = () => {
           />
         </View>
 
-        <Button loading={isLoading} onPress={handleRegister}>
-          <Typo size={20} fontWeight={"700"}>
+        {/* --- ADDED --- 약관 동의 섹션 */}
+        <View style={styles.agreementContainer}>
+          <AgreementRow
+            label="(필수) 본인은 만 14세 이상입니다."
+            value={isOver14}
+            onValueChange={() => setIsOver14(!isOver14)}
+          />
+          <AgreementRow
+            label="(필수) 이용약관에 동의합니다."
+            value={agreedToToS}
+            onValueChange={() => setAgreedToToS(!agreedToToS)}
+            linkTitle="자세히 보기"
+            onLinkPress={showTerms}
+          />
+          <AgreementRow
+            label="(필수) 개인정보 처리방침에 동의합니다."
+            value={agreedToPP}
+            onValueChange={() => setAgreedToPP(!agreedToPP)}
+            linkTitle="자세히 보기"
+            onLinkPress={showPrivacyPolicy}
+          />
+        </View>
+        {/* --- END ADDED --- */}
+
+        <Button
+          loading={isLoading}
+          onPress={handleRegister}
+          // --- MODIFIED ---
+          // 약관 동의 안 하면 버튼 비활성화 (시각적 처리)
+          style={StyleSheet.flatten(
+            !allAgreed || isLoading
+              ? [styles.registerButton, styles.disabledButton]
+              : [styles.registerButton]
+          )}
+          disabled={!allAgreed || isLoading}
+        >
+          <Typo
+            size={20}
+            fontWeight={"700"}
+            // --- MODIFIED ---
+            // 비활성화 시 텍스트 색상 변경
+            style={
+              !allAgreed || isLoading
+                ? styles.disabledButtonText
+                : styles.registerButtonText
+            }
+          >
             회원가입
           </Typo>
         </Button>
@@ -132,6 +276,8 @@ const Register = () => {
           loading={isLoading}
           onPress={handleGoogleSignIn}
           style={styles.googleButton}
+          // --- MODIFIED ---
+          // 구글 버튼은 비활성화 시키지 않되, 눌렀을 때 checkAgreements()가 실행됨
         >
           <Icons.GoogleLogo size={24} color={colors.text} weight="bold" />
           <Typo size={18} fontWeight={"600"} style={{ marginLeft: 10 }}>
@@ -169,7 +315,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     gap: 16,
-    marginBottom: 30,
+    marginBottom: 20, // --- MODIFIED --- (약관 영역 위해 여백 줄임)
   },
   divider: {
     flexDirection: "row",
@@ -198,4 +344,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 20,
   },
+  // --- ADDED ---
+  // 약관 동의 관련 스타일
+  agreementContainer: {
+    gap: 12,
+    marginBottom: 30,
+  },
+  agreementRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  checkbox: {
+    padding: 2, // 터치 영역 확보
+  },
+  linkText: {
+    textDecorationLine: "underline",
+  },
+  // --- ADDED ---
+  // 버튼 비활성화 스타일
+  registerButton: {
+    // 기존 Button에 기본 스타일이 적용되고 있겠지만,
+    // 비활성화 처리를 위해 명시적으로 추가
+  },
+  disabledButton: {
+    backgroundColor: colors.neutral200, // 비활성화 시 배경색
+  },
+  registerButtonText: {
+    color: colors.white, // 활성화 시 텍스트 색 (Button.tsx에 따라 다를 수 있음)
+  },
+  disabledButtonText: {
+    color: colors.neutral400, // 비활성화 시 텍스트 색
+  },
+  // --- END ADDED ---
 });
