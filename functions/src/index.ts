@@ -17,7 +17,6 @@ setGlobalOptions({
 });
 
 // ==================== 푸시 알림 관련 함수 ====================
-// (sendPushNotification, getUserPushToken 함수 - 기존과 동일)
 async function sendPushNotification(
   expoPushToken: string,
   title: string,
@@ -50,24 +49,12 @@ async function sendPushNotification(
     return false;
   }
 }
-async function getUserPushToken(userId: string): Promise<string | null> {
-  try {
-    const userDoc = await db.collection("users").doc(userId).get();
-    if (!userDoc.exists) return null;
-    const userData = userDoc.data();
-    return userData?.expoPushToken || null;
-  } catch (error) {
-    console.error(`❌ ${userId} 푸시 토큰 조회 실패:`, error);
-    return null;
-  }
-}
 // ======================================================
 
-// ==================== 알림 스케줄러 (기존과 동일) ====================
-// (check1HourBeforeDeadline, check10MinutesBeforeDeadline 함수 - 기존과 동일)
+// ==================== 알림 스케줄러 ====================
 export const check1HourBeforeDeadline = onSchedule(
   {
-    schedule: "0 * * * *", // 매시 0분에 실행
+    schedule: "0 * * * *",
     timeZone: "Asia/Seoul",
   },
   async () => {
@@ -83,6 +70,13 @@ export const check1HourBeforeDeadline = onSchedule(
         const userId = userDoc.id;
         const userData = userDoc.data();
         const pushToken = userData.expoPushToken;
+
+        // ✅ allowAlarm 체크
+        if (!userData.allowAlarm) {
+          console.log(`🔕 ${userId}: 알림 비활성화 상태 (allowAlarm: false)`);
+          continue;
+        }
+
         if (!pushToken) continue;
         const duetime = userData.duetime;
         if (!duetime) continue;
@@ -136,7 +130,7 @@ export const check1HourBeforeDeadline = onSchedule(
 
 export const check10MinutesBeforeDeadline = onSchedule(
   {
-    schedule: "50 * * * *", // 매시 50분에 실행
+    schedule: "50 * * * *",
     timeZone: "Asia/Seoul",
   },
   async () => {
@@ -152,6 +146,13 @@ export const check10MinutesBeforeDeadline = onSchedule(
         const userId = userDoc.id;
         const userData = userDoc.data();
         const pushToken = userData.expoPushToken;
+
+        // ✅ allowAlarm 체크
+        if (!userData.allowAlarm) {
+          console.log(`🔕 ${userId}: 알림 비활성화 상태 (allowAlarm: false)`);
+          continue;
+        }
+
         if (!pushToken) continue;
         const duetime = userData.duetime;
         if (!duetime) continue;
@@ -204,8 +205,7 @@ export const check10MinutesBeforeDeadline = onSchedule(
 );
 // ======================================================
 
-// ==================== 마감 후 처리 (기존과 동일) ====================
-// (applyNoTaskPenalty, calculateStockPenalty, checkTasksForDate 함수 - 기존과 동일)
+// ==================== 마감 후 처리 ====================
 async function applyNoTaskPenalty(
   userId: string,
   date: string,
@@ -261,10 +261,11 @@ async function applyNoTaskPenalty(
         2
       )}% 하락. ${currentPrice} -> ${newPrice}`
     );
-    const pushToken = userData.expoPushToken;
-    if (pushToken) {
+
+    // ✅ allowAlarm 체크 후 푸시 알림 전송
+    if (userData.allowAlarm && userData.expoPushToken) {
       await sendPushNotification(
-        pushToken,
+        userData.expoPushToken,
         "😴 할 일을 추가하지 않으셨네요!",
         `연속 ${consecutiveNoTaskDays}일째 할 일이 없어 주가가 ${penaltyRate.toFixed(
           2
@@ -282,6 +283,7 @@ async function applyNoTaskPenalty(
     console.error(`❌ ${userId} 할일 없음 페널티 적용 실패:`, error);
   }
 }
+
 async function calculateStockPenalty(
   userId: string,
   date: string,
@@ -351,14 +353,18 @@ async function calculateStockPenalty(
       price: newPrice,
       lastUpdated: FieldValue.serverTimestamp(),
     });
-    const pushToken = await getUserPushToken(userId);
-    if (pushToken) {
+
+    // ✅ allowAlarm 체크 후 푸시 알림 전송
+    const userDoc = await db.collection("users").doc(userId).get();
+    const userData = userDoc.data();
+
+    if (userData?.allowAlarm && userData?.expoPushToken) {
       const totalTasks = incompleteTasks.length + completedTasks.length;
       const completionRate = Math.round(
         (completedTasks.length / totalTasks) * 100
       );
       await sendPushNotification(
-        pushToken,
+        userData.expoPushToken,
         "📉 주가가 하락했습니다",
         `${incompleteTasks.length}개 할일 미완료로 -${Math.abs(
           changeRate
@@ -375,6 +381,7 @@ async function calculateStockPenalty(
         }
       );
     }
+
     console.log(
       `📉 ${userId}: ${currentPrice} → ${newPrice} ` +
         `(changePrice: ${totalChangePrice}, ` +
@@ -394,6 +401,7 @@ async function calculateStockPenalty(
     };
   }
 }
+
 async function checkTasksForDate(
   userId: string,
   date: string,
@@ -446,8 +454,7 @@ async function checkTasksForDate(
 }
 // ======================================================
 
-// ==================== 스케줄링 함수 (기존과 동일) ====================
-// (checkUserTasksByTime, manualCheckUserTasks, batchCheckTasks 함수 - 기존과 동일)
+// ==================== 스케줄링 함수 ====================
 export const checkUserTasksByTime = onSchedule(
   {
     schedule: "0 * * * *",
@@ -586,7 +593,6 @@ export const batchCheckTasks = onRequest(
 // ======================================================
 
 // ==================== AI 뉴스 생성 ====================
-// (generateNewsForTask, saveNewsToFirestore 함수 - 기존과 동일)
 async function generateNewsForTask(
   userName: string,
   task: any,
@@ -646,6 +652,7 @@ You are a professional financial news reporter. Write a short, formal, and sligh
     return null;
   }
 }
+
 async function saveNewsToFirestore(
   userId: string,
   userName: string,
@@ -724,7 +731,6 @@ export const manualGenerateNews = onRequest(
 
       const userData = userDoc.data()!;
 
-      // ✅ 1. KST 기준 오늘 날짜 계산
       const todayKST = new Date(
         new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" })
       )
@@ -734,7 +740,6 @@ export const manualGenerateNews = onRequest(
       const lastReset = userData.newsGenerationLastReset || null;
       let currentCount = userData.newsGenerationCount || 0;
 
-      // ✅ 2. 날짜 비교하여 카운트 초기화 (메모리상에서만)
       if (lastReset !== todayKST) {
         console.log(
           `🌞 날짜 변경: ${lastReset} -> ${todayKST}. ${requestedUserId}의 뉴스 카운트 리셋.`
@@ -742,18 +747,15 @@ export const manualGenerateNews = onRequest(
         currentCount = 0;
       }
 
-      // ✅ 3. 횟수 제한 체크 (서버 측 권한 확인)
       if (currentCount >= 3) {
         console.log(
           `❌ ${requestedUserId}: 뉴스 생성 한도 초과 (오늘 ${currentCount}회)`
         );
-        // 429 Too Many Requests
         res
           .status(429)
           .send({ error: "하루에 최대 3개의 뉴스만 생성할 수 있습니다." });
         return;
       }
-      // ✅ 횟수 제한 로직 끝
 
       const todosDoc = await db
         .collection("users")
@@ -806,15 +808,12 @@ export const manualGenerateNews = onRequest(
           imageURL || null
         );
 
-        // ✅ 4. 뉴스 생성 횟수 업데이트 (DB에 반영)
         if (lastReset !== todayKST) {
-          // 오늘 첫 생성이므로 카운트를 1로 설정하고 날짜 기록
           await userDoc.ref.update({
             newsGenerationCount: 1,
             newsGenerationLastReset: todayKST,
           });
         } else {
-          // 오늘 이미 생성한 적이 있으므로 카운트 증가
           await userDoc.ref.update({
             newsGenerationCount: FieldValue.increment(1),
           });

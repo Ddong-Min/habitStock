@@ -42,7 +42,11 @@ function AppContent() {
 
       // 로딩이 끝난 후, 사용자 로그인 상태에 따라 페이지를 이동시킵니다.
       if (user) {
-        router.replace("/(tabs)");
+        if (!user.emailVerified) {
+          router.replace("/(auth)/emailVerification");
+        } else {
+          router.replace("/(tabs)");
+        }
       } else {
         router.replace("/(auth)/welcome");
       }

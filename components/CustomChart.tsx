@@ -6,7 +6,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Text as RNText,
-  ActivityIndicator, // ✅ ActivityIndicator 임포트
+  ActivityIndicator,
 } from "react-native";
 import {
   Canvas,
@@ -29,7 +29,7 @@ import { aggregateData } from "@/handler/aggregateData";
 import { StockDataByDateType } from "@/types";
 import Typo from "./Typo";
 import { useTheme } from "@/contexts/themeContext";
-import { useAuth } from "@/contexts/authContext"; // ✅ 1. useAuth 임포트
+import { useAuth } from "@/contexts/authContext";
 
 type ChartType = "candle" | "line";
 
@@ -65,18 +65,12 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
   const { selectedPeriod, changeSelectedPeriod } = useStock();
   const [chartType, setChartType] = useState<ChartType>("candle");
 
-  // ✅ 2. useAuth 훅 사용
   const { user } = useAuth();
 
-  // ✅ 3. 사용자 설정값 가져오기 (기본값 설정)
-  // (user가 로드되기 전이나, 로그아웃 상태일 수 있으므로 기본값 설정)
   const showMovingAverage = user?.showMovingAverage ?? true;
   const chartColorScheme = user?.chartColorScheme ?? "red-up";
-  // (theme.ts에 blue100이 있으므로 theme.blue100을 기본값으로 사용)
   const chartLineColor = user?.chartLineColor ?? theme.blue100;
 
-  // ✅ 4. 설정에 따른 동적 색상 결정
-  // (theme.ts에 green100이 추가되었음)
   const stockColors = {
     up: chartColorScheme === "red-up" ? theme.red100 : theme.green100,
     down: chartColorScheme === "red-up" ? theme.blue100 : theme.red100,
@@ -92,7 +86,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     setFullDataArray(aggregated);
   }, [stockData, selectedPeriod]);
 
-  // Shared values for smooth animation
   const visibleRange = useSharedValue(30);
   const scrollOffset = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -103,7 +96,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
   const savedTranslateX = useSharedValue(0);
   const focalX = useSharedValue(0);
 
-  // State for rendering
   const [renderVisibleRange, setRenderVisibleRange] = useState(30);
   const [renderScrollOffset, setRenderScrollOffset] = useState(0);
 
@@ -142,8 +134,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
       savedVisibleRange.value = visibleRange.value;
       savedScrollOffset.value = scrollOffset.value;
       savedTranslateX.value = scrollOffset.value;
-
-      // 핀치 시작 지점 저장 (화면 상의 x 좌표) - onStart에서 한 번만 저장
       focalX.value = e.focalX;
     })
     .onUpdate((e) => {
@@ -160,15 +150,12 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
 
       visibleRange.value = newRange;
 
-      // 저장된 focalX 값 사용 (고정)
       const focalXInChart = focalX.value - x0;
       const focalRatio = Math.max(0, Math.min(1, focalXInChart / xAxisLength));
 
-      // 포커스 지점의 데이터 인덱스 (처음 저장된 위치 기준)
       const focalDataIndex =
         savedScrollOffset.value + savedVisibleRange.value * focalRatio;
 
-      // 새로운 범위에서 같은 데이터 인덱스가 같은 위치에 오도록 오프셋 조정
       const newOffset = Math.max(
         0,
         Math.min(
@@ -214,9 +201,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
 
   const composedGesture = Gesture.Race(pinchGesture, panGesture);
 
-  // Moving averages 계산
   const fullMa5 = useMemo(() => {
-    // ✅ 5. MA 계산은 설정값이 켜져있을 때만 수행
     if (!showMovingAverage) return [];
     const allClose = fullDataArray.map((d) => d[2]);
     return calculateMovingAverage(allClose, 5);
@@ -234,7 +219,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     return calculateMovingAverage(allClose, 60);
   }, [fullDataArray, showMovingAverage]);
 
-  // 현재 보이는 데이터 계산
   const {
     dataArray,
     ma5,
@@ -262,12 +246,10 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     const startIndex = Math.max(0, startFloor);
     const offsetFraction = startFloor < 0 ? fraction : fraction + 1;
 
-    // ✅ MA 데이터 슬라이스 (showMovingAverage가 false면 fullMa 배열이 비어있음)
     const ma5 = fullMa5.slice(startIndex, startIndex + dataArray.length);
     const ma20 = fullMa20.slice(startIndex, startIndex + dataArray.length);
     const ma60 = fullMa60.slice(startIndex, startIndex + dataArray.length);
 
-    // Y축 범위 계산 (MA 포함)
     const maValues = showMovingAverage
       ? [
           ...ma5.filter((v): v is number => v !== null),
@@ -279,19 +261,17 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     const rawCandleYMax = Math.max(...dataArray.map((d) => d[3]), ...maValues);
     const rawCandleYMin = Math.min(...dataArray.map((d) => d[4]), ...maValues);
 
-    // (데이터가 없는 경우 0으로 처리)
     const validYMax = isFinite(rawCandleYMax) ? rawCandleYMax : 0;
     const validYMin = isFinite(rawCandleYMin) ? rawCandleYMin : 0;
 
     const rawRange = validYMax - validYMin;
-    const padding = rawRange * 0.05 || 1; // (범위가 0일 때 padding 1)
+    const padding = rawRange * 0.05 || 1;
     const candleYMax = validYMax + padding;
     const candleYMin = validYMin - padding;
     const candleYRange = candleYMax - candleYMin;
 
-    // Nice 값 계산
     const getNiceNumber = (range: number, round: boolean) => {
-      if (range === 0) return 1; // (범위가 0일 때)
+      if (range === 0) return 1;
       const exponent = Math.floor(Math.log10(range));
       const fraction = range / Math.pow(10, exponent);
       let niceFraction;
@@ -313,7 +293,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
 
     const numYTicks = 7;
     const niceRange = getNiceNumber(candleYRange, false);
-    const niceTick = getNiceNumber(niceRange / (numYTicks - 1), true) || 1; // (0 방지)
+    const niceTick = getNiceNumber(niceRange / (numYTicks - 1), true) || 1;
     const niceMin = Math.floor(candleYMin / niceTick) * niceTick;
     const niceMax = Math.ceil(candleYMax / niceTick) * niceTick;
 
@@ -339,10 +319,9 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     fullMa60,
     renderScrollOffset,
     renderVisibleRange,
-    showMovingAverage, // ✅ Y축 범위 계산에 MA가 포함되므로 의존성 추가
+    showMovingAverage,
   ]);
 
-  // Font 정의
   const font = useMemo(
     () =>
       matchFont({
@@ -364,7 +343,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
   const numYTicks = 7;
   const numXTicks = 5;
 
-  // Y축 라벨
   const yAxisLabels = useMemo(() => {
     return Array.from({ length: numYTicks }).map((_, i) => {
       const yValue = niceMin + i * niceTick;
@@ -377,8 +355,15 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     });
   }, [niceMin, niceMax, niceTick, candleY0, candleYAxisLength]);
 
-  // 거래량 Y축 라벨
+  // ✅ 거래량 Y축 레이블 - volumeYMax가 4 이하면 무조건 0,1,2,3,4
   const volumeYAxisLabels = useMemo(() => {
+    if (volumeYMax <= 4) {
+      return [4, 3, 2, 1, 0].map((yValue, i) => {
+        const y = volumeY0 + i * (volumeYAxisLength / 4);
+        return { yValue, y };
+      });
+    }
+
     return Array.from({ length: 5 }).map((_, i) => {
       const y = volumeY0 + i * (volumeYAxisLength / 4);
       const yValue = Math.round(volumeYMax - i * (volumeYMax / 4));
@@ -386,7 +371,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     });
   }, [volumeY0, volumeYAxisLength, volumeYMax]);
 
-  // (데이터 로딩 중 표시)
   if (!user || fullDataArray.length === 0) {
     return (
       <View
@@ -408,7 +392,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     <View style={[styles.container, { backgroundColor: theme.cardBackground }]}>
       <GestureDetector gesture={composedGesture}>
         <Canvas style={{ width: SVG_WIDTH, height: TOTAL_HEIGHT }}>
-          {/* 축 */}
           <Line
             p1={vec(x0, candleXAxisY)}
             p2={vec(x1, candleXAxisY)}
@@ -434,7 +417,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
             strokeWidth={1}
           />
 
-          {/* Y축 격자선 */}
           {yAxisLabels.map(({ yValue, y }, i) => (
             <Group key={`y-${i}`}>
               <Line
@@ -445,7 +427,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               >
                 <DashPathEffect intervals={[3, 3]} />
               </Line>
-              {/* 마지막 라벨 거래량이랑 겹처서 지움 */}
               {i !== 0 && (
                 <Text
                   x={x1 + 5}
@@ -458,7 +439,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
             </Group>
           ))}
 
-          {/* 거래량 Y축 격자선 */}
           {volumeYAxisLabels.map(({ yValue, y }, i) => (
             <Group key={`vol-y-${i}`}>
               <Line
@@ -479,7 +459,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
             </Group>
           ))}
 
-          {/* X축 격자선과 날짜 레이블 */}
           {dataArray.map((data, index) => {
             const shouldShowLabel =
               index % Math.max(1, Math.ceil(dataArray.length / numXTicks)) ===
@@ -525,9 +504,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
             return null;
           })}
 
-          {/* 차트 영역 - 클리핑 적용 */}
           <Group clip={Skia.XYWHRect(x0, 0, xAxisLength, TOTAL_HEIGHT)}>
-            {/* 캔들/라인 차트 */}
             {chartType === "candle" ? (
               dataArray.map((data, index) => {
                 const [day, open, close, high, low, volume] = data;
@@ -540,7 +517,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                   .domain([niceMin, niceMax])
                   .range([candleYAxisLength, 0]);
 
-                // ✅ 6. 동적 색상 적용 (stockColors 사용)
                 const fill = open > close ? stockColors.down : stockColors.up;
 
                 const highY = candleY0 + scaleY(high);
@@ -549,8 +525,9 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                 const minY = candleY0 + scaleY(min);
                 const rectHeight = minY - maxY;
 
+                // ✅ volumeYMax가 4 이하면 domain을 4로 고정
                 const volumeScaleY = scaleLinear()
-                  .domain([0, volumeYMax])
+                  .domain([0, volumeYMax <= 4 ? 4 : volumeYMax])
                   .range([0, volumeYAxisLength]);
                 const barHeight = volumeScaleY(volume);
                 const barY = volumeXAxisY - barHeight;
@@ -601,7 +578,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                     const y = candleY0 + scaleY(closePrice);
 
                     if (index === 0 || x < x0) {
-                      // (클리핑 영역 밖에서 시작 방지)
                       path.moveTo(x, y);
                     } else {
                       path.lineTo(x, y);
@@ -611,7 +587,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                   return (
                     <Path
                       path={path}
-                      color={chartLineColor} // ✅ 7. 라인 차트 색상 적용
+                      color={chartLineColor}
                       style="stroke"
                       strokeWidth={2.5}
                     />
@@ -622,11 +598,11 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                   const [day, open, close, high, low, volume] = data;
                   const x = x0 + (index - offsetFraction) * barPlotWidth;
                   const sidePadding = barPlotWidth / 6;
-                  // ✅ 6. 동적 색상 적용 (stockColors 사용)
                   const fill = open > close ? stockColors.down : stockColors.up;
 
+                  // ✅ volumeYMax가 4 이하면 domain을 4로 고정
                   const volumeScaleY = scaleLinear()
-                    .domain([0, volumeYMax])
+                    .domain([0, volumeYMax <= 4 ? 4 : volumeYMax])
                     .range([0, volumeYAxisLength]);
                   const barHeight = volumeScaleY(volume);
                   const barY = volumeXAxisY - barHeight;
@@ -646,13 +622,11 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               </Group>
             )}
 
-            {/* ✅ 8. 이동평균선 조건부 렌더링 */}
             {showMovingAverage &&
               [
-                // (theme.ts에 yellow, purple, red75가 정의됨)
                 { data: ma5, color: theme.yellow },
                 { data: ma20, color: theme.purple },
-                { data: ma60, color: theme.red75 }, // (ma60 색상 예시)
+                { data: ma60, color: theme.red75 },
               ].map((ma, maIndex) => {
                 const path = Skia.Path.Make();
                 const scaleY = scaleLinear()
@@ -668,7 +642,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                       barPlotWidth / 2;
                     const y = candleY0 + scaleY(value);
 
-                    // (클리핑 영역 밖에서 시작 방지)
                     if (!started && x >= x0) {
                       path.moveTo(x, y);
                       started = true;
@@ -690,7 +663,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
               })}
           </Group>
 
-          {/* ✅ 9. 이동평균선 범례 조건부 렌더링 */}
           {showMovingAverage && (
             <>
               <Text
@@ -698,28 +670,27 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                 y={candleY0 - 5}
                 text="MA5"
                 font={font}
-                color={theme.yellow} // (theme.ts에 정의된 색상)
+                color={theme.yellow}
               />
               <Text
                 x={x0 + 50}
                 y={candleY0 - 5}
                 text="MA20"
                 font={font}
-                color={theme.purple} // (theme.ts에 정의된 색상)
+                color={theme.purple}
               />
               <Text
                 x={x0 + 110}
                 y={candleY0 - 5}
                 text="MA60"
                 font={font}
-                color={theme.red75} // (theme.ts에 정의된 색상)
+                color={theme.red75}
               />
             </>
           )}
         </Canvas>
       </GestureDetector>
 
-      {/* 차트 타입 전환 버튼 */}
       <View style={styles.chartControlContainer}>
         <View
           style={[
@@ -850,7 +821,6 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     </View>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: spacingX._10,
