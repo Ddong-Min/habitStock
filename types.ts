@@ -112,16 +112,15 @@ export type TransactionItemProps = {
   index: number;
   handleClick: Function;
 };
-
 export interface InputProps extends TextInputProps {
   icon?: React.ReactNode;
   containerStyle?: ViewStyle;
   inputStyle?: TextStyle;
   inputRef?: React.RefObject<TextInput>;
-  //   label?: string;
-  //   error?: string;
+  onIconPress?: () => void; // (당신의 요청을 위해 '진짜' 인터페이스에 추가)
+  //  label?: string;
+  //  error?: string;
 }
-
 export interface CustomButtonProps extends TouchableOpacityProps {
   style?: ViewStyle;
   onPress?: () => void;

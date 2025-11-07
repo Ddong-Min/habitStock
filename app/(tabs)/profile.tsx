@@ -17,6 +17,7 @@ import { spacingY, colors, spacingX, radius } from "@/constants/theme";
 import { useProfileHandlers } from "@/handler/profileHandler";
 import { useNotification } from "@/contexts/notificationContext";
 import Typo from "@/components/Typo";
+import { verticalScale } from "@/utils/styling";
 
 // ✅ 색상 버튼 컴포넌트 (메모이제이션)
 const ColorButton = memo(
@@ -181,6 +182,7 @@ const GeneralSettings = memo(
           <Ionicons name="chevron-forward" size={20} color={theme.textLight} />
         </View>
       </TouchableOpacity>
+      {/*
       <TouchableOpacity
         style={styles.settingItem}
         onPress={handleLanguageChange}
@@ -198,6 +200,7 @@ const GeneralSettings = memo(
           <Ionicons name="chevron-forward" size={20} color={theme.textLight} />
         </View>
       </TouchableOpacity>
+      */}
     </View>
   )
 );
@@ -689,6 +692,19 @@ const Profile: React.FC = () => {
                 <Ionicons name="chevron-down" size={40} color={theme.blue100} />
               </TouchableOpacity>
             </View>
+            {selectedHour >= 0 && selectedHour <= 6 && (
+              <View style={styles.infoContainer}>
+                <Typo
+                  size={14}
+                  // 테마에 보조 텍스트 색상이 있다면 사용하고,
+                  // 없다면 theme.text나 회색(#666) 등으로 조절하세요.
+                  color={theme.textLight}
+                  style={styles.infoText}
+                >
+                  00시 ~ 06시는 전날 할일에 대해 검사합니다.
+                </Typo>
+              </View>
+            )}
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[
@@ -1016,6 +1032,15 @@ const styles = StyleSheet.create({
   },
   arrowButton: {
     padding: spacingX._8,
+  },
+  infoContainer: {
+    width: "90%", // 모달 컨텐츠 너비에 맞춰 조절
+    paddingVertical: spacingX._10, // 위아래 여백
+    alignItems: "center", // 가운데 정렬
+  },
+  infoText: {
+    textAlign: "center", // 텍스트 가운데 정렬
+    lineHeight: verticalScale(20), // 줄 간격
   },
   timeDisplay: {
     paddingVertical: spacingY._20,

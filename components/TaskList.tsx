@@ -7,6 +7,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal, // ✅ [추가] Modal 임포트
+  ActivityIndicator, // ✅ [추가] ActivityIndicator 임포트
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
@@ -55,16 +57,14 @@ const TaskList: React.FC<{
     startModify,
     changeBottomSheetState,
     changePriceAfterNews,
-    markTaskAsNewsGenerated, // ✅ [수정] Firestore 업데이트 함수 가져오기
+    markTaskAsNewsGenerated,
   } = useTasks();
   const { user } = useAuth();
   const { selectedDate } = useCalendar();
   const { createNews } = useNews();
 
-  // ❌ [제거] 로컬 상태(useState) 대신 Firestore 데이터를 사용합니다.
-  // const [newsGeneratedTasks, setNewsGeneratedTasks] = useState<Set<string>>(
-  //   new Set()
-  // );
+  // ✅ [추가] 뉴스 생성 로딩 상태를 관리할 state
+  const [isGeneratingNews, setIsGeneratingNews] = useState(false);
 
   // 보상형 광고 인스턴스
   const [rewardedAd, setRewardedAd] = useState<RewardedAd | null>(null);
@@ -76,7 +76,6 @@ const TaskList: React.FC<{
       requestNonPersonalizedAdsOnly: false,
     });
 
-    // 광고 로드 완료 이벤트
     const loadedListener = rewarded.addAdEventListener(
       RewardedAdEventType.LOADED,
       () => {
@@ -135,19 +134,20 @@ const TaskList: React.FC<{
 
           // 뉴스 생성
           try {
-            await createNews(taskId, dueDate, true, imageUrl || "");
+            // ✅ [수정] 로딩 시작
+            setIsGeneratingNews(true);
 
-            // ✅ [수정] Firestore에 영구적으로 뉴스 생성 상태 업데이트
+            await createNews(taskId, dueDate, true, imageUrl || "");
             await markTaskAsNewsGenerated(taskId, difficulty);
 
-            // ❌ [제거] 로컬 상태 업데이트 제거
-            // setNewsGeneratedTasks((prev) => new Set(prev).add(taskId));
-
+            // ✅ [수정] 로딩 종료 (성공 시)
+            setIsGeneratingNews(false);
             Alert.alert("완료", "AI 뉴스가 생성되었습니다!");
             customLogEvent({ eventName: "success_create_news" });
             changePriceAfterNews(taskId, difficulty);
           } catch (error: any) {
-            // ✅ [수정] API 오류 메시지 표시
+            // ✅ [수정] 로딩 종료 (실패 시)
+            setIsGeneratingNews(false);
             console.error("뉴스 생성 실패:", error);
             Alert.alert("오류", error.message || "뉴스 생성에 실패했습니다.");
             customLogEvent({ eventName: "fail_create_news" });
@@ -158,13 +158,11 @@ const TaskList: React.FC<{
           setAdLoaded(false);
           const newAd = RewardedAd.createForAdRequest(TestIds.REWARDED);
 
-          // ✅ [수정] 새 광고에도 LOADED 리스너 추가 (버그 수정)
           const newLoadedListener = newAd.addAdEventListener(
             RewardedAdEventType.LOADED,
             () => {
               setAdLoaded(true);
               console.log("✅ 새 보상형 광고 로드 완료");
-              // 클린업: 리스너 제거 (선택적이지만 권장)
               newLoadedListener();
             }
           );
@@ -281,6 +279,34 @@ const TaskList: React.FC<{
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      {/* ✅ [추가] 뉴스 생성 로딩 모달 */}
+      <Modal
+        transparent={true}
+        animationType="fade"
+        visible={isGeneratingNews}
+        onRequestClose={() => {
+          // Android에서 뒤로가기 버튼으로 닫히지 않도록
+        }}
+      >
+        <View style={styles.loadingOverlay}>
+          <View
+            style={[
+              styles.loadingContainer,
+              { backgroundColor: theme.cardBackground }, // 테마 적용
+            ]}
+          >
+            <ActivityIndicator size="large" color={theme.main || colors.main} />
+            <Typo
+              size={16}
+              color={theme.text}
+              style={{ marginTop: spacingY._12 }}
+            >
+              AI 뉴스를 생성 중입니다...
+            </Typo>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView
         style={[
           styles.container,
@@ -309,10 +335,7 @@ const TaskList: React.FC<{
             );
           }
 
-          // ✅ [수정] Firestore의 item 객체에서 'hasGeneratedNews' 필드를 직접 읽음
-          // (Task 타입에 'hasGeneratedNews?: boolean'가 정의되어 있어야 합니다)
           const hasGeneratedNews = item.hasGeneratedNews || false;
-
           const dueDateTimeString = `${item.dueDate}T${user?.duetime}:00`;
           const dueDateTime = new Date(dueDateTimeString);
           const isOverdue = !item.completed && dueDateTime < new Date();
@@ -374,12 +397,11 @@ const TaskList: React.FC<{
                   </View>
 
                   <View style={styles.rightActions}>
-                    {/* ✅ [수정] 'item.completed' 조건을 추가 */}
                     {isNewsMode && item.completed && (
                       <TouchableOpacity
                         style={[
                           styles.newsButton,
-                          //{ backgroundColor: theme.main },
+                          // { backgroundColor: theme.main },
                         ]}
                         onPress={() =>
                           handleNewsGeneration(
@@ -389,7 +411,6 @@ const TaskList: React.FC<{
                             item.difficulty
                           )
                         }
-                        // ✅ 'hasGeneratedNews' 값에 따라 비활성화
                         disabled={hasGeneratedNews}
                         activeOpacity={0.7}
                       >
@@ -492,6 +513,24 @@ const styles = StyleSheet.create({
   },
   moreButton: {
     padding: spacingX._7,
+  },
+  // ✅ [추가] 로딩 모달 관련 스타일
+  loadingOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  loadingContainer: {
+    padding: spacingX._20,
+    borderRadius: radius._10,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
 });
 

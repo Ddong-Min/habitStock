@@ -1,3 +1,4 @@
+// components/NewsDetail.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -12,6 +13,7 @@ import {
   Text,
   Image,
   Dimensions,
+  ActivityIndicator, // [1. ActivityIndicator import 추가]
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Typo from "@/components/Typo";
@@ -50,6 +52,9 @@ const NewsDetail = ({
     item.imageURL || null
   );
 
+  // [2. '업로드 중' 로딩 state 추가]
+  const [isUploading, setIsUploading] = useState(false);
+
   const { theme } = useTheme();
   const {
     currentUserId,
@@ -68,7 +73,6 @@ const NewsDetail = ({
   const isLiked = isMyNews
     ? !!myNewsLikes[item.id]
     : !!followingNewsLikes[item.id];
-  // Get the most up-to-date news item from the context
   const currentNewsItem = (
     isMyNews
       ? myNews.find((n) => n.id === item.id)
@@ -77,10 +81,10 @@ const NewsDetail = ({
 
   const displayItem = currentNewsItem || item;
 
-  // --- 댓글 실시간 구독 ---
+  // --- (useEffect들 - 변경 없음) ---
+  // [댓글 구독]
   useEffect(() => {
     if (!item.id || !item.userId) return;
-
     const unsubscribe = newsApi.subscribeToComments(
       item.userId,
       item.id,
@@ -91,16 +95,12 @@ const NewsDetail = ({
         console.error("댓글 구독 실패:", error);
       }
     );
-
-    return () => {
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [item.id, item.userId]);
 
-  // --- 댓글 반응 실시간 구독 ---
+  // [댓글 반응 구독]
   useEffect(() => {
     if (!item.id || !item.userId || !currentUserId) return;
-
     const unsubscribe = newsApi.subscribeToCommentReactions(
       item.userId,
       item.id,
@@ -112,38 +112,27 @@ const NewsDetail = ({
         console.error("댓글 반응 구독 실패:", error);
       }
     );
-
-    return () => {
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [item.id, item.userId, currentUserId]);
 
-  // 댓글과 반응을 합쳐서 최종 데이터 생성
   const commentsWithReactions: CommentWithReaction[] = comments.map((c) => ({
     ...c,
     userReaction: reactions[c.id],
   }));
 
-  // --- 핸들러 함수 ---
-
-  // 뉴스 좋아요 핸들러
+  // --- (핸들러 함수들 - handleEditNews 제외하고 변경 없음) ---
   const handleLikeNews = () => {
     toggleNewsLike(item.userId, item.id);
   };
-
-  // 댓글 추가 핸들러 - Context 사용
   const handleAddComment = async () => {
     if (!comment.trim() || !currentUserId) return;
     try {
       await contextAddComment(item.userId, item.id, comment.trim());
       setComment("");
-      // 구독 방식이므로 자동 업데이트
     } catch (error) {
       Alert.alert("오류", "댓글 작성에 실패했습니다.");
     }
   };
-
-  // 댓글 삭제 핸들러 - Context 사용
   const handleDeleteComment = async (commentId: string) => {
     Alert.alert("댓글 삭제", "이 댓글을 삭제하시겠습니까?", [
       { text: "취소", style: "cancel" },
@@ -153,7 +142,6 @@ const NewsDetail = ({
         onPress: async () => {
           try {
             await contextDeleteComment(item.userId, item.id, commentId);
-            // 구독 방식이므로 자동 업데이트
           } catch (error) {
             Alert.alert("오류", "댓글 삭제에 실패했습니다.");
           }
@@ -161,8 +149,6 @@ const NewsDetail = ({
       },
     ]);
   };
-
-  // 댓글 좋아요 핸들러
   const handleCommentReaction = async (commentId: string) => {
     if (!currentUserId) {
       Alert.alert("알림", "로그인이 필요합니다.");
@@ -177,13 +163,10 @@ const NewsDetail = ({
         currentUserId,
         "like"
       );
-      // 구독 방식이므로 자동 업데이트
     } catch (error) {
       Alert.alert("오류", "반응 처리에 실패했습니다.");
     }
   };
-
-  // 뉴스 삭제 핸들러 - Context 사용
   const handleDeleteNews = () => {
     Alert.alert("뉴스 삭제", "이 뉴스를 삭제하시겠습니까?", [
       { text: "취소", style: "cancel" },
@@ -202,8 +185,6 @@ const NewsDetail = ({
       },
     ]);
   };
-
-  // 이미지 픽커 핸들러
   const handlePickImage = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -214,36 +195,38 @@ const NewsDetail = ({
       );
       return;
     }
-
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [16, 9],
       quality: 0.7,
     });
-
     if (!pickerResult.canceled && pickerResult.assets.length > 0) {
       setEditImage(pickerResult.assets[0].uri);
     }
   };
 
-  // 뉴스 수정 핸들러 - Context 사용
+  // --- [3. handleEditNews 수정] ---
   const handleEditNews = async () => {
     if (!editTitle.trim() || !editContent.trim()) {
       Alert.alert("오류", "제목과 내용을 모두 입력해주세요.");
       return;
     }
+
+    setIsUploading(true); // [3.1 로딩 시작]
+
     try {
-      // Context의 updateNews 사용
       await contextUpdateNews(
         item.id,
         editTitle.trim(),
         editContent.trim(),
-        editImage || undefined
+        editImage // (null을 그대로 전달)
       );
+      setIsUploading(false); // [3.2 로딩 종료 (성공 시)]
       setEditModalVisible(false);
       Alert.alert("성공", "뉴스가 수정되었습니다.");
     } catch (error) {
+      setIsUploading(false); // [3.3 로딩 종료 (실패 시)]
       Alert.alert("오류", "뉴스 수정에 실패했습니다.");
     }
   };
@@ -256,10 +239,10 @@ const NewsDetail = ({
     setEditModalVisible(true);
   };
 
-  // 수정 모달 닫기
+  // [4. 수정 모달 닫기 - 로딩 중 닫기 방지]
   const closeEditModal = () => {
+    if (isUploading) return; // 로딩 중에는 닫기 방지
     setEditModalVisible(false);
-    // 원래 값으로 복원
     setEditTitle(displayItem.title);
     setEditContent(displayItem.content);
     setEditImage(displayItem.imageURL || null);
@@ -295,8 +278,9 @@ const NewsDetail = ({
         </View>
       </View>
 
-      {/* Content */}
+      {/* Content (변경 없음) */}
       <ScrollView style={styles.content}>
+        {/* ... (디테일, 좋아요, 댓글 섹션) ... */}
         <View style={styles.detailContainer}>
           <Typo size={14} color={theme.neutral500} style={styles.date}>
             {displayItem.date}
@@ -309,14 +293,12 @@ const NewsDetail = ({
           >
             {displayItem.title}
           </Typo>
-
           {displayItem.imageURL && (
             <Image
               source={{ uri: displayItem.imageURL }}
               style={[styles.newsImage, { backgroundColor: theme.neutral200 }]}
             />
           )}
-
           <View
             style={[styles.divider, { backgroundColor: theme.neutral200 }]}
           />
@@ -329,8 +311,6 @@ const NewsDetail = ({
             {displayItem.content}
           </Typo>
         </View>
-
-        {/* 뉴스 좋아요 섹션 */}
         <View style={styles.likeSection}>
           <TouchableOpacity
             style={[styles.likeButton, { borderColor: theme.neutral200 }]}
@@ -351,8 +331,6 @@ const NewsDetail = ({
             </Typo>
           </TouchableOpacity>
         </View>
-
-        {/* 댓글 섹션 */}
         <View
           style={[styles.commentSection, { borderTopColor: theme.neutral200 }]}
         >
@@ -364,7 +342,6 @@ const NewsDetail = ({
           >
             댓글 ({commentsWithReactions.length})
           </Typo>
-
           {commentsWithReactions.length === 0 ? (
             <View style={styles.emptyComments}>
               <Typo size={16} color={theme.neutral400}>
@@ -385,11 +362,18 @@ const NewsDetail = ({
                 >
                   <View style={styles.commentHeader}>
                     <View style={styles.commentUserInfo}>
-                      <Ionicons
-                        name="person-circle"
-                        size={32}
-                        color={theme.neutral500}
-                      />
+                      {commentItem.userPhotoURL ? (
+                        <Image
+                          source={{ uri: commentItem.userPhotoURL }}
+                          style={styles.commentAvatar}
+                        />
+                      ) : (
+                        <Ionicons
+                          name="person-circle"
+                          size={32}
+                          color={theme.neutral500}
+                        />
+                      )}
                       <View style={styles.commentUserDetails}>
                         <Typo size={15} fontWeight="600" color={theme.text}>
                           {commentItem.userName}
@@ -457,7 +441,6 @@ const NewsDetail = ({
               )}
             />
           )}
-
           {currentUserId && (
             <View
               style={[
@@ -499,7 +482,7 @@ const NewsDetail = ({
         <SafeAreaView
           style={[styles.modalContainer, { backgroundColor: theme.background }]}
         >
-          {/* 모달 헤더 */}
+          {/* 모달 헤더 (로딩 중 버튼 비활성화) */}
           <View
             style={[
               styles.modalHeader,
@@ -507,28 +490,38 @@ const NewsDetail = ({
             ]}
           >
             <TouchableOpacity
-              onPress={closeEditModal}
+              onPress={closeEditModal} // [5. 닫기 버튼 (로딩 중 막힘)]
               style={styles.modalBackButton}
+              disabled={isUploading} // [5.1 로딩 중 비활성화]
             >
-              <Ionicons name="close" size={28} color={theme.text} />
+              <Ionicons
+                name="close"
+                size={28}
+                color={isUploading ? theme.neutral300 : theme.text} // [5.2 비활성화 시 시각 처리]
+              />
             </TouchableOpacity>
             <Typo size={18} fontWeight="600" color={theme.text}>
               뉴스 수정
             </Typo>
             <TouchableOpacity
-              onPress={handleEditNews}
+              onPress={handleEditNews} // [6. 완료 버튼 (로딩 중 막힘)]
               style={styles.modalSaveButton}
+              disabled={isUploading} // [6.1 로딩 중 비활성화]
             >
-              <Typo size={16} fontWeight="600" color={theme.blue100}>
+              <Typo
+                size={16}
+                fontWeight="600"
+                color={isUploading ? theme.neutral300 : theme.blue100} // [6.2 비활성화 시 시각 처리]
+              >
                 완료
               </Typo>
             </TouchableOpacity>
           </View>
 
-          {/* 모달 콘텐츠 */}
+          {/* 모달 콘텐츠 (변경 없음) */}
           <ScrollView style={styles.modalScrollView}>
             <View style={styles.modalFormContainer}>
-              {/* 제목 입력 */}
+              {/* ... (제목, 이미지, 내용 입력 폼) ... */}
               <View style={styles.inputSection}>
                 <Typo
                   size={14}
@@ -561,8 +554,6 @@ const NewsDetail = ({
                   {editTitle.length}/100
                 </Typo>
               </View>
-
-              {/* 이미지 섹션 */}
               <View style={styles.inputSection}>
                 <Typo
                   size={14}
@@ -638,8 +629,6 @@ const NewsDetail = ({
                   </TouchableOpacity>
                 )}
               </View>
-
-              {/* 내용 입력 */}
               <View style={styles.inputSection}>
                 <Typo
                   size={14}
@@ -676,6 +665,16 @@ const NewsDetail = ({
               </View>
             </View>
           </ScrollView>
+
+          {/* [7. '업로드 중' 로딩 오버레이 추가] */}
+          {isUploading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color={theme.text} />
+              <Typo color={theme.text} style={{ marginTop: 15 }}>
+                업로드 중...
+              </Typo>
+            </View>
+          )}
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -729,6 +728,11 @@ const styles = StyleSheet.create({
     marginBottom: spacingY._10,
   },
   commentUserInfo: { flexDirection: "row", alignItems: "center" },
+  commentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
   commentUserDetails: { marginLeft: spacingX._10 },
   commentContent: {
     lineHeight: verticalScale(22),
@@ -844,6 +848,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     height: verticalScale(250),
     lineHeight: 24,
+  },
+
+  // [8. 로딩 오버레이 스타일 추가]
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject, // (모달 전체를 덮음)
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // (반투명 배경)
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 

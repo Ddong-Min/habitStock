@@ -206,6 +206,7 @@ export const check10MinutesBeforeDeadline = onSchedule(
 // ======================================================
 
 // ==================== 마감 후 처리 ====================
+// ==================== 마감 후 처리 ====================
 async function applyNoTaskPenalty(
   userId: string,
   date: string,
@@ -214,8 +215,10 @@ async function applyNoTaskPenalty(
   try {
     const currentPrice = userData.price || 100;
     const consecutiveNoTaskDays = (userData.consecutiveNoTaskDays || 0) + 1;
+
     let minRate: number;
     let maxRate: number;
+
     if (consecutiveNoTaskDays === 1) {
       minRate = 0.5;
       maxRate = 1.0;
@@ -226,20 +229,31 @@ async function applyNoTaskPenalty(
       minRate = 1.0;
       maxRate = 2.0;
     }
-    const penaltyRate = minRate + Math.random() * (maxRate - minRate);
-    const priceChange = currentPrice * (penaltyRate / 100);
+
+    // 🔹 변동률 소수점 둘째 자리 반올림
+    const randomRate = minRate + Math.random() * (maxRate - minRate);
+    const penaltyRate = parseFloat(randomRate.toFixed(2));
+
+    // 🔹 금액 변화 계산 및 반올림
+    const priceChange = parseFloat(
+      (currentPrice * (penaltyRate / 100)).toFixed(1)
+    );
+
+    // 🔹 새 가격 계산 (최소 1 이상)
     const newPrice = Math.max(
       1,
-      Math.round((currentPrice - priceChange) * 10) / 10
+      parseFloat((currentPrice - priceChange).toFixed(1))
     );
+
     const stockDocRef = db
       .collection("users")
       .doc(userId)
       .collection("stocks")
       .doc(date);
+
     const stockUpdate = {
-      date: date,
-      changePrice: -(Math.round(priceChange * 10) / 10),
+      date,
+      changePrice: -priceChange,
       changeRate: -penaltyRate,
       open: currentPrice,
       close: newPrice,
@@ -247,7 +261,9 @@ async function applyNoTaskPenalty(
       low: newPrice,
       volume: 0,
     };
+
     await stockDocRef.set(stockUpdate);
+
     await db
       .collection("users")
       .doc(userId)
@@ -256,10 +272,9 @@ async function applyNoTaskPenalty(
         consecutiveNoTaskDays: FieldValue.increment(1),
         lastUpdated: FieldValue.serverTimestamp(),
       });
+
     console.log(
-      `😴 ${userId}: 할일 없음. ${consecutiveNoTaskDays}일 연속. 주가 ${penaltyRate.toFixed(
-        2
-      )}% 하락. ${currentPrice} -> ${newPrice}`
+      `😴 ${userId}: 할일 없음. ${consecutiveNoTaskDays}일 연속. 주가 ${penaltyRate}% 하락. ${currentPrice} → ${newPrice}`
     );
 
     // ✅ allowAlarm 체크 후 푸시 알림 전송
@@ -267,9 +282,7 @@ async function applyNoTaskPenalty(
       await sendPushNotification(
         userData.expoPushToken,
         "😴 할 일을 추가하지 않으셨네요!",
-        `연속 ${consecutiveNoTaskDays}일째 할 일이 없어 주가가 ${penaltyRate.toFixed(
-          2
-        )}% 하락했습니다.`,
+        `연속 ${consecutiveNoTaskDays}일째 할 일이 없어 주가가 ${penaltyRate}% 하락했습니다.`,
         {
           type: "no_task_penalty",
           date,
@@ -609,20 +622,25 @@ async function generateNewsForTask(
     const newPrice = currentPrice + priceChange;
     const didRise = priceChange >= 0;
     const prompt = `
-You are a professional financial news reporter. Write a short, formal, and slightly humorous Korean stock market news article.
+Role: Witty financial news reporter for a Korean newspaper.
+Task: Write a short, professional, and slightly humorous Korean stock market news article.
+
+Metaphor: The user is a publicly traded company, not an individual. The task they completed is a corporate milestone or announcement.
 
 **Data:**
-- User Name: "${userName}"
-- Completed Task: "${taskText}"
-- Stock Price Change: From ${currentPrice} KRW to ${newPrice} KRW (${
+- Company Name: "${userName}"
+- Milestone Achieved: "${taskText}"
+- Stock Price Change: ${currentPrice} KRW -> ${newPrice} KRW (${
   didRise ? "+" : ""
 }${percentValue.toFixed(2)}%)
 
-**Instructions:**
-1. **Title:** Concise title (under 40 characters, no emojis) in Korean.
-2. **Content:** 4-5 sentences in Korean describing the task completion and stock movement.
+**Rules:**
+1.  **Language:** Korean (formal, news style).
+2.  **Title:** Concise Korean headline (under 40 chars, no emojis).
+3.  **Content:** 4-5 sentences. Report on "${userName}" (as a company) achieving its milestone and the subsequent stock price reaction.
+4.  **Tone:** Professional, but with a clever, slight humor.
 
-**Output Format:**
+**Output Format (Strict):**
 **title:** (Your title)
 **content:** (Your content)
 `;

@@ -42,6 +42,7 @@ function AppContent() {
 
       // 로딩이 끝난 후, 사용자 로그인 상태에 따라 페이지를 이동시킵니다.
       if (user) {
+        console.log("User is logged in:", user);
         if (!user.emailVerified) {
           router.replace("/(auth)/emailVerification");
         } else {

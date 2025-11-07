@@ -36,7 +36,7 @@ interface NewsContextType {
     newsId: string,
     title: string,
     content: string,
-    imageUri?: string
+    imageUri?: string | null
   ) => Promise<void>;
   deleteNews: (newsId: string) => Promise<void>;
   selectNews: (news: newsService.NewsItem | null) => void;
@@ -249,7 +249,7 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
       newsId: string,
       title: string,
       content: string,
-      imageUri?: string
+      imageUri?: string | null
     ) => {
       if (!currentUserId) return;
 

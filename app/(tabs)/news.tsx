@@ -246,16 +246,10 @@ const news = () => {
               style={[
                 styles.placeholderImage,
                 {
-                  backgroundColor: theme.neutral100,
+                  backgroundColor: theme.cardBackground,
                 },
               ]}
-            >
-              <Ionicons
-                name="newspaper-outline"
-                size={32}
-                color={theme.neutral400}
-              />
-            </View>
+            ></View>
           )}
         </View>
       </TouchableOpacity>
@@ -637,7 +631,8 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    gap: spacingX._15,
     marginBottom: spacingY._8,
   },
   sourceTag: {
@@ -673,8 +668,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacingY._3,
   },
   imageContainer: {
-    width: 100,
-    height: 100,
+    width: spacingX._100,
+    height: spacingX._100,
     borderRadius: radius._10,
     overflow: "hidden",
   },
@@ -683,8 +678,8 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   placeholderImage: {
-    width: 100,
-    height: 100,
+    width: spacingX._30,
+    height: spacingX._30,
     borderRadius: radius._10,
     justifyContent: "center",
     alignItems: "center",

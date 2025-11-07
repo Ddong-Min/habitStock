@@ -43,19 +43,27 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
 
   // 나중에 cleanup할 때
   useEffect(() => {
-    if (!currentUserId) return;
-    const unsubscribe = followApi.subscribeToFollowingList(
-      currentUserId,
-      (ids) => {
-        setFollowingIds(ids);
-      },
-      (users) => {
-        setFollowingUsers(users); // 예시: useState로 저장
-      }
-    );
-    return () => unsubscribe();
-  }, [currentUserId]);
+    // [수정] user.uid를 직접 사용 (currentUserId state 제거)
+    if (user?.uid) {
+      const unsubscribe = followApi.subscribeToFollowingList(
+        user.uid,
+        (ids) => {
+          setFollowingIds(ids);
+        },
+        (users) => {
+          setFollowingUsers(users);
+        }
+      );
 
+      // [수정] 클린업 함수는 구독 생성 시에만 반환
+      return () => unsubscribe();
+    } else {
+      // [!! 여기가 '좀비' 해결 !!]
+      // 로그아웃 시, '상태'를 '명시적'으로 초기화
+      setFollowingIds(new Set());
+      setFollowingUsers([]);
+    }
+  }, [user]); // [수정] 의존성을 user 객체로 변경
   // 사용자 검색 (Debounced)
   const searchUsers = useCallback(
     async (query: string) => {
