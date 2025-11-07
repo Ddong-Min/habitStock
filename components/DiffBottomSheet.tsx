@@ -1,21 +1,23 @@
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import React from "react";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
-import { colors, difficultyborderColor } from "../constants/theme";
+// 'colors' import 제거, 'difficultyborderColor'는 사용되지 않아 제거
 import {
   spacingX,
   spacingY,
-  radius,
   difficultyColors,
 } from "../constants/theme";
 import { useTasks } from "@/contexts/taskContext";
 import { TasksState } from "../types";
 import Typo from "./Typo";
 import { verticalScale } from "@/utils/styling";
+import { useTheme } from "@/contexts/themeContext"; // 1. useTheme 훅 import
 
 const DiffBottomSheet = () => {
   const bottomSheetRef = React.useRef<BottomSheet>(null);
   const { editTask, changeDifficultySheetState } = useTasks();
+
+  const { theme, isDarkMode } = useTheme(); // 2. useTheme 훅 호출
 
   const difficulties = [
     { key: "easy", label: "Easy" },
@@ -23,6 +25,59 @@ const DiffBottomSheet = () => {
     { key: "hard", label: "Hard" },
     { key: "extreme", label: "Extreme" },
   ];
+
+  // 3. styles 정의를 컴포넌트 내부로 이동 (theme 객체 사용)
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingHorizontal: spacingX._20,
+      paddingTop: spacingY._7,
+      backgroundColor: theme.neutral50, // colors -> theme
+    },
+    header: {
+      paddingBottom: spacingY._20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.neutral200, // colors -> theme
+      marginBottom: spacingY._12,
+    },
+    titleText: {
+      color: theme.black, // colors -> theme
+      lineHeight: verticalScale(24),
+      letterSpacing: -0.3,
+    },
+    buttonContainer: {
+      flex: 1,
+      gap: spacingY._12,
+    },
+    difficultyButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: theme.white, // colors -> theme
+      borderRadius: 12,
+      paddingVertical: spacingY._17,
+      paddingHorizontal: spacingX._17,
+      borderWidth: 1,
+      borderColor: theme.neutral200, // colors -> theme
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    difficultyIndicator: {
+      width: 8,
+      height: 40,
+      borderRadius: 4,
+      marginRight: spacingX._15,
+    },
+    buttonLabel: {
+      color: theme.black, // colors -> theme
+      letterSpacing: -0.2,
+    },
+  });
 
   return (
     <BottomSheet
@@ -38,7 +93,7 @@ const DiffBottomSheet = () => {
       }}
       backgroundStyle={{
         borderRadius: 20,
-        backgroundColor: colors.white,
+        backgroundColor: theme.white, // 4. colors -> theme
         shadowColor: "#000",
         shadowOffset: {
           width: 0,
@@ -49,7 +104,7 @@ const DiffBottomSheet = () => {
         elevation: 8,
       }}
       handleIndicatorStyle={{
-        backgroundColor: colors.neutral400,
+        backgroundColor: theme.neutral400, // 5. colors -> theme
         width: 40,
         height: 4,
       }}
@@ -77,7 +132,8 @@ const DiffBottomSheet = () => {
                   styles.difficultyIndicator,
                   {
                     backgroundColor: difficultyColors(
-                      difficulty.key as keyof TasksState
+                      difficulty.key as keyof TasksState,
+                      isDarkMode // 6. isDarkMode 값 전달
                     ),
                   },
                 ]}
@@ -94,55 +150,3 @@ const DiffBottomSheet = () => {
 };
 
 export default DiffBottomSheet;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: spacingX._20,
-    paddingTop: spacingY._7,
-    backgroundColor: colors.neutral50,
-  },
-  header: {
-    paddingBottom: spacingY._20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral200,
-    marginBottom: spacingY._12,
-  },
-  titleText: {
-    color: colors.black,
-    lineHeight: verticalScale(24),
-    letterSpacing: -0.3,
-  },
-  buttonContainer: {
-    flex: 1,
-    gap: spacingY._12,
-  },
-  difficultyButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    paddingVertical: spacingY._17,
-    paddingHorizontal: spacingX._17,
-    borderWidth: 1,
-    borderColor: colors.neutral200,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  difficultyIndicator: {
-    width: 8,
-    height: 40,
-    borderRadius: 4,
-    marginRight: spacingX._15,
-  },
-  buttonLabel: {
-    color: colors.black,
-    letterSpacing: -0.2,
-  },
-});

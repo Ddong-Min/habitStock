@@ -19,6 +19,7 @@ import {
   Skia,
   matchFont,
   DashPathEffect,
+  Circle, // ✅ Circle 컴포넌트 import 추가
 } from "@shopify/react-native-skia";
 import { verticalScale } from "@/utils/styling";
 import { scaleLinear } from "d3-scale";
@@ -230,6 +231,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     volumeYMax,
     offsetFraction,
     barPlotWidth,
+    isLastPointVisible, // ✅ 마지막 포인트 가시성 플래그
   } = useMemo(() => {
     const start = Math.max(
       0,
@@ -238,6 +240,9 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
     const startFloor = Math.floor(start - 1);
     const fraction = start - Math.floor(start);
     const end = Math.ceil(start + renderVisibleRange + 1);
+
+    // ✅ 마지막 데이터 포인트가 현재 렌더링 범위에 포함되는지 확인
+    const isLastPointVisible = end >= fullDataArray.length;
 
     const dataArray = fullDataArray.slice(
       Math.max(0, startFloor),
@@ -311,6 +316,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
       volumeYMax,
       offsetFraction,
       barPlotWidth,
+      isLastPointVisible, // ✅ 반환 객체에 추가
     };
   }, [
     fullDataArray,
@@ -593,6 +599,50 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
                     />
                   );
                 })()}
+
+                {/* ✅ START: 마지막 포인트 마커 추가 */}
+                {isLastPointVisible &&
+                  dataArray.length > 0 &&
+                  (() => {
+                    const lastDataPoint = dataArray[dataArray.length - 1];
+                    const lastClosePrice = lastDataPoint[2];
+                    const lastIndex = dataArray.length - 1;
+
+                    const scaleY = scaleLinear()
+                      .domain([niceMin, niceMax])
+                      .range([candleYAxisLength, 0]);
+
+                    const cx =
+                      x0 +
+                      (lastIndex - offsetFraction) * barPlotWidth +
+                      barPlotWidth / 2;
+                    const cy = candleY0 + scaleY(lastClosePrice);
+
+                    // 캔버스/클립 영역 밖으로 나가지 않도록 방지
+                    if (cx > x1 || cy < candleY0 || cy > candleXAxisY) {
+                      return null;
+                    }
+
+                    return (
+                      <Group>
+                        {/* 바깥쪽 원 (배경색으로 덮어씌워 "테두리" 효과) */}
+                        <Circle
+                          cx={cx}
+                          cy={cy}
+                          r={6} // 바깥쪽 원 반지름
+                          color={theme.cardBackground}
+                        />
+                        {/* 안쪽 원 (라인색과 동일) */}
+                        <Circle
+                          cx={cx}
+                          cy={cy}
+                          r={4} // 안쪽 원 반지름
+                          color={chartLineColor}
+                        />
+                      </Group>
+                    );
+                  })()}
+                {/* ✅ END: 마지막 포인트 마커 추가 */}
 
                 {dataArray.map((data, index) => {
                   const [day, open, close, high, low, volume] = data;

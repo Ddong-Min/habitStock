@@ -5,14 +5,10 @@ import {
   TextInput,
   FlatList,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
-  StatusBar,
-  Dimensions,
-  Touchable,
 } from "react-native";
 // --- [변경] ---
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 // -------------
 import { useFollow } from "../../contexts/followContext";
 import { useTheme } from "@/contexts/themeContext";
@@ -20,8 +16,7 @@ import { useStock } from "@/contexts/stockContext";
 import { useCalendar } from "@/contexts/calendarContext";
 import { radius, spacingX, spacingY } from "@/constants/theme";
 import Typo from "@/components/Typo";
-import { LineChart } from "react-native-chart-kit";
-import { Defs, LinearGradient, Stop } from "react-native-svg";
+
 import { verticalScale } from "@/utils/styling";
 import FriendStockDetail from "@/components/FriendStockDetail";
 import FriendStock from "@/components/FriendStock";
@@ -34,8 +29,6 @@ const Market = () => {
     searchResults,
     loading,
     followingUsers,
-    toggleFollow,
-    isFollowing,
     selectedFollowId,
     changeSelectedFollowId,
   } = useFollow();
@@ -261,11 +254,7 @@ const Market = () => {
         </View>
       </View>
 
-      {/* --- [추가] --- */}
-      {/* 검색 중이 아닐 때만 정렬 버튼 표시 */}
       {!searchQuery && renderSortButtons()}
-      {/* ------------- */}
-
       {/* Loading Indicator */}
       {loading && (
         <View style={styles.loadingContainer}>

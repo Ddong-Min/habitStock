@@ -11,6 +11,7 @@ import {
 import React from "react";
 import { useFollow } from "@/contexts/followContext";
 import { useTheme } from "@/contexts/themeContext";
+import { useAuth } from "@/contexts/authContext"; // ✅ [추가] useAuth 훅 import
 // --- [제거] ---
 // import { useStock } from "@/contexts/stockContext";
 // import { useCalendar } from "@/contexts/calendarContext";
@@ -27,6 +28,7 @@ const chartHeight = spacingY._80;
 // --- [변경] item: any 타입으로 받음 (Market에서 보낸 확장된 객체) ---
 const FriendStock = ({ item }: { item: any }) => {
   const { theme } = useTheme();
+  const { user } = useAuth(); // ✅ [추가] 사용자 설정(테마)를 위해 useAuth 호출
   const {
     // Market에서 필요한 컨텍스트만 남김
     toggleFollow,
@@ -34,11 +36,13 @@ const FriendStock = ({ item }: { item: any }) => {
     changeSelectedFollowId,
   } = useFollow();
 
-  // --- [제거] Hooks 및 모든 계산 로직 ---
-  // const { friendStockData, loadAllFriendStocksData } = useStock();
-  // const { today } = useCalendar();
-  // ... (모든 계산 로직 삭제) ...
-  // ---------------------------------
+  // ✅ [추가] CustomChart.tsx와 동일한 색상 설정 로직
+  const chartColorScheme = user?.chartColorScheme ?? "red-up";
+  const stockColors = {
+    up: chartColorScheme === "red-up" ? theme.red100 : theme.green100,
+    down: chartColorScheme === "red-up" ? theme.blue100 : theme.red100,
+  };
+  // ----------------------------------------------------
 
   // --- [추가] Market에서 계산한 데이터를 props로 받음 ---
   const {
@@ -80,10 +84,12 @@ const FriendStock = ({ item }: { item: any }) => {
   const GradientDecorator = () => (
     <Defs key={gradientId}>
       <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="100%">
-        <Stop offset="0%" stopColor={theme.red100} />
-        <Stop offset={thresholdPercent} stopColor={theme.red100} />
-        <Stop offset={thresholdPercent} stopColor={theme.blue100} />
-        <Stop offset="100%" stopColor={theme.blue100} />
+        {/* ✅ [수정] theme.red100 -> stockColors.up */}
+        <Stop offset="0%" stopColor={stockColors.up} />
+        <Stop offset={thresholdPercent} stopColor={stockColors.up} />
+        {/* ✅ [수정] theme.blue100 -> stockColors.down */}
+        <Stop offset={thresholdPercent} stopColor={stockColors.down} />
+        <Stop offset="100%" stopColor={stockColors.down} />
       </LinearGradient>
     </Defs>
   );
@@ -192,25 +198,25 @@ const FriendStock = ({ item }: { item: any }) => {
                 style={[
                   styles.changeBadge,
                   {
-                    // [수정] 숫자(processedWeeklyChange)로 비교
+                    // [수정] 숫자(processedWeeklyChange)로 비교 및 stockColors 적용
                     backgroundColor:
                       processedWeeklyChange > 0
-                        ? `${theme.red100}20`
+                        ? `${stockColors.up}20` // ✅ [수정]
                         : processedWeeklyChange === 0
                         ? `${theme.textLight}20`
-                        : `${theme.blue100}20`,
+                        : `${stockColors.down}20`, // ✅ [수정]
                   },
                 ]}
               >
                 <Typo
                   size={14}
                   color={
-                    // [수정] 숫자(processedWeeklyChange)로 비교
+                    // [수정] 숫자(processedWeeklyChange)로 비교 및 stockColors 적용
                     processedWeeklyChange > 0
-                      ? theme.red100
+                      ? stockColors.up // ✅ [수정]
                       : processedWeeklyChange === 0
                       ? theme.text
-                      : theme.blue100
+                      : stockColors.down // ✅ [수정]
                   }
                   style={{ lineHeight: verticalScale(14) }}
                 >

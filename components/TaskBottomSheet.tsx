@@ -1,8 +1,7 @@
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import React from "react";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
-import { colors } from "../constants/theme";
-import { spacingX, spacingY, radius } from "../constants/theme";
+import { spacingX, spacingY } from "../constants/theme";
 import { useTasks } from "@/contexts/taskContext";
 import Typo from "./Typo";
 import { verticalScale } from "@/utils/styling";
@@ -13,6 +12,7 @@ import {
   SwapIcon,
   CalendarIcon,
 } from "phosphor-react-native";
+import { useTheme } from "@/contexts/themeContext"; // 1. useTheme 훅 import
 
 const TaskBottomSheet = () => {
   const bottomSheetRef = React.useRef<BottomSheet>(null);
@@ -26,11 +26,15 @@ const TaskBottomSheet = () => {
     finishModify,
   } = useTasks();
 
+  const { theme } = useTheme(); // 2. useTheme 훅 호출
+
+  // 3. buttonActions 정의를 컴포넌트 내부로 이동 (theme 객체 사용)
   const buttonActions = [
     {
       label: "내용 수정하기",
+      // colors -> theme
       icon: (
-        <ScissorsIcon size={22} color={colors.neutral500} weight="regular" />
+        <ScissorsIcon size={22} color={theme.neutral500} weight="regular" />
       ),
       onPress: () => {
         changeEditTextState();
@@ -38,9 +42,8 @@ const TaskBottomSheet = () => {
     },
     {
       label: "할일 삭제하기",
-      icon: (
-        <TrashSimpleIcon size={22} color={colors.red100} weight="regular" />
-      ),
+      // colors -> theme
+      icon: <TrashSimpleIcon size={22} color={theme.red100} weight="regular" />,
       onPress: () => {
         Alert.alert("삭제 확인", "정말로 이 할일을 삭제하시겠습니까?", [
           { text: "취소", style: "cancel" },
@@ -56,7 +59,7 @@ const TaskBottomSheet = () => {
     },
     {
       label: "난이도 변경하기",
-      icon: <SwapIcon size={22} color={colors.neutral500} weight="regular" />,
+      icon: <SwapIcon size={22} color={theme.neutral500} weight="regular" />, // colors -> theme
       onPress: () => {
         changeDifficultySheetState();
       },
@@ -64,13 +67,68 @@ const TaskBottomSheet = () => {
     {
       label: "날짜 변경하기",
       icon: (
-        <CalendarIcon size={22} color={colors.neutral500} weight="regular" />
-      ),
+        <CalendarIcon size={22} color={theme.neutral500} weight="regular" />
+      ), // colors -> theme
       onPress: () => {
         changeShowDatePicker();
       },
     },
   ];
+
+  // 4. styles 정의를 컴포넌트 내부로 이동 (theme 객체 사용)
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingHorizontal: spacingX._20,
+      paddingTop: spacingY._7,
+    },
+    header: {
+      paddingBottom: spacingY._20,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.neutral100, // colors -> theme
+      marginBottom: spacingY._12,
+    },
+    titleText: {
+      color: theme.black, // colors -> theme
+      lineHeight: verticalScale(24),
+      letterSpacing: -0.3,
+    },
+    buttonContainer: {
+      flex: 1,
+      gap: spacingY._10,
+    },
+    actionButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: theme.white, // colors -> theme
+      borderRadius: 12,
+      paddingVertical: spacingY._15,
+      paddingHorizontal: spacingX._15,
+      borderWidth: 1,
+      borderColor: theme.neutral100, // colors -> theme
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.03,
+      shadowRadius: 4,
+      elevation: 1,
+    },
+    iconWrapper: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: theme.neutral50, // colors -> theme
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: spacingX._12,
+    },
+    buttonLabel: {
+      color: theme.black, // colors -> theme
+      letterSpacing: -0.2,
+    },
+  });
 
   return (
     <BottomSheet
@@ -88,7 +146,7 @@ const TaskBottomSheet = () => {
       }}
       backgroundStyle={{
         borderRadius: 20,
-        backgroundColor: colors.white,
+        backgroundColor: theme.white, // 5. colors -> theme
         shadowColor: "#000",
         shadowOffset: {
           width: 0,
@@ -99,7 +157,7 @@ const TaskBottomSheet = () => {
         elevation: 8,
       }}
       handleIndicatorStyle={{
-        backgroundColor: colors.neutral300,
+        backgroundColor: theme.neutral300, // 6. colors -> theme
         width: 40,
         height: 4,
       }}
@@ -135,57 +193,3 @@ const TaskBottomSheet = () => {
 };
 
 export default TaskBottomSheet;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: spacingX._20,
-    paddingTop: spacingY._7,
-  },
-  header: {
-    paddingBottom: spacingY._20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral100,
-    marginBottom: spacingY._12,
-  },
-  titleText: {
-    color: colors.black,
-    lineHeight: verticalScale(24),
-    letterSpacing: -0.3,
-  },
-  buttonContainer: {
-    flex: 1,
-    gap: spacingY._10,
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    paddingVertical: spacingY._15,
-    paddingHorizontal: spacingX._15,
-    borderWidth: 1,
-    borderColor: colors.neutral100,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  iconWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.neutral50,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: spacingX._12,
-  },
-  buttonLabel: {
-    color: colors.black,
-    letterSpacing: -0.2,
-  },
-});
