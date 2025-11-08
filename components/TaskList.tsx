@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   ScrollView,
@@ -7,8 +7,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Modal, // ✅ [추가] Modal 임포트
-  ActivityIndicator, // ✅ [추가] ActivityIndicator 임포트
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Typo from "./Typo";
@@ -25,11 +25,6 @@ import { useTheme } from "@/contexts/themeContext";
 import { ViewStyle } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { customLogEvent } from "@/events/appEvent";
-import {
-  RewardedAd,
-  RewardedAdEventType,
-  TestIds,
-} from "react-native-google-mobile-ads";
 
 const TaskList: React.FC<{
   diffStyle?: ViewStyle;
@@ -63,34 +58,8 @@ const TaskList: React.FC<{
   const { selectedDate } = useCalendar();
   const { createNews } = useNews();
 
-  // ✅ [추가] 뉴스 생성 로딩 상태를 관리할 state
+  // 뉴스 생성 로딩 상태
   const [isGeneratingNews, setIsGeneratingNews] = useState(false);
-
-  // 보상형 광고 인스턴스
-  const [rewardedAd, setRewardedAd] = useState<RewardedAd | null>(null);
-  const [adLoaded, setAdLoaded] = useState(false);
-
-  // 광고 로드
-  useEffect(() => {
-    const rewarded = RewardedAd.createForAdRequest(TestIds.REWARDED, {
-      requestNonPersonalizedAdsOnly: false,
-    });
-
-    const loadedListener = rewarded.addAdEventListener(
-      RewardedAdEventType.LOADED,
-      () => {
-        setAdLoaded(true);
-        console.log("✅ 보상형 광고 로드 완료");
-      }
-    );
-
-    rewarded.load();
-    setRewardedAd(rewarded);
-
-    return () => {
-      loadedListener();
-    };
-  }, []);
 
   const flatData = useMemo(() => {
     const tasksForSelectedDate = taskByDate[selectedDate] || [];
@@ -105,80 +74,28 @@ const TaskList: React.FC<{
     ]);
   }, [selectedDate, taskByDate]);
 
-  // 보상형 광고 시청 후 뉴스 생성
-  const showRewardedAdAndCreateNews = async (
+  // 이미지와 함께 뉴스 생성
+  const createNewsWithImage = async (
     taskId: string,
     dueDate: string,
     difficulty: keyof TasksState,
     imageUrl: string | null
   ) => {
-    if (!rewardedAd || !adLoaded) {
-      Alert.alert(
-        "오류",
-        "광고를 불러오는 중입니다. 잠시 후 다시 시도해주세요."
-      );
-      customLogEvent({ eventName: "ad_not_loaded" });
-      return;
-    }
-
     try {
-      // 보상 획득 리스너 등록
-      const earnedListener = rewardedAd.addAdEventListener(
-        RewardedAdEventType.EARNED_REWARD,
-        async (reward) => {
-          console.log("🎁 보상 획득:", reward);
-          customLogEvent({
-            eventName: "rewarded_ad_earned",
-            payload: { amount: reward.amount, type: reward.type },
-          });
+      setIsGeneratingNews(true);
 
-          // 뉴스 생성
-          try {
-            // ✅ [수정] 로딩 시작
-            setIsGeneratingNews(true);
+      await createNews(taskId, dueDate, true, imageUrl || "");
+      await markTaskAsNewsGenerated(taskId, difficulty);
 
-            await createNews(taskId, dueDate, true, imageUrl || "");
-            await markTaskAsNewsGenerated(taskId, difficulty);
-
-            // ✅ [수정] 로딩 종료 (성공 시)
-            setIsGeneratingNews(false);
-            Alert.alert("완료", "AI 뉴스가 생성되었습니다!");
-            customLogEvent({ eventName: "success_create_news" });
-            changePriceAfterNews(taskId, difficulty);
-          } catch (error: any) {
-            // ✅ [수정] 로딩 종료 (실패 시)
-            setIsGeneratingNews(false);
-            console.error("뉴스 생성 실패:", error);
-            Alert.alert("오류", error.message || "뉴스 생성에 실패했습니다.");
-            customLogEvent({ eventName: "fail_create_news" });
-          }
-
-          // 새 광고 로드
-          earnedListener();
-          setAdLoaded(false);
-          const newAd = RewardedAd.createForAdRequest(TestIds.REWARDED);
-
-          const newLoadedListener = newAd.addAdEventListener(
-            RewardedAdEventType.LOADED,
-            () => {
-              setAdLoaded(true);
-              console.log("✅ 새 보상형 광고 로드 완료");
-              newLoadedListener();
-            }
-          );
-
-          newAd.load();
-          setRewardedAd(newAd);
-        }
-      );
-
-      // 광고 표시
-      customLogEvent({ eventName: "rewarded_ad_show" });
-      rewardedAd.show();
-    } catch (error) {
-      console.error("광고 표시 실패:", error);
-      Alert.alert("오류", "광고를 표시할 수 없습니다.");
-      customLogEvent({ eventName: "rewarded_ad_show_fail" });
+      setIsGeneratingNews(false);
+      Alert.alert("완료", "AI 뉴스가 생성되었습니다!");
+      customLogEvent({ eventName: "success_create_news" });
+      changePriceAfterNews(taskId, difficulty);
+    } catch (error: any) {
+      setIsGeneratingNews(false);
+      console.error("뉴스 생성 실패:", error);
+      Alert.alert("오류", error.message || "뉴스 생성에 실패했습니다.");
+      customLogEvent({ eventName: "fail_create_news" });
     }
   };
 
@@ -188,37 +105,8 @@ const TaskList: React.FC<{
     taskText: string,
     difficulty: keyof TasksState
   ) => {
-    // 3. 광고 시청 알림창 (이미지 URL을 파라미터로 받음)
-    const showAdAlert = (imageUrl: string | null = null) => {
-      Alert.alert(
-        "광고 시청",
-        "15초 보상형 광고를 시청하고 뉴스를 생성하시겠습니까?",
-        [
-          {
-            text: "취소",
-            style: "cancel",
-            onPress: () => {
-              customLogEvent({ eventName: "cancel_create_news_in_ad" });
-            },
-          },
-          {
-            text: "시청하기",
-            onPress: () => {
-              // 실제 보상형 광고 표시
-              showRewardedAdAndCreateNews(
-                taskId,
-                dueDate,
-                difficulty,
-                imageUrl
-              );
-            },
-          },
-        ]
-      );
-    };
-
-    // 2. 이미지 픽커 실행 함수
-    const pickImageAndShowAd = async () => {
+    // 이미지 픽커 실행 함수
+    const pickImageAndCreateNews = async () => {
       const permissionResult =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permissionResult.granted === false) {
@@ -244,24 +132,31 @@ const TaskList: React.FC<{
 
       if (pickerResult.assets && pickerResult.assets.length > 0) {
         customLogEvent({ eventName: "image_selected_for_news" });
-        showAdAlert(pickerResult.assets[0].uri);
+        // 이미지 선택 후 바로 뉴스 생성
+        await createNewsWithImage(
+          taskId,
+          dueDate,
+          difficulty,
+          pickerResult.assets[0].uri
+        );
       }
     };
 
-    // 1. 가장 먼저 이미지 추가 여부를 묻는 알림창
+    // 이미지 추가 여부를 묻는 알림창
     Alert.alert("이미지 추가", "AI 뉴스에 이미지를 추가하시겠습니까?", [
       {
         text: "아니요 (이미지 없이 생성)",
-        onPress: () => {
-          showAdAlert(null);
+        onPress: async () => {
           customLogEvent({ eventName: "create_news_no_image" });
+          // 이미지 없이 바로 뉴스 생성
+          await createNewsWithImage(taskId, dueDate, difficulty, null);
         },
       },
       {
         text: "예 (이미지 선택)",
         onPress: () => {
-          pickImageAndShowAd();
           customLogEvent({ eventName: "create_news_with_image" });
+          pickImageAndCreateNews();
         },
       },
       {
@@ -279,20 +174,18 @@ const TaskList: React.FC<{
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* ✅ [추가] 뉴스 생성 로딩 모달 */}
+      {/* 뉴스 생성 로딩 모달 */}
       <Modal
         transparent={true}
         animationType="fade"
         visible={isGeneratingNews}
-        onRequestClose={() => {
-          // Android에서 뒤로가기 버튼으로 닫히지 않도록
-        }}
+        onRequestClose={() => {}}
       >
         <View style={styles.loadingOverlay}>
           <View
             style={[
               styles.loadingContainer,
-              { backgroundColor: theme.cardBackground }, // 테마 적용
+              { backgroundColor: theme.cardBackground },
             ]}
           >
             <ActivityIndicator size="large" color={theme.main || colors.main} />
@@ -399,10 +292,7 @@ const TaskList: React.FC<{
                   <View style={styles.rightActions}>
                     {isNewsMode && item.completed && (
                       <TouchableOpacity
-                        style={[
-                          styles.newsButton,
-                          // { backgroundColor: theme.main },
-                        ]}
+                        style={styles.newsButton}
                         onPress={() =>
                           handleNewsGeneration(
                             item.id,
@@ -489,13 +379,6 @@ const styles = StyleSheet.create({
   completedText: {
     textDecorationLine: "line-through",
   },
-  dueDateText: {},
-  priceText: {
-    fontSize: verticalScale(12),
-    fontWeight: "600",
-  },
-  priceUp: {},
-  priceDown: {},
   rightActions: {
     flexDirection: "row",
     alignItems: "center",
@@ -508,13 +391,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  newsButtonText: {
-    fontSize: 18,
-  },
   moreButton: {
     padding: spacingX._7,
   },
-  // ✅ [추가] 로딩 모달 관련 스타일
   loadingOverlay: {
     flex: 1,
     justifyContent: "center",

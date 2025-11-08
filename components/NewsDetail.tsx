@@ -13,7 +13,7 @@ import {
   Text,
   Image,
   Dimensions,
-  ActivityIndicator, // [1. ActivityIndicator import 추가]
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Typo from "@/components/Typo";
@@ -25,8 +25,7 @@ import * as newsApi from "@/api/newsApi";
 import { useAuth } from "@/contexts/authContext";
 import * as ImagePicker from "expo-image-picker";
 import { customLogEvent } from "@/events/appEvent";
-
-const { width } = Dimensions.get("window");
+import ReportBottomSheet from "./ReportBottomSheet";
 
 interface CommentWithReaction extends newsApi.Comment {
   userReaction?: "like" | "dislike";
@@ -51,11 +50,10 @@ const NewsDetail = ({
   const [editImage, setEditImage] = useState<string | null>(
     item.imageURL || null
   );
-
-  // [2. '업로드 중' 로딩 state 추가]
   const [isUploading, setIsUploading] = useState(false);
 
   const { theme } = useTheme();
+
   const {
     currentUserId,
     toggleNewsLike,
@@ -69,6 +67,41 @@ const NewsDetail = ({
     deleteComment: contextDeleteComment,
   } = useNews();
   const { user } = useAuth();
+
+  const [reportState, setReportState] = useState({
+    isVisible: false,
+    contentId: "",
+    contentType: "news" as "news" | "comment",
+    reportedUid: undefined as string | undefined,
+  });
+
+  const openReportSheet = (
+    id: string,
+    type: "news" | "comment",
+    reportedUid?: string
+  ) => {
+    setReportState({
+      isVisible: true,
+      contentId: id,
+      contentType: type,
+      reportedUid: reportedUid,
+    });
+  };
+
+  const closeReportSheet = () => {
+    setReportState({ ...reportState, isVisible: false });
+  };
+
+  // 뉴스 신고 버튼 핸들러
+  const handleReportNews = () => {
+    openReportSheet(item.id, "news", item.userId);
+  };
+
+  // 댓글 신고 버튼 핸들러
+  const handleReportComment = (commentId: string, commentUserId: string) => {
+    openReportSheet(commentId, "comment", commentUserId);
+  };
+
   const isMyNews = currentUserId === item.userId;
   const isLiked = isMyNews
     ? !!myNewsLikes[item.id]
@@ -81,7 +114,7 @@ const NewsDetail = ({
 
   const displayItem = currentNewsItem || item;
 
-  // --- (useEffect들 - 변경 없음) ---
+  // --- useEffect들 ---
   // [댓글 구독]
   useEffect(() => {
     if (!item.id || !item.userId) return;
@@ -120,10 +153,11 @@ const NewsDetail = ({
     userReaction: reactions[c.id],
   }));
 
-  // --- (핸들러 함수들 - handleEditNews 제외하고 변경 없음) ---
+  // --- 핸들러 함수들 ---
   const handleLikeNews = () => {
     toggleNewsLike(item.userId, item.id);
   };
+
   const handleAddComment = async () => {
     if (!comment.trim() || !currentUserId) return;
     try {
@@ -133,6 +167,7 @@ const NewsDetail = ({
       Alert.alert("오류", "댓글 작성에 실패했습니다.");
     }
   };
+
   const handleDeleteComment = async (commentId: string) => {
     Alert.alert("댓글 삭제", "이 댓글을 삭제하시겠습니까?", [
       { text: "취소", style: "cancel" },
@@ -149,6 +184,7 @@ const NewsDetail = ({
       },
     ]);
   };
+
   const handleCommentReaction = async (commentId: string) => {
     if (!currentUserId) {
       Alert.alert("알림", "로그인이 필요합니다.");
@@ -167,6 +203,7 @@ const NewsDetail = ({
       Alert.alert("오류", "반응 처리에 실패했습니다.");
     }
   };
+
   const handleDeleteNews = () => {
     Alert.alert("뉴스 삭제", "이 뉴스를 삭제하시겠습니까?", [
       { text: "취소", style: "cancel" },
@@ -185,6 +222,7 @@ const NewsDetail = ({
       },
     ]);
   };
+
   const handlePickImage = async () => {
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -206,32 +244,30 @@ const NewsDetail = ({
     }
   };
 
-  // --- [3. handleEditNews 수정] ---
   const handleEditNews = async () => {
     if (!editTitle.trim() || !editContent.trim()) {
       Alert.alert("오류", "제목과 내용을 모두 입력해주세요.");
       return;
     }
 
-    setIsUploading(true); // [3.1 로딩 시작]
+    setIsUploading(true);
 
     try {
       await contextUpdateNews(
         item.id,
         editTitle.trim(),
         editContent.trim(),
-        editImage // (null을 그대로 전달)
+        editImage
       );
-      setIsUploading(false); // [3.2 로딩 종료 (성공 시)]
+      setIsUploading(false);
       setEditModalVisible(false);
       Alert.alert("성공", "뉴스가 수정되었습니다.");
     } catch (error) {
-      setIsUploading(false); // [3.3 로딩 종료 (실패 시)]
+      setIsUploading(false);
       Alert.alert("오류", "뉴스 수정에 실패했습니다.");
     }
   };
 
-  // 수정 모달 열기
   const openEditModal = () => {
     setEditTitle(displayItem.title);
     setEditContent(displayItem.content);
@@ -239,9 +275,8 @@ const NewsDetail = ({
     setEditModalVisible(true);
   };
 
-  // [4. 수정 모달 닫기 - 로딩 중 닫기 방지]
   const closeEditModal = () => {
-    if (isUploading) return; // 로딩 중에는 닫기 방지
+    if (isUploading) return;
     setEditModalVisible(false);
     setEditTitle(displayItem.title);
     setEditContent(displayItem.content);
@@ -259,7 +294,7 @@ const NewsDetail = ({
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
         <View style={styles.headerRightContainer}>
-          {isMyNews && (
+          {isMyNews ? (
             <View style={styles.headerActions}>
               <TouchableOpacity
                 onPress={openEditModal}
@@ -274,13 +309,19 @@ const NewsDetail = ({
                 <Ionicons name="trash-outline" size={20} color="#FF4444" />
               </TouchableOpacity>
             </View>
+          ) : (
+            <TouchableOpacity
+              onPress={handleReportNews}
+              style={styles.reportButton}
+            >
+              <Ionicons name="flag-outline" size={22} color={theme.text} />
+            </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Content (변경 없음) */}
+      {/* Content */}
       <ScrollView style={styles.content}>
-        {/* ... (디테일, 좋아요, 댓글 섹션) ... */}
         <View style={styles.detailContainer}>
           <Typo size={14} color={theme.neutral500} style={styles.date}>
             {displayItem.date}
@@ -311,6 +352,7 @@ const NewsDetail = ({
             {displayItem.content}
           </Typo>
         </View>
+
         <View style={styles.likeSection}>
           <TouchableOpacity
             style={[styles.likeButton, { borderColor: theme.neutral200 }]}
@@ -331,6 +373,7 @@ const NewsDetail = ({
             </Typo>
           </TouchableOpacity>
         </View>
+
         <View
           style={[styles.commentSection, { borderTopColor: theme.neutral200 }]}
         >
@@ -387,17 +430,36 @@ const NewsDetail = ({
                         </Typo>
                       </View>
                     </View>
-                    {currentUserId === commentItem.userId && (
-                      <TouchableOpacity
-                        onPress={() => handleDeleteComment(commentItem.id)}
-                      >
-                        <Ionicons
-                          name="trash-outline"
-                          size={18}
-                          color={theme.neutral400}
-                        />
-                      </TouchableOpacity>
-                    )}
+                    <View style={styles.commentHeaderActions}>
+                      {currentUserId === commentItem.userId ? (
+                        <TouchableOpacity
+                          onPress={() => handleDeleteComment(commentItem.id)}
+                          style={styles.commentActionButton}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={18}
+                            color={theme.neutral400}
+                          />
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() =>
+                            handleReportComment(
+                              commentItem.id,
+                              commentItem.userId
+                            )
+                          }
+                          style={styles.commentActionButton}
+                        >
+                          <Ionicons
+                            name="flag-outline"
+                            size={18}
+                            color={theme.text}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                   <Typo
                     size={15}
@@ -472,7 +534,7 @@ const NewsDetail = ({
         </View>
       </ScrollView>
 
-      {/* 개선된 뉴스 수정 모달 */}
+      {/* 뉴스 수정 모달 */}
       <Modal
         animationType="slide"
         transparent={false}
@@ -482,7 +544,6 @@ const NewsDetail = ({
         <SafeAreaView
           style={[styles.modalContainer, { backgroundColor: theme.background }]}
         >
-          {/* 모달 헤더 (로딩 중 버튼 비활성화) */}
           <View
             style={[
               styles.modalHeader,
@@ -490,38 +551,36 @@ const NewsDetail = ({
             ]}
           >
             <TouchableOpacity
-              onPress={closeEditModal} // [5. 닫기 버튼 (로딩 중 막힘)]
+              onPress={closeEditModal}
               style={styles.modalBackButton}
-              disabled={isUploading} // [5.1 로딩 중 비활성화]
+              disabled={isUploading}
             >
               <Ionicons
                 name="close"
                 size={28}
-                color={isUploading ? theme.neutral300 : theme.text} // [5.2 비활성화 시 시각 처리]
+                color={isUploading ? theme.neutral300 : theme.text}
               />
             </TouchableOpacity>
             <Typo size={18} fontWeight="600" color={theme.text}>
               뉴스 수정
             </Typo>
             <TouchableOpacity
-              onPress={handleEditNews} // [6. 완료 버튼 (로딩 중 막힘)]
+              onPress={handleEditNews}
               style={styles.modalSaveButton}
-              disabled={isUploading} // [6.1 로딩 중 비활성화]
+              disabled={isUploading}
             >
               <Typo
                 size={16}
                 fontWeight="600"
-                color={isUploading ? theme.neutral300 : theme.blue100} // [6.2 비활성화 시 시각 처리]
+                color={isUploading ? theme.neutral300 : theme.blue100}
               >
                 완료
               </Typo>
             </TouchableOpacity>
           </View>
 
-          {/* 모달 콘텐츠 (변경 없음) */}
           <ScrollView style={styles.modalScrollView}>
             <View style={styles.modalFormContainer}>
-              {/* ... (제목, 이미지, 내용 입력 폼) ... */}
               <View style={styles.inputSection}>
                 <Typo
                   size={14}
@@ -554,6 +613,7 @@ const NewsDetail = ({
                   {editTitle.length}/100
                 </Typo>
               </View>
+
               <View style={styles.inputSection}>
                 <Typo
                   size={14}
@@ -629,6 +689,7 @@ const NewsDetail = ({
                   </TouchableOpacity>
                 )}
               </View>
+
               <View style={styles.inputSection}>
                 <Typo
                   size={14}
@@ -666,7 +727,6 @@ const NewsDetail = ({
             </View>
           </ScrollView>
 
-          {/* [7. '업로드 중' 로딩 오버레이 추가] */}
           {isUploading && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color={theme.text} />
@@ -677,6 +737,17 @@ const NewsDetail = ({
           )}
         </SafeAreaView>
       </Modal>
+
+      {/* 신고 바텀시트 */}
+      {reportState.isVisible && (
+        <ReportBottomSheet
+          contentId={reportState.contentId}
+          contentType={reportState.contentType}
+          reportedUid={reportState.reportedUid}
+          onClose={closeReportSheet}
+          containerStyle={{ zIndex: 1000 }}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -692,9 +763,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   backButton: { padding: spacingX._5 },
-  headerRightContainer: { minWidth: 60, alignItems: "flex-end" },
+  headerRightContainer: {
+    minWidth: 60,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
   headerActions: { flexDirection: "row" },
-  iconButton: { marginLeft: spacingX._15, padding: spacingX._5 },
+  iconButton: {
+    marginLeft: spacingX._15,
+    padding: spacingX._5,
+  },
+  reportButton: {
+    padding: spacingX._5,
+  },
   content: { flex: 1 },
   detailContainer: { padding: spacingX._20 },
   date: { marginBottom: spacingY._10 },
@@ -734,6 +815,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   commentUserDetails: { marginLeft: spacingX._10 },
+  commentHeaderActions: {
+    padding: spacingX._5,
+  },
+  commentActionButton: {
+    padding: spacingX._3,
+  },
   commentContent: {
     lineHeight: verticalScale(22),
     marginLeft: spacingX._10 + 32,
@@ -761,7 +848,7 @@ const styles = StyleSheet.create({
   commentInput: { flex: 1, height: 40, fontSize: 16 },
   commentButton: { marginLeft: 8, padding: 8, borderRadius: 16 },
 
-  // 개선된 모달 스타일
+  // 모달 스타일
   modalContainer: {
     flex: 1,
   },
@@ -849,11 +936,9 @@ const styles = StyleSheet.create({
     height: verticalScale(250),
     lineHeight: 24,
   },
-
-  // [8. 로딩 오버레이 스타일 추가]
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject, // (모달 전체를 덮음)
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // (반투명 배경)
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
   },

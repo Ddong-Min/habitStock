@@ -61,7 +61,7 @@ const index = () => {
       <Image
         style={styles.logo}
         resizeMode="contain"
-        source={require("../assets/images/habitStockLogo.png")}
+        source={require("../assets/images/todoStockSplash.png")}
       />
     </View>
   );

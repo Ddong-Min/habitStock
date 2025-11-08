@@ -264,7 +264,7 @@ const news = () => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Typo size={28} fontWeight="800" color={theme.text}>
-            habitStock{" "}
+            TodoStock{" "}
             <Typo size={28} fontWeight="300" color={theme.text}>
               news
             </Typo>
