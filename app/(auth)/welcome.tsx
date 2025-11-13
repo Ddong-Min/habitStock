@@ -14,7 +14,7 @@ const Welcome = () => {
         <View>
           <View>
             <Image
-              source={require("../../assets/images/todoStockSplash.png")}
+              source={require("../../assets/images/todoStockWelcome.png")}
               style={styles.welcomeImage}
               resizeMode="contain"
             />

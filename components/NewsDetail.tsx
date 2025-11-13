@@ -35,7 +35,7 @@ const NewsDetail = ({
   item,
   onBack,
 }: {
-  item: newsApi.NewsItem;
+  item: newsApi.NewsItem; // selectNews를 통해 NewsItem 형태로 전달됨
   onBack: () => void;
 }) => {
   // --- 상태 관리 ---
@@ -54,13 +54,13 @@ const NewsDetail = ({
 
   const { theme } = useTheme();
 
+  // --- 변경점: useNews에서 가져오는 값 변경 ---
   const {
     currentUserId,
     toggleNewsLike,
-    myNewsLikes,
-    followingNewsLikes,
-    myNews,
-    followingNews,
+    myNewsLikes, // 'myNewsLikes'만 사용 (followingNewsLikes 제거)
+    myNews, // 내 뉴스 목록 (프로필 탭과 공유)
+    feedItems, // 'feedItems' 추가 (실시간 업데이트용)
     updateNews: contextUpdateNews,
     deleteNews: contextDeleteNews,
     addComment: contextAddComment,
@@ -103,23 +103,43 @@ const NewsDetail = ({
   };
 
   const isMyNews = currentUserId === item.userId;
-  const isLiked = isMyNews
-    ? !!myNewsLikes[item.id]
-    : !!followingNewsLikes[item.id];
-  const currentNewsItem = (
-    isMyNews
-      ? myNews.find((n) => n.id === item.id)
-      : followingNews.find((n) => n.id === item.id)
-  ) as newsApi.NewsItem | undefined;
 
-  const displayItem = currentNewsItem || item;
+  // --- 변경점: 'isLiked' 로직 수정 ---
+  // myNewsLikes가 모든 좋아요 정보를 가지므로, isMyNews 구분 없이 사용
+  const isLiked = !!myNewsLikes[item.id];
+
+  // --- 변경점: 실시간 업데이트를 위한 'displayItem' 로직 수정 ---
+  // (컨텍스트의 feedItems 또는 myNews에서 최신 정보를 찾아옴)
+  const getDisplayItem = () => {
+    // 1. feedItems에서 최신 정보 찾기 (FeedItem -> NewsItem으로 변환)
+    const currentFeedItem = feedItems.find((f) => f.id === item.id);
+    if (currentFeedItem) {
+      return {
+        ...currentFeedItem, // 좋아요/댓글 수 등 최신 정보
+        userId: currentFeedItem.newsUserId, // NewsItem 형태로
+        userName: currentFeedItem.newsUserName,
+        userPhotoURL: currentFeedItem.newsUserPhotoURL,
+      };
+    }
+
+    // 2. myNews에서 최신 정보 찾기 (이미 NewsItem 형태)
+    const currentMyNewsItem = myNews.find((n) => n.id === item.id);
+    if (currentMyNewsItem) {
+      return currentMyNewsItem;
+    }
+
+    // 3. 최신 정보가 없으면, props로 받은 초기 'item' 사용
+    return item;
+  };
+
+  const displayItem = getDisplayItem();
 
   // --- useEffect들 ---
   // [댓글 구독]
   useEffect(() => {
     if (!item.id || !item.userId) return;
     const unsubscribe = newsApi.subscribeToComments(
-      item.userId,
+      item.userId, // 댓글은 원본 뉴스 작성자(item.userId) 하위에 저장됨
       item.id,
       (fetchedComments) => {
         setComments(fetchedComments as CommentWithReaction[]);
@@ -278,6 +298,7 @@ const NewsDetail = ({
   const closeEditModal = () => {
     if (isUploading) return;
     setEditModalVisible(false);
+    // 모달 닫을 때 'displayItem' 기준으로 초기화
     setEditTitle(displayItem.title);
     setEditContent(displayItem.content);
     setEditImage(displayItem.imageURL || null);
@@ -752,6 +773,7 @@ const NewsDetail = ({
   );
 };
 
+// --- 스타일은 변경할 필요 없습니다 ---
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {

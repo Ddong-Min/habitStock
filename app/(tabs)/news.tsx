@@ -5,8 +5,10 @@ import {
   Image,
   FlatList,
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
 } from "react-native";
+// --- [신규] React와 useEffect import ---
 import React, { useState, useEffect } from "react";
 import { radius, spacingX, spacingY } from "../../constants/theme";
 import Typo from "../../components/Typo";
@@ -22,43 +24,37 @@ const news = () => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { followingUsers, followingIds } = useFollow();
+
   const {
-    followingNews,
+    feedItems,
     selectNews,
     selectedNews,
     toggleNewsLike,
-    followingNewsLikes,
-    loading,
-    myNews,
     myNewsLikes,
-    currentUserId,
+    feedLoading,
+    feedLoadingMore,
+    feedHasMore,
+    loadMoreFeed,
+    refreshFeed,
+    filterUserId,
+    setFilterUserId,
+    initNewsTab, // 👈 [신규] 초기화 함수 가져오기
+    currentUserId, // 👈 [신규] 유저 ID 가져오기
   } = useNews();
 
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]); // 빈 배열 = 전체
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const combinedNews = [...(myNews || []), ...(followingNews || [])].sort(
-    (a, b) => {
-      const timeA =
-        a.createdAt?.toMillis?.() || new Date(a.fullDate).getTime() || 0;
-      const timeB =
-        b.createdAt?.toMillis?.() || new Date(b.fullDate).getTime() || 0;
-      return timeB - timeA;
+  // --- [신규] 뉴스 탭이 마운트될 때 데이터 로딩 시작 ---
+  useEffect(() => {
+    if (currentUserId) {
+      initNewsTab(); // "뉴스 탭"이 처음 보일 때 1회 호출
     }
-  );
-
-  // 필터링된 뉴스
-  const filteredNews =
-    selectedUserIds.length === 0
-      ? combinedNews
-      : combinedNews.filter((item) => selectedUserIds.includes(item.userId));
+  }, [currentUserId, initNewsTab]); // 유저가 로그인하면 1회 실행
 
   const formatTime = (createdAt: any) => {
     try {
       if (!createdAt) return "날짜 없음";
-
       let date: Date;
-
       if (createdAt.toMillis) {
         date = new Date(createdAt.toMillis());
       } else if (createdAt instanceof Date) {
@@ -70,18 +66,15 @@ const news = () => {
       } else {
         return "날짜 없음";
       }
-
       const now = new Date();
       const diffMs = now.getTime() - date.getTime();
       const diffMins = Math.floor(diffMs / 60000);
       const diffHours = Math.floor(diffMs / 3600000);
       const diffDays = Math.floor(diffMs / 86400000);
-
       if (diffMins < 1) return "방금 전";
       if (diffMins < 60) return `${diffMins}분 전`;
       if (diffHours < 24) return `${diffHours}시간 전`;
       if (diffDays < 7) return `${diffDays}일 전`;
-
       const options: Intl.DateTimeFormatOptions = {
         month: "numeric",
         day: "numeric",
@@ -89,7 +82,6 @@ const news = () => {
       if (date.getFullYear() !== now.getFullYear()) {
         options.year = "numeric";
       }
-
       return date.toLocaleDateString("ko-KR", options);
     } catch (error) {
       return "날짜 오류";
@@ -97,7 +89,10 @@ const news = () => {
   };
 
   const handleNewsPress = (item: any) => {
-    selectNews(item);
+    selectNews({
+      ...item,
+      userId: item.newsUserId,
+    });
   };
 
   const handleBack = () => {
@@ -106,25 +101,21 @@ const news = () => {
 
   const handleLikePress = async (item: any) => {
     try {
-      await toggleNewsLike(item.userId, item.id);
+      await toggleNewsLike(item.newsUserId, item.id);
     } catch (error) {
       console.error("좋아요 실패:", error);
     }
   };
 
-  const handleUserSelect = (userId: string) => {
-    if (userId === "all") {
-      // 전체 선택
-      setSelectedUserIds([]);
-    } else {
-      // 유저 토글
-      setSelectedUserIds((prev) => {
-        if (prev.includes(userId)) {
-          return prev.filter((id) => id !== userId);
-        } else {
-          return [...prev, userId];
-        }
-      });
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshFeed();
+    setIsRefreshing(false);
+  };
+
+  const handleLoadMore = () => {
+    if (!feedLoadingMore && feedHasMore) {
+      loadMoreFeed();
     }
   };
 
@@ -133,10 +124,8 @@ const news = () => {
   }
 
   const renderNewsItem = ({ item }: { item: any }) => {
-    const isMyNews = currentUserId ? item.userId === currentUserId : false;
-    const isLiked = isMyNews
-      ? myNewsLikes[item.id] || false
-      : followingNewsLikes[item.id] || false;
+    const isMyNews = user ? item.newsUserId === user.uid : false;
+    const isLiked = myNewsLikes[item.id] || false;
 
     return (
       <TouchableOpacity
@@ -166,7 +155,7 @@ const news = () => {
                 ]}
               >
                 <Typo size={11} fontWeight="600" color="#3b82f6">
-                  {isMyNews ? "내 뉴스" : item.userName}
+                  {isMyNews ? "내 뉴스" : item.newsUserName}
                 </Typo>
               </View>
               <Typo size={11} color={theme.textLight}>
@@ -256,8 +245,6 @@ const news = () => {
     );
   };
 
-  // --- 1. 변경점: 헤더를 렌더링하는 함수 생성 ---
-  // 기존 return 문 안에 있던 헤더와 유저 필터 부분을 여기로 옮깁니다.
   const renderListHeader = () => (
     <>
       {/* 헤더 */}
@@ -293,9 +280,9 @@ const news = () => {
           <TouchableOpacity
             style={[
               styles.userFilterItem,
-              selectedUserIds.length === 0 && styles.userFilterItemActive,
+              filterUserId === null && styles.userFilterItemActive,
             ]}
-            onPress={() => handleUserSelect("all")}
+            onPress={() => setFilterUserId(null)}
             activeOpacity={0.7}
           >
             <View
@@ -303,21 +290,21 @@ const news = () => {
                 styles.userFilterAvatar,
                 {
                   backgroundColor:
-                    selectedUserIds.length === 0 ? "#3b82f6" : theme.neutral200,
+                    filterUserId === null ? "#3b82f6" : theme.neutral200,
                 },
-                selectedUserIds.length === 0 && styles.userFilterAvatarActive,
+                filterUserId === null && styles.userFilterAvatarActive,
               ]}
             >
               <Ionicons
                 name="apps"
                 size={24}
-                color={selectedUserIds.length === 0 ? "#fff" : theme.neutral500}
+                color={filterUserId === null ? "#fff" : theme.neutral500}
               />
             </View>
             <Typo
               size={11}
-              fontWeight={selectedUserIds.length === 0 ? "700" : "500"}
-              color={selectedUserIds.length === 0 ? "#3b82f6" : theme.textLight}
+              fontWeight={filterUserId === null ? "700" : "500"}
+              color={filterUserId === null ? "#3b82f6" : theme.textLight}
               style={styles.filterLabel}
             >
               전체
@@ -325,21 +312,19 @@ const news = () => {
           </TouchableOpacity>
 
           {/* 내 프로필 */}
-          {user && currentUserId && (
+          {user && user.uid && (
             <TouchableOpacity
               style={[
                 styles.userFilterItem,
-                selectedUserIds.includes(currentUserId) &&
-                  styles.userFilterItemActive,
+                filterUserId === user.uid && styles.userFilterItemActive,
               ]}
-              onPress={() => handleUserSelect(currentUserId)}
+              onPress={() => setFilterUserId(user.uid)}
               activeOpacity={0.7}
             >
               <View
                 style={[
                   styles.userFilterAvatarContainer,
-                  selectedUserIds.includes(currentUserId) &&
-                    styles.userFilterAvatarActive,
+                  filterUserId === user.uid && styles.userFilterAvatarActive,
                 ]}
               >
                 {user.image ? (
@@ -364,14 +349,8 @@ const news = () => {
               </View>
               <Typo
                 size={11}
-                fontWeight={
-                  selectedUserIds.includes(currentUserId) ? "700" : "500"
-                }
-                color={
-                  selectedUserIds.includes(currentUserId)
-                    ? "#3b82f6"
-                    : theme.textLight
-                }
+                fontWeight={filterUserId === user.uid ? "700" : "500"}
+                color={filterUserId === user.uid ? "#3b82f6" : theme.textLight}
                 style={styles.filterLabel}
               >
                 나
@@ -385,7 +364,7 @@ const news = () => {
               const followingUser = Array.isArray(followingUsers)
                 ? followingUsers[index]
                 : undefined;
-              const isSelected = selectedUserIds.includes(uid);
+              const isSelected = filterUserId === uid;
 
               return (
                 <TouchableOpacity
@@ -394,7 +373,7 @@ const news = () => {
                     styles.userFilterItem,
                     isSelected && styles.userFilterItemActive,
                   ]}
-                  onPress={() => handleUserSelect(uid)}
+                  onPress={() => setFilterUserId(uid)}
                   activeOpacity={0.7}
                 >
                   <View
@@ -440,11 +419,22 @@ const news = () => {
     </>
   );
 
-  // --- 2. 변경점: 로딩 및 빈 목록 상태를 렌더링하는 함수 생성 ---
-  // 기존 return 문 안에 있던 조건부 렌더링 로직을 여기로 옮깁니다.
+  const renderListFooter = () => {
+    if (!feedLoadingMore) return null;
+
+    return (
+      <View style={styles.footerLoading}>
+        <ActivityIndicator size="small" color={theme.text} />
+        <Typo size={13} color={theme.textLight} style={styles.footerText}>
+          더 불러오는 중...
+        </Typo>
+      </View>
+    );
+  };
+
   const renderListEmpty = () => {
-    // 로딩 중일 때
-    if (loading && combinedNews.length === 0) {
+    // [수정] 'feedLoading'은 초기 로드/필터 변경 시에만 true가 됨
+    if (feedLoading && feedItems.length === 0) {
       return (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={theme.text} />
@@ -452,8 +442,7 @@ const news = () => {
       );
     }
 
-    // 로딩 끝났는데 데이터가 없을 때
-    if (filteredNews.length === 0) {
+    if (feedItems.length === 0) {
       return (
         <View style={styles.centerContainer}>
           <View style={styles.emptyIconContainer}>
@@ -464,50 +453,46 @@ const news = () => {
             />
           </View>
           <Typo size={18} fontWeight="600" color={theme.text}>
-            {combinedNews.length === 0
+            {filterUserId === null
               ? "아직 뉴스가 없어요"
               : "선택한 사용자의 뉴스가 없어요"}
           </Typo>
           <Typo size={14} color={theme.textLight} style={styles.emptyText}>
-            {combinedNews.length === 0
-              ? "뉴스를 발행하거나, 팔로우한 사람들의 뉴스를 기다려보세요"
+            {filterUserId === null
+              ? "뉴스를 발행하거나, 친구를 팔로우해보세요"
               : "다른 사용자를 선택해보세요"}
           </Typo>
         </View>
       );
     }
 
-    return null; // 데이터가 있으면 아무것도 렌더링하지 않음
+    return null;
   };
 
-  // --- 3. 변경점: 메인 return 문 수정 ---
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/*
-        기존의 헤더, 유저 필터, 조건부 렌더링 로직 (loading ? ... : ... )을
-        모두 제거하고 FlatList 하나만 남깁니다.
-      */}
       <FlatList
-        data={filteredNews}
+        data={feedItems}
         renderItem={renderNewsItem}
-        keyExtractor={(item) => `${item.userId}-${item.id}`}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
         scrollEventThrottle={16}
+        onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
-        refreshing={refreshing}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.text}
+          />
+        }
         showsVerticalScrollIndicator={false}
-        // --- 4. 변경점: ListHeaderComponent prop 추가 ---
-        // 위에서 만든 헤더 + 필터 렌더링 함수를 여기에 전달합니다.
         ListHeaderComponent={renderListHeader()}
-        // --- 5. 변경점: ListEmptyComponent prop 추가 ---
-        // 위에서 만든 빈 목록 렌더링 함수를 여기에 전달합니다.
+        ListFooterComponent={renderListFooter()}
         ListEmptyComponent={renderListEmpty()}
-        // --- 6. 변경점: contentContainerStyle 수정 ---
-        // 목록이 비어있을 때(로딩 포함) centerContainer가
-        // 화면 중앙에 올 수 있도록 flexGrow: 1을 추가합니다.
         contentContainerStyle={[
           styles.listContent,
-          (filteredNews.length === 0 ||
-            (loading && combinedNews.length === 0)) && {
+          (feedItems.length === 0 ||
+            (feedLoading && feedItems.length === 0)) && {
             flexGrow: 1,
           },
         ]}
@@ -525,7 +510,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: spacingY._20,
-    paddingHorizontal: spacingX._10,
+    paddingHorizontal: spacingX._16,
     paddingBottom: spacingY._12,
   },
   headerContent: {
@@ -544,8 +529,6 @@ const styles = StyleSheet.create({
   },
   userFilterWrapper: {
     zIndex: 10,
-    // zIndex는 FlatList 내부에서는 큰 의미가 없을 수 있으나,
-    // 혹시 모를 오버레이 요소(예: 섀도우)를 위해 유지합니다.
   },
   userFilterScroll: {
     maxHeight: 110,
@@ -593,9 +576,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: spacingX._20,
-    // flex: 1은 ListEmptyComponent 내부에서
-    // contentContainerStyle의 flexGrow: 1과 함께
-    // 중앙 정렬을 위해 올바르게 동작합니다.
   },
   emptyIconContainer: {
     marginBottom: spacingY._15,
@@ -603,6 +583,13 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: spacingY._8,
     textAlign: "center",
+  },
+  footerLoading: {
+    paddingVertical: spacingY._20,
+    alignItems: "center",
+  },
+  footerText: {
+    marginTop: spacingY._8,
   },
   listContent: {
     paddingHorizontal: spacingX._16,

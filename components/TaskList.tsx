@@ -25,7 +25,8 @@ import { useTheme } from "@/contexts/themeContext";
 import { ViewStyle } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { customLogEvent } from "@/events/appEvent";
-
+import { migrateStockDataToYearlyStructure } from "@/api/stockApi";
+import { useEffect } from "react";
 const TaskList: React.FC<{
   diffStyle?: ViewStyle;
   taskStyle?: ViewStyle;
@@ -60,7 +61,13 @@ const TaskList: React.FC<{
 
   // 뉴스 생성 로딩 상태
   const [isGeneratingNews, setIsGeneratingNews] = useState(false);
-
+  useEffect(() => {
+    if (user?.uid) {
+      migrateStockDataToYearlyStructure(user.uid, (current, total) => {
+        console.log(`Progress: ${current}/${total} years`);
+      });
+    }
+  }, []); // 빈 배열로 한 번만 실행
   const flatData = useMemo(() => {
     const tasksForSelectedDate = taskByDate[selectedDate] || [];
     return (
@@ -227,12 +234,21 @@ const TaskList: React.FC<{
               </View>
             );
           }
-
           const hasGeneratedNews = item.hasGeneratedNews || false;
-          const dueDateTimeString = `${item.dueDate}T${user?.duetime}:00`;
+
+          // ✅ duetime이 00~06이면 다음날로 처리
+          let targetDate = item.dueDate;
+          const dueTimeHour = parseInt(user?.duetime || "0", 10);
+
+          if (dueTimeHour >= 0 && dueTimeHour <= 6) {
+            const date = new Date(item.dueDate);
+            date.setDate(date.getDate() + 1);
+            targetDate = date.toISOString().split("T")[0];
+          }
+
+          const dueDateTimeString = `${targetDate}T${user?.duetime}:00`;
           const dueDateTime = new Date(dueDateTimeString);
           const isOverdue = !item.completed && dueDateTime < new Date();
-
           return (
             <View key={item.id}>
               {isEditText && selectedTaskId === item.id ? (

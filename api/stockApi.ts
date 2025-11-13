@@ -12,6 +12,8 @@ import {
   FirebaseFirestoreTypes,
 } from "@react-native-firebase/firestore";
 
+type WriteBatch = ReturnType<typeof writeBatch>;
+
 import {
   StockDataType,
   StockDataByDateType,
@@ -19,7 +21,13 @@ import {
   StockSummaryType,
 } from "@/types";
 
-// ✅ 새로운 구조: users/{userId}/stocks/{date}
+// ✅ 새로운 구조: users/{userId}/stocks/{year}
+// 각 year 문서 내부에 { "2025-01-01": StockDataType, "2025-01-02": StockDataType, ... }
+
+// 날짜에서 연도 추출
+const getYearFromDate = (date: string): string => {
+  return date.split("-")[0];
+};
 
 // 날짜별 주식 데이터 저장
 export const changeStockDataFirebase = async (
@@ -28,14 +36,18 @@ export const changeStockDataFirebase = async (
   date: string
 ) => {
   try {
-    const docRef = doc(firestore, "users", userId, "stocks", date);
-    await setDoc(docRef, stockData, { merge: true });
+    const year = getYearFromDate(date);
+    const docRef = doc(firestore, "users", userId, "stocks", year);
+
+    // 해당 연도 문서에 날짜를 키로 하는 데이터 병합
+    await setDoc(docRef, { [date]: stockData }, { merge: true });
     return { success: true };
   } catch (error) {
     console.error("Error changing user stock: ", error);
     return { success: false, msg: "Failed to change user stock." };
   }
 };
+
 // 실시간 주식 데이터 구독 (특정 기간)
 export const subscribeToStockData = (
   userId: string,
@@ -44,18 +56,28 @@ export const subscribeToStockData = (
   userPrice: number,
   onUpdate: (stockData: StockDataByDateType) => void
 ) => {
+  const startYear = getYearFromDate(startDate);
+  const endYear = getYearFromDate(endDate);
+
   const stocksRef = collection(firestore, "users", userId, "stocks");
   const q = query(
     stocksRef,
-    where("__name__", ">=", startDate),
-    where("__name__", "<=", endDate)
+    where("__name__", ">=", startYear),
+    where("__name__", "<=", endYear)
   );
 
   return onSnapshot(q, async (snapshot) => {
     const stockDataByDate: StockDataByDateType = {};
 
+    // 각 연도 문서에서 날짜별 데이터 추출
     snapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-      stockDataByDate[doc.id] = doc.data() as StockDataType;
+      const yearData = doc.data();
+      Object.keys(yearData).forEach((date) => {
+        // startDate와 endDate 사이의 데이터만 포함
+        if (date >= startDate && date <= endDate) {
+          stockDataByDate[date] = yearData[date] as StockDataType;
+        }
+      });
     });
 
     // startDate~endDate 사이에 없는 날짜 생성
@@ -63,6 +85,8 @@ export const subscribeToStockData = (
     const end = new Date(endDate);
     const batch = writeBatch(firestore);
     let hasNewDates = false;
+    const newDataByYear: { [year: string]: { [date: string]: StockDataType } } =
+      {};
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split("T")[0];
@@ -79,13 +103,21 @@ export const subscribeToStockData = (
         };
         stockDataByDate[dateStr] = defaultData;
 
-        const docRef = doc(firestore, "users", userId, "stocks", dateStr);
-        batch.set(docRef, defaultData);
+        const year = getYearFromDate(dateStr);
+        if (!newDataByYear[year]) {
+          newDataByYear[year] = {};
+        }
+        newDataByYear[year][dateStr] = defaultData;
         hasNewDates = true;
       }
     }
 
     if (hasNewDates) {
+      // 연도별로 배치 업데이트
+      Object.keys(newDataByYear).forEach((year) => {
+        const docRef = doc(firestore, "users", userId, "stocks", year);
+        batch.set(docRef, newDataByYear[year], { merge: true });
+      });
       await batch.commit().catch(console.error);
     }
 
@@ -99,14 +131,20 @@ export const subscribeToAllStockData = (
   registerDate: string,
   onUpdate: (stockData: StockDataByDateType) => void
 ) => {
+  const registerYear = getYearFromDate(registerDate);
   const stocksRef = collection(firestore, "users", userId, "stocks");
-  const q = query(stocksRef, where("__name__", ">=", registerDate));
+  const q = query(stocksRef, where("__name__", ">=", registerYear));
 
   return onSnapshot(q, (snapshot) => {
     const stockDataByDate: StockDataByDateType = {};
 
     snapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-      stockDataByDate[doc.id] = doc.data() as StockDataType;
+      const yearData = doc.data();
+      Object.keys(yearData).forEach((date) => {
+        if (date >= registerDate) {
+          stockDataByDate[date] = yearData[date] as StockDataType;
+        }
+      });
     });
 
     onUpdate(stockDataByDate);
@@ -120,18 +158,28 @@ export const subscribeToFriendStockData = (
   endDate: string,
   onUpdate: (stockData: StockDataByDateType) => void
 ) => {
+  const startYear = getYearFromDate(startDate);
+  const endYear = getYearFromDate(endDate);
+
   const stocksRef = collection(firestore, "users", userId, "stocks");
   const q = query(
     stocksRef,
-    where("__name__", ">=", startDate),
-    where("__name__", "<=", endDate)
+    where("__name__", ">=", startYear),
+    where("__name__", "<=", endYear)
   );
 
   return onSnapshot(q, (snapshot) => {
     const stockDataByDate: StockDataByDateType = {};
 
     snapshot.forEach((doc: FirebaseFirestoreTypes.DocumentSnapshot) => {
-      stockDataByDate[doc.id] = doc.data() as StockDataType;
+      const yearData = doc.data();
+      if (yearData) {
+        Object.keys(yearData).forEach((date) => {
+          if (date >= startDate && date <= endDate) {
+            stockDataByDate[date] = yearData[date] as StockDataType;
+          }
+        });
+      }
     });
 
     onUpdate(stockDataByDate);
@@ -151,6 +199,8 @@ export const subscribeToMultipleFriendStockData = (
     return () => {};
   }
 
+  const startYear = getYearFromDate(startDate);
+  const endYear = getYearFromDate(endDate);
   const unsubscribes: (() => void)[] = [];
   const friendStockDataMap: FriendStockType = {};
 
@@ -159,8 +209,8 @@ export const subscribeToMultipleFriendStockData = (
       const stocksRef = collection(firestore, "users", userId, "stocks");
       const q = query(
         stocksRef,
-        where("__name__", ">=", startDate),
-        where("__name__", "<=", endDate)
+        where("__name__", ">=", startYear),
+        where("__name__", "<=", endYear)
       );
 
       const unsubscribe = onSnapshot(
@@ -170,7 +220,12 @@ export const subscribeToMultipleFriendStockData = (
 
           snapshot.forEach(
             (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-              stockDataByDate[doc.id] = doc.data() as StockDataType;
+              const yearData = doc.data();
+              Object.keys(yearData).forEach((date) => {
+                if (date >= startDate && date <= endDate) {
+                  stockDataByDate[date] = yearData[date] as StockDataType;
+                }
+              });
             }
           );
 
@@ -225,7 +280,10 @@ export const subscribeToAllFriendStockData = (
 
           snapshot.forEach(
             (doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-              stockDataByDate[doc.id] = doc.data() as StockDataType;
+              const yearData = doc.data();
+              Object.keys(yearData).forEach((date) => {
+                stockDataByDate[date] = yearData[date] as StockDataType;
+              });
             }
           );
 
@@ -452,4 +510,152 @@ export const updateStockSummaryOnChange = async (
     console.error(error);
     return { success: false, msg: "Failed to update stock summary." };
   }
+};
+
+// ==================== Migration ====================
+
+// 🔄 날짜별 구조에서 연도별 구조로 마이그레이션
+export const migrateStockDataToYearlyStructure = async (
+  userId: string,
+  onProgress?: (current: number, total: number) => void
+) => {
+  try {
+    console.log(`🔄 Starting migration for user ${userId}...`);
+
+    // 1. 기존 날짜별 문서들 가져오기
+    const oldStocksRef = collection(firestore, "users", userId, "stocks");
+    const snapshot = await getDocs(oldStocksRef);
+
+    if (snapshot.empty) {
+      console.log("No data to migrate.");
+      return { success: true, msg: "No data to migrate." };
+    }
+
+    // 2. 연도별로 데이터 그룹화
+    const dataByYear: { [year: string]: { [date: string]: StockDataType } } =
+      {};
+    const oldDocIds: string[] = [];
+
+    snapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+      const docId = doc.id;
+      const data = doc.data() as StockDataType;
+
+      // 날짜 형식인지 확인 (YYYY-MM-DD)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(docId)) {
+        const year = getYearFromDate(docId);
+
+        if (!dataByYear[year]) {
+          dataByYear[year] = {};
+        }
+
+        dataByYear[year][docId] = data;
+        oldDocIds.push(docId);
+      }
+    });
+
+    const totalYears = Object.keys(dataByYear).length;
+    console.log(
+      `Found ${oldDocIds.length} documents across ${totalYears} years`
+    );
+
+    // 3. 연도별 문서로 저장
+    let processedYears = 0;
+    for (const [year, yearData] of Object.entries(dataByYear)) {
+      const yearDocRef = doc(firestore, "users", userId, "stocks", year);
+      await setDoc(yearDocRef, yearData);
+
+      processedYears++;
+      if (onProgress) {
+        onProgress(processedYears, totalYears);
+      }
+
+      console.log(
+        `✅ Migrated year ${year} with ${Object.keys(yearData).length} dates`
+      );
+    }
+
+    // 4. 기존 날짜별 문서들 삭제 (배치로 처리)
+    console.log(`🗑️ Deleting ${oldDocIds.length} old documents...`);
+    const batches: WriteBatch[] = [];
+    let currentBatch = writeBatch(firestore);
+    let batchCount = 0;
+
+    for (const docId of oldDocIds) {
+      const oldDocRef = doc(firestore, "users", userId, "stocks", docId);
+      currentBatch.delete(oldDocRef);
+      batchCount++;
+
+      // Firestore 배치는 최대 500개 작업 제한
+      if (batchCount === 500) {
+        batches.push(currentBatch);
+        currentBatch = writeBatch(firestore);
+        batchCount = 0;
+      }
+    }
+
+    if (batchCount > 0) {
+      batches.push(currentBatch);
+    }
+
+    // 모든 배치 커밋
+    for (let i = 0; i < batches.length; i++) {
+      await batches[i].commit();
+      console.log(`🗑️ Deleted batch ${i + 1}/${batches.length}`);
+    }
+
+    console.log(`✅ Migration completed successfully!`);
+    return {
+      success: true,
+      msg: `Migrated ${oldDocIds.length} documents to ${totalYears} year documents`,
+    };
+  } catch (error) {
+    console.error("❌ Migration failed:", error);
+    return {
+      success: false,
+      msg: `Migration failed: ${error}`,
+    };
+  }
+};
+
+// 🔄 모든 사용자의 데이터 마이그레이션 (관리자용)
+export const migrateAllUsersStockData = async (
+  userIds: string[],
+  onUserProgress?: (userId: string, current: number, total: number) => void,
+  onOverallProgress?: (current: number, total: number) => void
+) => {
+  const results: { userId: string; success: boolean; msg?: string }[] = [];
+
+  for (let i = 0; i < userIds.length; i++) {
+    const userId = userIds[i];
+    console.log(`\n📦 Migrating user ${i + 1}/${userIds.length}: ${userId}`);
+
+    const result = await migrateStockDataToYearlyStructure(
+      userId,
+      (current, total) => {
+        if (onUserProgress) {
+          onUserProgress(userId, current, total);
+        }
+      }
+    );
+
+    results.push({
+      userId,
+      success: result.success,
+      msg: result.msg,
+    });
+
+    if (onOverallProgress) {
+      onOverallProgress(i + 1, userIds.length);
+    }
+  }
+
+  const successCount = results.filter((r) => r.success).length;
+  console.log(
+    `\n✅ Migration complete: ${successCount}/${userIds.length} users migrated successfully`
+  );
+
+  return {
+    success: successCount === userIds.length,
+    results,
+  };
 };

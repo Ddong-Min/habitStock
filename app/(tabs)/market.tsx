@@ -7,9 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-// --- [변경] ---
 import React, { useMemo, useState } from "react";
-// -------------
 import { useFollow } from "../../contexts/followContext";
 import { useTheme } from "@/contexts/themeContext";
 import { useStock } from "@/contexts/stockContext";
@@ -69,9 +67,10 @@ const Market = () => {
 
         const friendStock = friendStockData[user.uid] || {};
 
-        // 차트 데이터 계산
+        // 차트 데이터 계산 - date가 있는 항목만 필터링
         const closeValues = Object.values(friendStock)
-          .sort((a, b) => a.date.localeCompare(b.date))
+          .filter((data) => data && data.date) // date가 있는 항목만
+          .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
           .slice(-7) // non-mutating slice
           .map((data) => Number(data?.close) || 0);
 
@@ -264,9 +263,7 @@ const Market = () => {
 
       {/* User List */}
       <FlatList
-        // --- [변경] data prop 수정 ---
         data={sortedUsers}
-        // -------------------------
         renderItem={({ item }) => <FriendStock item={item} />}
         keyExtractor={(item) => (item ? item.uid : "")}
         contentContainerStyle={styles.listContainer}
@@ -337,14 +334,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     paddingHorizontal: 8,
   },
-  // --- [추가] 정렬 버튼 스타일 ---
   sortContainer: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    backgroundColor: "transparent", // Market 배경색과 동일하게
+    backgroundColor: "transparent",
   },
   sortButton: {
     paddingHorizontal: 12,
@@ -352,13 +348,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: "transparent", // 기본
+    borderColor: "transparent",
   },
   sortButtonActive: {
     borderWidth: 1,
-    // borderColor는 theme을 사용하므로 JSX에서 인라인으로 적용
   },
-  // -------------------------
   loadingContainer: {
     paddingVertical: 32,
   },
@@ -388,7 +382,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    //overflow: "hidden",
   },
   avatar: {
     width: spacingX._40,
@@ -397,7 +390,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   userInfo: {
-    //flex: 1,
     flexShrink: 1,
     marginRight: 8,
   },
@@ -426,7 +418,7 @@ const styles = StyleSheet.create({
   rightSelection: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-end", // 컨텐츠를 오른쪽으로 정렬
+    justifyContent: "flex-end",
   },
   emptyContainer: {
     alignItems: "center",
