@@ -25,7 +25,6 @@ import { useTheme } from "@/contexts/themeContext";
 import { ViewStyle } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { customLogEvent } from "@/events/appEvent";
-import { migrateStockDataToYearlyStructure } from "@/api/stockApi";
 import { useEffect } from "react";
 const TaskList: React.FC<{
   diffStyle?: ViewStyle;
@@ -61,13 +60,6 @@ const TaskList: React.FC<{
 
   // 뉴스 생성 로딩 상태
   const [isGeneratingNews, setIsGeneratingNews] = useState(false);
-  useEffect(() => {
-    if (user?.uid) {
-      migrateStockDataToYearlyStructure(user.uid, (current, total) => {
-        console.log(`Progress: ${current}/${total} years`);
-      });
-    }
-  }, []); // 빈 배열로 한 번만 실행
   const flatData = useMemo(() => {
     const tasksForSelectedDate = taskByDate[selectedDate] || [];
     return (

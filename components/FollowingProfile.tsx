@@ -23,7 +23,9 @@ const FollowingProfile: React.FC = () => {
   // --- ✅ [수정] 오늘 데이터가 없으면 가장 최근 데이터를 찾도록 로직 변경 ---
 
   // 1. 친구의 전체 주식 데이터를 가져옵니다.
-  const friendsData = friendStockData?.[selectedFollowId];
+  const friendsData = selectedFollowId
+    ? friendStockData?.[selectedFollowId]
+    : undefined;
 
   // 2. 오늘 날짜의 데이터를 우선적으로 찾습니다.
   let displayStock = friendsData?.[today];

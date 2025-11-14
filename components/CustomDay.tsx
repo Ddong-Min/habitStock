@@ -3,11 +3,10 @@ import React from "react";
 import { TouchableOpacity, View, StyleSheet } from "react-native";
 import { radius, spacingX, spacingY } from "@/constants/theme";
 import Typo from "./Typo";
-import { verticalScale } from "@/utils/styling";
+import { verticalScale, scale } from "@/utils/styling";
 import { useStock } from "@/contexts/stockContext";
 import { useCalendar } from "@/contexts/calendarContext";
 import { useTheme } from "@/contexts/themeContext";
-
 type CustomDayProps = {
   date: {
     dateString: string;
@@ -53,7 +52,7 @@ const CustomDay: React.FC<CustomDayProps> = ({
               ? theme.blue100
               : theme.text,
           }}
-          size={24}
+          size={scale(24)}
           fontWeight="bold"
         >
           {date.day}
@@ -61,7 +60,7 @@ const CustomDay: React.FC<CustomDayProps> = ({
       </View>
       {date.dateString <= today && (
         <Typo
-          size={verticalScale(15)}
+          size={scale(13)}
           color={
             isNoChange
               ? theme.neutral500
@@ -91,9 +90,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  percentageText: {
-    marginTop: spacingY._2,
-  },
+  percentageText: {},
 });
 
 export default CustomDay;

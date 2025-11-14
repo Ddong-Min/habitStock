@@ -16,6 +16,13 @@ setGlobalOptions({
   secrets: ["GEMINI_API_KEY"],
 });
 
+// ==================== 유틸리티 함수 ====================
+// 날짜에서 연도 추출
+const getYearFromDate = (date: string): string => {
+  return date.split("-")[0];
+};
+// ======================================================
+
 // ==================== 푸시 알림 관련 함수 ====================
 async function sendPushNotification(
   expoPushToken: string,
@@ -206,7 +213,6 @@ export const check10MinutesBeforeDeadline = onSchedule(
 // ======================================================
 
 // ==================== 마감 후 처리 ====================
-// ==================== 마감 후 처리 ====================
 async function applyNoTaskPenalty(
   userId: string,
   date: string,
@@ -230,39 +236,38 @@ async function applyNoTaskPenalty(
       maxRate = 2.0;
     }
 
-    // 🔹 변동률 소수점 둘째 자리 반올림
     const randomRate = minRate + Math.random() * (maxRate - minRate);
     const penaltyRate = parseFloat(randomRate.toFixed(2));
-
-    // 🔹 금액 변화 계산 및 반올림
     const priceChange = parseFloat(
       (currentPrice * (penaltyRate / 100)).toFixed(1)
     );
-
-    // 🔹 새 가격 계산 (최소 1 이상)
     const newPrice = Math.max(
       1,
       parseFloat((currentPrice - priceChange).toFixed(1))
     );
 
+    // ✅ 연도별 구조로 저장
+    const year = getYearFromDate(date);
     const stockDocRef = db
       .collection("users")
       .doc(userId)
       .collection("stocks")
-      .doc(date);
+      .doc(year);
 
     const stockUpdate = {
-      date,
-      changePrice: -priceChange,
-      changeRate: -penaltyRate,
-      open: currentPrice,
-      close: newPrice,
-      high: currentPrice,
-      low: newPrice,
-      volume: 0,
+      [date]: {
+        date,
+        changePrice: -priceChange,
+        changeRate: -penaltyRate,
+        open: currentPrice,
+        close: newPrice,
+        high: currentPrice,
+        low: newPrice,
+        volume: 0,
+      },
     };
 
-    await stockDocRef.set(stockUpdate);
+    await stockDocRef.set(stockUpdate, { merge: true });
 
     await db
       .collection("users")
@@ -277,7 +282,6 @@ async function applyNoTaskPenalty(
       `😴 ${userId}: 할일 없음. ${consecutiveNoTaskDays}일 연속. 주가 ${penaltyRate}% 하락. ${currentPrice} → ${newPrice}`
     );
 
-    // ✅ allowAlarm 체크 후 푸시 알림 전송
     if (userData.allowAlarm && userData.expoPushToken) {
       await sendPushNotification(
         userData.expoPushToken,
@@ -308,6 +312,7 @@ async function calculateStockPenalty(
     const todoUpdates: { [key: string]: any } = {};
     let totalChangePrice = 0;
     let totalChangeRate = 0;
+
     incompleteTasks.forEach((task: any) => {
       totalChangePrice += task.priceChange || 0;
       totalChangeRate += task.percentage || 0;
@@ -320,6 +325,7 @@ async function calculateStockPenalty(
         );
       }
     });
+
     if (Object.keys(todoUpdates).length > 0) {
       const todosDocRef = db
         .collection("users")
@@ -328,17 +334,24 @@ async function calculateStockPenalty(
         .doc(date);
       await todosDocRef.update(todoUpdates);
     }
+
     const newPrice = Math.max(
       1,
       Math.round((currentPrice - totalChangePrice) * 10) / 10
     );
+
+    // ✅ 연도별 구조로 주식 데이터 읽기/쓰기
+    const year = getYearFromDate(date);
     const stockDocRef = db
       .collection("users")
       .doc(userId)
       .collection("stocks")
-      .doc(date);
+      .doc(year);
+
     const stockDoc = await stockDocRef.get();
-    const previousStock = stockDoc.exists ? stockDoc.data() : null;
+    const yearData = stockDoc.exists ? stockDoc.data() : {};
+    const previousStock = yearData?.[date] || null;
+
     const low = previousStock?.low
       ? Math.min(previousStock.low, newPrice)
       : newPrice;
@@ -351,6 +364,7 @@ async function calculateStockPenalty(
     const open = previousStock?.open || currentPrice;
     const volume =
       changePrice >= 0 ? completedTasks.length : incompleteTasks.length;
+
     const stockData = {
       date: date,
       changePrice: changePrice,
@@ -361,13 +375,15 @@ async function calculateStockPenalty(
       low: low,
       volume: (previousStock?.volume || 0) + volume,
     };
-    await stockDocRef.set(stockData);
+
+    // ✅ 해당 날짜 데이터만 업데이트 (merge)
+    await stockDocRef.set({ [date]: stockData }, { merge: true });
+
     await db.collection("users").doc(userId).update({
       price: newPrice,
       lastUpdated: FieldValue.serverTimestamp(),
     });
 
-    // ✅ allowAlarm 체크 후 푸시 알림 전송
     const userDoc = await db.collection("users").doc(userId).get();
     const userData = userDoc.data();
 
@@ -631,8 +647,8 @@ Metaphor: The user is a publicly traded company, not an individual. The task the
 - Company Name: "${userName}"
 - Milestone Achieved: "${taskText}"
 - Stock Price Change: ${currentPrice} KRW -> ${newPrice} KRW (${
-  didRise ? "+" : ""
-}${percentValue.toFixed(2)}%)
+      didRise ? "+" : ""
+    }${percentValue.toFixed(2)}%)
 
 **Rules:**
 1.  **Language:** Korean (formal, news style).
@@ -855,3 +871,4 @@ export const manualGenerateNews = onRequest(
     }
   }
 );
+// ======================================================
