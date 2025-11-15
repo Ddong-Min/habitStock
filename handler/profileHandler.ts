@@ -175,6 +175,7 @@ export const useProfileHandlers = () => {
     if (!tempName.trim()) return Alert.alert("오류", "이름을 입력해주세요.");
     setUserName(tempName); // ✅ 1. 로컬 상태 즉시 변경
     updateUserSettings("name", tempName); // ✅ 2. DB 업데이트 (await 없음)
+    updateUserSettings("name_lowercase", tempName.toLowerCase);
     setShowNameModal(false);
     Alert.alert("성공", "이름이 변경되었습니다.");
   }, [tempName, updateUserSettings]);

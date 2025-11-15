@@ -1,6 +1,12 @@
 import CustomChart from "@/components/CustomChart";
 import React from "react";
-import { StyleSheet, TouchableOpacity, View, ScrollView } from "react-native";
+import {
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  ScrollView,
+  Alert,
+} from "react-native";
 import Typo from "@/components/Typo";
 import { useState } from "react";
 import { useStock } from "@/contexts/stockContext";
@@ -8,12 +14,11 @@ import NewsDetail from "@/components/NewsDetail";
 import { verticalScale } from "@/utils/styling";
 import { Ionicons } from "@expo/vector-icons";
 import { spacingY, spacingX, radius } from "../constants/theme";
-// ❌ 'colors'는 theme에서 가져오므로 제거 (혹은 그대로 둬도 무방)
-// import { colors } from "../constants/theme";
 import FollowingProfile from "./FollowingProfile";
 import { useTheme } from "@/contexts/themeContext";
 import { useNews } from "@/contexts/newsContext";
 import { useCalendar } from "@/contexts/calendarContext";
+import { useFollow } from "@/contexts/followContext";
 
 const FriendStockDetail = ({
   followId,
@@ -24,8 +29,38 @@ const FriendStockDetail = ({
 }) => {
   const { theme } = useTheme();
   const { friendStockData, friendStockSummaries } = useStock();
+  const { toggleFollow, isFollowing } = useFollow();
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const { today } = useCalendar();
+  const [isUnfollowing, setIsUnfollowing] = useState(false);
+
+  // followId 유효성 검증
+  if (!followId || typeof followId !== "string") {
+    return (
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <Typo color={theme.text}>잘못된 사용자 정보입니다</Typo>
+        <TouchableOpacity onPress={onBack} style={{ marginTop: 20 }}>
+          <Typo color={theme.text}>돌아가기</Typo>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // today 유효성 검증
+  if (!today || typeof today !== "string") {
+    return (
+      <View
+        style={[styles.centerContainer, { backgroundColor: theme.background }]}
+      >
+        <Typo color={theme.text}>날짜 정보를 불러올 수 없습니다</Typo>
+        <TouchableOpacity onPress={onBack} style={{ marginTop: 20 }}>
+          <Typo color={theme.text}>돌아가기</Typo>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (!friendStockData || !friendStockData[followId]) {
     return (
@@ -48,11 +83,37 @@ const FriendStockDetail = ({
     setSelectedItem(null);
   };
 
+  const handleUnfollow = () => {
+    Alert.alert("언팔로우", "이 사용자를 언팔로우 하시겠습니까?", [
+      {
+        text: "취소",
+        style: "cancel",
+      },
+      {
+        text: "언팔로우",
+        style: "destructive",
+        onPress: async () => {
+          setIsUnfollowing(true);
+          try {
+            await toggleFollow(followId);
+            // 언팔로우 성공 후 뒤로가기
+            onBack();
+          } catch (error) {
+            console.error("언팔로우 실패:", error);
+            Alert.alert("오류", "언팔로우에 실패했습니다.");
+          } finally {
+            setIsUnfollowing(false);
+          }
+        },
+      },
+    ]);
+  };
+
   // 현재가 위치 계산 함수
   const calculatePosition = (current: number, low: number, high: number) => {
-    if (high === low) return 50; // 최고가와 최저가가 같으면 중앙
+    if (high === low) return 50;
     const percentage = ((current - low) / (high - low)) * 100;
-    return Math.min(Math.max(percentage, 0), 100); // 0-100% 사이로 제한
+    return Math.min(Math.max(percentage, 0), 100);
   };
 
   if (selectedItem) {
@@ -76,15 +137,26 @@ const FriendStockDetail = ({
         <Typo size={18} fontWeight={"600"} color={theme.text}>
           친구 주식 상세
         </Typo>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity
+          onPress={handleUnfollow}
+          style={styles.unfollowButton}
+          disabled={isUnfollowing}
+        >
+          <Ionicons name="person-remove-outline" size={22} color={"#EF4444"} />
+        </TouchableOpacity>
       </View>
       <ScrollView
         style={[styles.content, { backgroundColor: theme.background }]}
       >
-        <FollowingProfile />
-        <CustomChart stockData={friendStockByDate} />
+        <FollowingProfile followId={followId} />
+        {friendStockByDate && Object.keys(friendStockByDate).length > 0 ? (
+          <CustomChart stockData={friendStockByDate} />
+        ) : (
+          <View style={[styles.centerContainer, { paddingVertical: 40 }]}>
+            <Typo color={theme.textLight}>차트 데이터를 불러오는 중...</Typo>
+          </View>
+        )}
 
-        {/* ✅ [수정] Stock.tsx와 동일하게 sectionContainer로 감싸기 */}
         <View style={styles.sectionContainer}>
           {!stockSummary ? (
             <View
@@ -93,7 +165,6 @@ const FriendStockDetail = ({
                 { backgroundColor: theme.cardBackground },
               ]}
             >
-              {/* ✅ [수정] theme.textLight로 변경 */}
               <Typo color={theme.textLight}>시세 정보를 불러오는 중...</Typo>
             </View>
           ) : (
@@ -109,7 +180,6 @@ const FriendStockDetail = ({
                 </Typo>
               </View>
 
-              {/* ✅ [수정] subsection 구조 추가 */}
               <View style={styles.subsection}>
                 <Typo
                   size={15}
@@ -142,11 +212,9 @@ const FriendStockDetail = ({
                   </View>
                   <View style={styles.rangeTextContainer}>
                     <View style={styles.rangeItem}>
-                      {/* ✅ [수정] theme.textLight (theme.sub -> theme.textLight) */}
                       <Typo size={13} color={theme.textLight}>
                         7일 최저가
                       </Typo>
-                      {/* ✅ [수정] fontWeight="semibold" */}
                       <Typo size={15} fontWeight="semibold" color={theme.text}>
                         {stockSummary.recent7Days.low.toLocaleString()}원
                       </Typo>
@@ -163,12 +231,10 @@ const FriendStockDetail = ({
                 </View>
               </View>
 
-              {/* ✅ [수정] 구분선 추가 */}
               <View
                 style={[styles.divider, { backgroundColor: theme.neutral200 }]}
               />
 
-              {/* ✅ [수정] subsection 구조 추가 */}
               <View style={styles.subsection}>
                 <Typo
                   size={15}
@@ -220,12 +286,10 @@ const FriendStockDetail = ({
                 </View>
               </View>
 
-              {/* ✅ [수정] 구분선 추가 */}
               <View
                 style={[styles.divider, { backgroundColor: theme.neutral200 }]}
               />
 
-              {/* ✅ [수정] subsection 구조 추가 */}
               <View style={styles.subsection}>
                 <Typo
                   size={15}
@@ -235,7 +299,6 @@ const FriendStockDetail = ({
                 >
                   상세 정보
                 </Typo>
-                {/* ❌ [제거] borderTop 스타일 제거 */}
                 <View style={styles.infoGrid}>
                   <View style={styles.infoItem}>
                     <Typo size={13} color={theme.textLight}>
@@ -266,7 +329,6 @@ const FriendStockDetail = ({
                   </View>
                   <View style={styles.infoItem}>
                     <Typo size={13} color={theme.textLight}>
-                      {/* ✅ [수정] "종가가" -> "종가" */}
                       종가
                     </Typo>
                     <Typo size={16} fontWeight="semibold" color={theme.text}>
@@ -296,9 +358,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  // ❌ [제거] newsItem 스타일 (사용되지 않음)
-  // newsItem: { ... }
-  // ❌ [제거] newsTime, newsTitle 스타일 (사용되지 않음)
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -310,8 +369,9 @@ const styles = StyleSheet.create({
   backButton: {
     padding: spacingX._5,
   },
-
-  // --- ✅ [수정/추가] Stock.tsx의 스타일 적용 ---
+  unfollowButton: {
+    padding: spacingX._5,
+  },
   sectionContainer: {
     marginHorizontal: spacingX._12,
     marginTop: spacingY._10,
@@ -333,7 +393,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacingY._15, // (24 -> spacingY._15)
+    marginBottom: spacingY._15,
   },
   subsection: {
     marginBottom: spacingY._3,
@@ -346,39 +406,38 @@ const styles = StyleSheet.create({
     marginVertical: spacingY._15,
   },
   rangeContainer: {
-    marginBottom: 0, // (20 -> 0)
+    marginBottom: 0,
   },
   rangeBar: {
-    height: spacingY._8, // (6 -> spacingY._8)
-    borderRadius: radius._3, // (3 -> radius._3)
-    marginBottom: spacingY._10, // (12 -> spacingY._10)
+    height: spacingY._8,
+    borderRadius: radius._3,
+    marginBottom: spacingY._10,
     position: "relative",
   },
   rangeDot: {
-    width: spacingX._10, // (12 -> spacingX._10)
-    height: spacingX._10, // (12 -> spacingX._10)
-    borderRadius: radius._100, // (6 -> radius._100)
+    width: spacingX._10,
+    height: spacingX._10,
+    borderRadius: radius._100,
     position: "absolute",
-    top: -spacingX._3, // (-3 -> -spacingX._3)
-    marginLeft: -spacingX._6, // (-6 -> -spacingX._6)
+    top: -spacingX._3,
+    marginLeft: -spacingX._6,
   },
   rangeTextContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
   },
   rangeItem: {
-    gap: spacingY._3, // (4 -> spacingY._3)
+    gap: spacingY._3,
   },
   infoGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingTop: spacingY._10, // (16 -> spacingY._10)
+    paddingTop: spacingY._10,
   },
   infoItem: {
     flex: 1,
-    gap: spacingY._8, // (8 -> spacingY._8)
+    gap: spacingY._8,
   },
-  // ❌ [제거] summarySection 스타일 (대체됨)
 });
 
 export default FriendStockDetail;

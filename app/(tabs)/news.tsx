@@ -8,7 +8,6 @@ import {
   RefreshControl,
   ScrollView,
 } from "react-native";
-// --- [신규] React와 useEffect import ---
 import React, { useState, useEffect } from "react";
 import { radius, spacingX, spacingY } from "../../constants/theme";
 import Typo from "../../components/Typo";
@@ -38,18 +37,17 @@ const news = () => {
     refreshFeed,
     filterUserId,
     setFilterUserId,
-    initNewsTab, // 👈 [신규] 초기화 함수 가져오기
-    currentUserId, // 👈 [신규] 유저 ID 가져오기
+    initNewsTab,
+    currentUserId,
   } = useNews();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // --- [신규] 뉴스 탭이 마운트될 때 데이터 로딩 시작 ---
   useEffect(() => {
     if (currentUserId) {
-      initNewsTab(); // "뉴스 탭"이 처음 보일 때 1회 호출
+      initNewsTab();
     }
-  }, [currentUserId, initNewsTab]); // 유저가 로그인하면 1회 실행
+  }, [currentUserId, initNewsTab]);
 
   const formatTime = (createdAt: any) => {
     try {
@@ -113,11 +111,21 @@ const news = () => {
     setIsRefreshing(false);
   };
 
+  // --- 💡 [수정된 부분] ---
   const handleLoadMore = () => {
-    if (!feedLoadingMore && feedHasMore) {
-      loadMoreFeed();
+    // 초기 로딩 중이거나, 리스트가 비어있거나,
+    // 이미 더 불러오는 중이거나, 더 이상 데이터가 없으면 실행하지 않음
+    if (
+      feedLoading ||
+      feedItems.length === 0 ||
+      feedLoadingMore ||
+      !feedHasMore
+    ) {
+      return;
     }
+    loadMoreFeed();
   };
+  // -------------------------
 
   if (selectedNews) {
     return <NewsDetail item={selectedNews} onBack={handleBack} />;
@@ -433,7 +441,6 @@ const news = () => {
   };
 
   const renderListEmpty = () => {
-    // [수정] 'feedLoading'은 초기 로드/필터 변경 시에만 true가 됨
     if (feedLoading && feedItems.length === 0) {
       return (
         <View style={styles.centerContainer}>
@@ -486,9 +493,9 @@ const news = () => {
           />
         }
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={renderListHeader()}
-        ListFooterComponent={renderListFooter()}
-        ListEmptyComponent={renderListEmpty()}
+        ListHeaderComponent={renderListHeader}
+        ListFooterComponent={renderListFooter}
+        ListEmptyComponent={renderListEmpty}
         contentContainerStyle={[
           styles.listContent,
           (feedItems.length === 0 ||
@@ -503,7 +510,6 @@ const news = () => {
 
 export default news;
 
-// --- 스타일은 변경할 필요 없습니다 ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -543,9 +549,7 @@ const styles = StyleSheet.create({
   userFilterItem: {
     alignItems: "center",
   },
-  userFilterItemActive: {
-    // 활성화 상태
-  },
+  userFilterItemActive: {},
   userFilterAvatarContainer: {
     borderWidth: 2,
     borderColor: "transparent",

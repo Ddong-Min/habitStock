@@ -283,27 +283,25 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
   /**
    * [신규] 필터 변경 함수 (캐시 로직 포함)
    */
+
   const setFilterUserId = (newFilterId: string | null) => {
     if (newFilterId === filterUserIdRef.current) return;
 
     console.log(`필터 변경 시도: ${newFilterId}`);
-
     _setFilterUserId(newFilterId);
     filterUserIdRef.current = newFilterId;
 
     const cacheKey = newFilterId ?? "ALL";
-
     if (feedCache[cacheKey]) {
       console.log(`캐시 히트: ${cacheKey}`);
       const cachedData = feedCache[cacheKey];
       setFeedItems(cachedData.items);
       feedLastDocRef.current = cachedData.lastDoc;
       setFeedHasMore(cachedData.hasMore);
-      setFeedLoading(false);
     } else {
       console.log(`캐시 미스: ${cacheKey}, DB에서 새로고침`);
       setFeedItems([]);
-      setFeedLoading(true);
+      feedLastDocRef.current = null;
       refreshFeed(newFilterId, true);
     }
   };
@@ -386,14 +384,12 @@ export const NewsProvider = ({ children }: { children: ReactNode }) => {
    * [신규] 뉴스 탭 초기화 함수 (News 탭이 마운트될 때 호출)
    */
   const initNewsTab = useCallback(() => {
-    if (!currentUserId || isFeedInitialized) return; // 이미 초기화됐으면 무시
-
+    if (!currentUserId || isFeedInitialized) return;
     console.log("🔥 뉴스 탭 초기화 (피드 로드 + 좋아요 구독)");
     setIsFeedInitialized(true);
-    setFeedLoading(true); // 👈 로딩 시작
-
-    refreshFeed(null, true); // '전체' 피드로 1페이지 로드
-    initLikesSubscription(); // '좋아요' 목록 구독 시작
+    setFeedLoading(true); // 👈 여기서 로딩 시작
+    refreshFeed(null, true); // 👈 여기서 또 로딩 + 데이터 로드
+    initLikesSubscription();
   }, [currentUserId, isFeedInitialized, refreshFeed, initLikesSubscription]);
 
   /**

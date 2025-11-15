@@ -1,4 +1,4 @@
-import React from "react"; // ❌ useEffect, useState 제거
+import React from "react";
 import { View, StyleSheet, Image } from "react-native";
 import Typo from "./Typo";
 import { radius, spacingX, spacingY } from "@/constants/theme";
@@ -8,48 +8,67 @@ import { useStock } from "@/contexts/stockContext";
 import { useCalendar } from "@/contexts/calendarContext";
 import { useTheme } from "@/contexts/themeContext";
 
-const FollowingProfile: React.FC = () => {
+interface FollowingProfileProps {
+  followId?: string; // props로 받을 수 있도록 추가
+}
+
+const FollowingProfile: React.FC<FollowingProfileProps> = ({
+  followId: propFollowId,
+}) => {
   const { theme } = useTheme();
   const { friendStockData } = useStock();
   const { today } = useCalendar();
   const { selectedFollowId, followingUsers } = useFollow();
 
-  const followUser = followingUsers.find(
-    (user) => user?.uid === selectedFollowId
-  );
+  // props로 받은 followId를 우선 사용, 없으면 context에서 가져오기
+  const followId = propFollowId || selectedFollowId;
+
+  // followId가 없으면 기본 UI 표시
+  if (!followId) {
+    return (
+      <View
+        style={[styles.container, { backgroundColor: theme.cardBackground }]}
+      >
+        <Typo color={theme.textLight}>사용자 정보를 불러올 수 없습니다</Typo>
+      </View>
+    );
+  }
+
+  // today가 없거나 유효하지 않으면 기본 UI 표시
+  if (!today || typeof today !== "string") {
+    return (
+      <View
+        style={[styles.container, { backgroundColor: theme.cardBackground }]}
+      >
+        <Typo color={theme.textLight}>날짜 정보를 불러올 수 없습니다</Typo>
+      </View>
+    );
+  }
+
+  const followUser = followingUsers.find((user) => user?.uid === followId);
   const name = followUser?.name || "사용자";
   const image = followUser?.image || "https://via.placeholder.com/100";
 
-  // --- ✅ [수정] 오늘 데이터가 없으면 가장 최근 데이터를 찾도록 로직 변경 ---
+  // 친구의 전체 주식 데이터를 가져옵니다.
+  const friendsData = friendStockData?.[followId];
 
-  // 1. 친구의 전체 주식 데이터를 가져옵니다.
-  const friendsData = selectedFollowId
-    ? friendStockData?.[selectedFollowId]
-    : undefined;
-
-  // 2. 오늘 날짜의 데이터를 우선적으로 찾습니다.
+  // 오늘 날짜의 데이터를 우선적으로 찾습니다.
   let displayStock = friendsData?.[today];
 
-  // 3. 오늘 데이터가 없고(undefined), friendsData가 존재할 경우
+  // 오늘 데이터가 없고, friendsData가 존재할 경우
   if (!displayStock && friendsData) {
-    // 4. 데이터가 있는 모든 날짜의 키를 가져옵니다.
     const availableDates = Object.keys(friendsData);
 
     if (availableDates.length > 0) {
-      // 5. 날짜를 정렬하여 가장 마지막(최신) 날짜를 찾습니다.
-      // (날짜 형식이 "YYYY-MM-DD"이므로 문자열 정렬이 가능합니다)
+      // 날짜를 정렬하여 가장 마지막(최신) 날짜를 찾습니다.
       const mostRecentDate = availableDates.sort().pop();
 
       if (mostRecentDate) {
-        // 6. 가장 최신 날짜의 데이터를 displayStock으로 사용합니다.
-        // (이 데이터는 '오늘'의 가격 변동이 아닌, '해당 날짜'의 변동을 보여줍니다)
         displayStock = friendsData[mostRecentDate];
       }
     }
   }
-  // --- ✅ 로직 수정 완료 ---
 
-  // 7. 'todayStock' 대신 'displayStock' 변수를 사용합니다.
   const isPositive = (displayStock?.changePrice ?? 0) > 0;
   const isZero = (displayStock?.changePrice ?? 0) === 0;
 
@@ -74,7 +93,7 @@ const FollowingProfile: React.FC = () => {
           color={theme.text}
           style={{ lineHeight: verticalScale(24), letterSpacing: -0.3 }}
         >
-          {name || "사용자"}
+          {name}
         </Typo>
 
         <View style={styles.stockInfo}>
@@ -84,12 +103,10 @@ const FollowingProfile: React.FC = () => {
             color={theme.text}
             style={{ marginRight: 6, letterSpacing: -0.2 }}
           >
-            {/* 'displayStock' 사용 */}₩
-            {displayStock?.close?.toLocaleString() ?? "0"}
+            ₩{displayStock?.close?.toLocaleString() ?? "0"}
           </Typo>
 
           <Typo size={15} color={theme.neutral400} fontWeight={"500"}>
-            {/* '오늘'이 아닐 수 있으므로 "어제보다" 문구를 "변동"으로 변경하거나 유지 */}
             어제보다{" "}
           </Typo>
 
@@ -100,7 +117,6 @@ const FollowingProfile: React.FC = () => {
             ]}
           >
             <Typo size={15} fontWeight="500" style={{ color: changeColor }}>
-              {/* 'displayStock' 사용 */}
               {isPositive ? "▲" : isZero ? "" : "▼"}{" "}
               {displayStock?.changePrice?.toLocaleString() ?? 0} (
               {displayStock?.changeRate ?? 0}%)
@@ -112,7 +128,6 @@ const FollowingProfile: React.FC = () => {
   );
 };
 
-// 스타일은 UserProfile과 동일하게 유지
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",

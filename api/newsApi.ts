@@ -227,7 +227,7 @@ export const distributNewsToFollowers = async (
         const feedRef = doc(firestore, "users", followerId, "feed", newsId);
 
         if (batchCount >= 500) {
-          batches.push(writeBatch(firestore)); //새 배치 생성 
+          batches.push(writeBatch(firestore)); //새 배치 생성
           batchCount = 0;
         }
 
@@ -401,7 +401,8 @@ export const getFeedWithPagination = async (
     const feedSnap = await getDocs(feedQuery); //feedSnap은 querySnapshot
 
     const feeds: FeedItem[] = [];
-    feedSnap.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => { //queryDocumentSnapshot이므로 doc.exists() 체크 불필요
+    feedSnap.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+      //queryDocumentSnapshot이므로 doc.exists() 체크 불필요
       feeds.push(doc.data() as FeedItem);
     });
 
@@ -480,7 +481,7 @@ export const updateNews = async (
       await deleteNewsImage(userId, newsId); // 기존 이미지 삭제
       imageURL = null;
     } else if (updates.imageUri) {
-      imageURL = await uploadNewsImage(userId, newsId, updates.imageUri); // 새 이미지 업로드 
+      imageURL = await uploadNewsImage(userId, newsId, updates.imageUri); // 새 이미지 업로드
     }
 
     const updatedData = {
@@ -513,7 +514,7 @@ const updateFeedItems = async (
     if (myFeedSnap.exists()) {
       await updateDoc(myFeedRef, updates);
     }
-
+    console.log("123123123123123123");
     // 2. 팔로워들의 Feed 업데이트 (올바른 경로)
     const followersRef = collection(
       firestore,
@@ -539,7 +540,7 @@ const updateFeedItems = async (
           batchCount = 0;
         }
 
-        batches[batches.length - 1].update(feedRef, updates);
+        batches[batches.length - 1].set(feedRef, updates, { merge: true });
         batchCount++;
       }
     );

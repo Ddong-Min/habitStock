@@ -7,6 +7,7 @@ import React, {
   ReactNode,
 } from "react";
 import * as followApi from "../api/followApi";
+import * as newsApi from "../api/newsApi";
 import { UserType } from "../types";
 import { useAuth } from "./authContext";
 import { useStock } from "./stockContext";
@@ -125,12 +126,14 @@ export const FollowProvider = ({ children }: { children: ReactNode }) => {
             payload: { targetUserId },
           });
           await followApi.unfollowUser(currentUserId, targetUserId);
+          await newsApi.removeNewsFromFeed(currentUserId, targetUserId);
         } else {
           customLogEvent({
             eventName: "follow_user",
             payload: { targetUserId },
           });
           await followApi.followUser(currentUserId, targetUserId);
+          await newsApi.addExistingNewsToFeed(currentUserId, targetUserId);
         }
       } catch (error) {
         customLogEvent({
