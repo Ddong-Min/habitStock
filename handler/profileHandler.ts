@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react"; // ✅ useCallback 임포트
 import { Alert, Linking } from "react-native";
-import storage from "@react-native-firebase/storage";
-import { firestore } from "@/config/firebase";
+import { firestore, storage } from "@/config/firebase";
 import { doc, updateDoc, deleteDoc } from "@react-native-firebase/firestore";
 import auth from "@react-native-firebase/auth";
 import * as ImagePicker from "expo-image-picker";
@@ -94,13 +93,12 @@ export const useProfileHandlers = () => {
     },
     [user]
   ); // ✅ user가 바뀔 때만 함수 재생성
-
   /** ✅ Firebase Storage 업로드 (useCallback) */
   const uploadImageToFirebase = useCallback(
     async (uri: string) => {
       if (!user) throw new Error("User not logged in.");
       const filename = `profile_${user.uid}_${Date.now()}.jpg`;
-      const refPath = storage().ref(`profiles/${filename}`);
+      const refPath = storage.ref(`profiles/${filename}`);
 
       await refPath.putFile(uri);
       const downloadURL = await refPath.getDownloadURL();
@@ -113,8 +111,21 @@ export const useProfileHandlers = () => {
     async (uri: string) => {
       try {
         setIsUploading(true);
+
+        // 기존 이미지가 있다면 삭제
+        if (user?.image) {
+          try {
+            // URL에서 파일 경로 추출
+            const oldImageRef = storage.refFromURL(user.image);
+            await oldImageRef.delete();
+          } catch (deleteError) {
+            // 기존 이미지 삭제 실패해도 계속 진행
+            console.log("기존 이미지 삭제 실패:", deleteError);
+          }
+        }
+
         const imageUrl = await uploadImageToFirebase(uri);
-        await updateUserSettings("image", imageUrl); // (await 유지)
+        await updateUserSettings("image", imageUrl);
         setIsUploading(false);
         Alert.alert("성공", "프로필 사진이 변경되었습니다.");
       } catch (error) {
@@ -122,7 +133,7 @@ export const useProfileHandlers = () => {
         Alert.alert("오류", "이미지 업로드에 실패했습니다.");
       }
     },
-    [uploadImageToFirebase, updateUserSettings]
+    [uploadImageToFirebase, updateUserSettings, user]
   );
 
   /** ✅ 카메라 촬영 (useCallback) */
@@ -175,7 +186,7 @@ export const useProfileHandlers = () => {
     if (!tempName.trim()) return Alert.alert("오류", "이름을 입력해주세요.");
     setUserName(tempName); // ✅ 1. 로컬 상태 즉시 변경
     updateUserSettings("name", tempName); // ✅ 2. DB 업데이트 (await 없음)
-    updateUserSettings("name_lowercase", tempName.toLowerCase);
+    updateUserSettings("name_lower", tempName.toLowerCase());
     setShowNameModal(false);
     Alert.alert("성공", "이름이 변경되었습니다.");
   }, [tempName, updateUserSettings]);

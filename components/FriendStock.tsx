@@ -19,7 +19,7 @@ import { useAuth } from "@/contexts/authContext"; // ✅ [추가] useAuth 훅 im
 import { radius, spacingX, spacingY } from "@/constants/theme";
 import Typo from "@/components/Typo";
 import { LineChart } from "react-native-chart-kit";
-import { verticalScale } from "@/utils/styling";
+import { scale, verticalScale } from "@/utils/styling";
 
 const screenWidth = Dimensions.get("window").width;
 const chartWidth = screenWidth * 0.22; // 화면 너비의 22%로 설정
@@ -116,7 +116,7 @@ const FriendStock = ({ item }: { item: any }) => {
             color={theme.text}
             style={styles.userName}
             fontWeight={"600"}
-            size={18}
+            size={16}
             numberOfLines={2}
           >
             {/* [수정] name 사용 */}
@@ -180,7 +180,7 @@ const FriendStock = ({ item }: { item: any }) => {
             )}
             <View style={styles.weeklyChange}>
               <Typo
-                size={16}
+                size={14}
                 color={theme.text}
                 style={styles.weeklyChangeText}
               >
@@ -188,7 +188,7 @@ const FriendStock = ({ item }: { item: any }) => {
                 {price}원
               </Typo>
               <Typo
-                size={14}
+                size={10}
                 color={theme.textLight}
                 style={styles.weeklyChangeText}
               >
@@ -209,7 +209,7 @@ const FriendStock = ({ item }: { item: any }) => {
                 ]}
               >
                 <Typo
-                  size={14}
+                  size={12}
                   color={
                     // [수정] 숫자(processedWeeklyChange)로 비교 및 stockColors 적용
                     processedWeeklyChange > 0
@@ -218,7 +218,7 @@ const FriendStock = ({ item }: { item: any }) => {
                       ? theme.text
                       : stockColors.down // ✅ [수정]
                   }
-                  style={{ lineHeight: verticalScale(14) }}
+                  style={{ lineHeight: scale(12) }}
                 >
                   {/* [수정] 문자열(weeklyChangeString)로 표시 */}
                   {weeklyChangeString}%

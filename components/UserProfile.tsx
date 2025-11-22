@@ -33,7 +33,7 @@ const UserProfile: React.FC<{}> = ({}) => {
       </View>
       <View style={styles.userInfo}>
         <Typo
-          size={20}
+          size={18}
           fontWeight="600"
           color={theme.text}
           style={{ lineHeight: verticalScale(24), letterSpacing: -0.3 }}
@@ -43,7 +43,7 @@ const UserProfile: React.FC<{}> = ({}) => {
 
         <View style={styles.stockInfo}>
           <Typo
-            size={20}
+            size={18}
             fontWeight="600"
             color={theme.text}
             style={{ marginRight: 6, letterSpacing: -0.2 }}
@@ -51,7 +51,7 @@ const UserProfile: React.FC<{}> = ({}) => {
             ₩{todayStock?.close!}
           </Typo>
 
-          <Typo size={15} color={theme.neutral400} fontWeight={"500"}>
+          <Typo size={12} color={theme.neutral400} fontWeight={"500"}>
             어제보다{" "}
           </Typo>
 
@@ -61,7 +61,7 @@ const UserProfile: React.FC<{}> = ({}) => {
               { backgroundColor: `${changeColor}15` },
             ]}
           >
-            <Typo size={15} fontWeight="500" style={{ color: changeColor }}>
+            <Typo size={12} fontWeight="500" style={{ color: changeColor }}>
               {isPositive ? "▲" : isZero ? "" : "▼"} {todayStock?.changePrice} (
               {todayStock?.changeRate}%)
             </Typo>

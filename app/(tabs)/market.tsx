@@ -164,7 +164,7 @@ const Market = () => {
           onPress={() => handleSort("default")}
         >
           <Typo
-            size={13}
+            size={12}
             color={
               sortConfig.key === "default" ? theme.blue100 : theme.textLight
             }
@@ -185,7 +185,7 @@ const Market = () => {
           onPress={() => handleSort("price")}
         >
           <Typo
-            size={13}
+            size={12}
             color={sortConfig.key === "price" ? theme.blue100 : theme.textLight}
             fontWeight={sortConfig.key === "price" ? "600" : "500"}
           >
@@ -204,7 +204,7 @@ const Market = () => {
           onPress={() => handleSort("changePercent")}
         >
           <Typo
-            size={13}
+            size={12}
             color={
               sortConfig.key === "changePercent"
                 ? theme.blue100
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     height: 48,
   },
   searchIcon: {
-    fontSize: 20,
+    fontSize: 18,
     marginRight: 8,
   },
   searchInput: {

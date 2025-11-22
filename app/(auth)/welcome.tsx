@@ -20,7 +20,7 @@ const Welcome = () => {
             />
           </View>
           <View style={styles.context}>
-            <Typo size={18} fontWeight={"600"}>
+            <Typo size={16} fontWeight={"600"}>
               자신을 상장하고 주가를 상승시켜 보세요.
             </Typo>
           </View>
@@ -30,7 +30,7 @@ const Welcome = () => {
             onPress={() => router.push("/(auth)/login")}
             color={colors.blue100}
           >
-            <Typo size={20} fontWeight={"600"}>
+            <Typo size={18} fontWeight={"600"}>
               이미 계정이 있습니다
             </Typo>
           </Button>
@@ -38,7 +38,7 @@ const Welcome = () => {
             onPress={() => router.push("/(auth)/register")}
             color={colors.red100}
           >
-            <Typo size={20} fontWeight={"600"}>
+            <Typo size={18} fontWeight={"600"}>
               처음입니다
             </Typo>
           </Button>
@@ -66,11 +66,13 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     marginTop: spacingY._15,
+    marginBottom: spacingY._15,
   },
   buttonContainer: {
     width: "100%",
     paddingHorizontal: spacingX._25,
     gap: spacingY._25,
     marginBottom: spacingY._100,
+    //marginTop: spacingY._20, //이걸로 고치는게 ㅁ마즌ㄴ거같은데데
   },
 });

@@ -85,7 +85,7 @@ const ProfileHeader = memo(
       <View style={styles.profileInfo}>
         <View style={styles.nameRow}>
           <Typo
-            size={18}
+            size={16}
             fontWeight="bold"
             color={theme.text}
             style={styles.nameText}
@@ -107,7 +107,7 @@ const ProfileHeader = memo(
             setShowBioModal(true);
           }}
         >
-          <Typo size={14} color={theme.textLight} numberOfLines={1}>
+          <Typo size={12} color={theme.textLight} numberOfLines={1}>
             {user.bio || "소개를 입력하세요"}
           </Typo>
         </TouchableOpacity>
@@ -130,7 +130,7 @@ const GeneralSettings = memo(
   }: any) => (
     <View style={styles.section}>
       <Typo
-        size={16}
+        size={15}
         fontWeight="600"
         color={theme.text}
         style={styles.sectionTitle}
@@ -140,7 +140,7 @@ const GeneralSettings = memo(
       <View style={styles.settingItem}>
         <View style={styles.settingLeft}>
           <Ionicons name="moon" size={24} color={theme.text} />
-          <Typo size={16} color={theme.text} style={styles.settingText}>
+          <Typo size={14} color={theme.text} style={styles.settingText}>
             다크모드
           </Typo>
         </View>
@@ -154,7 +154,7 @@ const GeneralSettings = memo(
       <View style={styles.settingItem}>
         <View style={styles.settingLeft}>
           <Ionicons name="notifications" size={24} color={theme.text} />
-          <Typo size={16} color={theme.text} style={styles.settingText}>
+          <Typo size={14} color={theme.text} style={styles.settingText}>
             알림
           </Typo>
         </View>
@@ -171,12 +171,12 @@ const GeneralSettings = memo(
       >
         <View style={styles.settingLeft}>
           <Ionicons name="time" size={24} color={theme.text} />
-          <Typo size={16} color={theme.text} style={styles.settingText}>
+          <Typo size={14} color={theme.text} style={styles.settingText}>
             할일 마감 시간
           </Typo>
         </View>
         <View style={styles.settingRight}>
-          <Typo size={14} color={theme.textLight}>
+          <Typo size={13} color={theme.textLight}>
             {user.duetime}
           </Typo>
           <Ionicons name="chevron-forward" size={20} color={theme.textLight} />
@@ -221,7 +221,7 @@ const ChartSettings = memo(
     return (
       <View style={styles.section}>
         <Typo
-          size={16}
+          size={15}
           fontWeight="600"
           color={theme.text}
           style={styles.sectionTitle}
@@ -231,7 +231,7 @@ const ChartSettings = memo(
         <View style={styles.settingItem}>
           <View style={styles.settingLeft}>
             <Ionicons name="pulse" size={24} color={theme.text} />
-            <Typo size={16} color={theme.text} style={styles.settingText}>
+            <Typo size={14} color={theme.text} style={styles.settingText}>
               이동평균선 표시
             </Typo>
           </View>
@@ -246,7 +246,7 @@ const ChartSettings = memo(
         <View style={styles.settingItemColumn}>
           <View style={styles.settingLeft}>
             <Ionicons name="color-palette" size={24} color={theme.text} />
-            <Typo size={16} color={theme.text} style={styles.settingText}>
+            <Typo size={14} color={theme.text} style={styles.settingText}>
               차트 색상 테마
             </Typo>
           </View>
@@ -264,7 +264,7 @@ const ChartSettings = memo(
               onPress={() => handleChartColorSchemeChange("red-up")}
             >
               <Typo
-                size={16}
+                size={14}
                 fontWeight="600"
                 color={theme.text}
                 style={styles.colorSchemeTitle}
@@ -309,7 +309,7 @@ const ChartSettings = memo(
               onPress={() => handleChartColorSchemeChange("green-up")}
             >
               <Typo
-                size={16}
+                size={14}
                 fontWeight="600"
                 color={theme.text}
                 style={styles.colorSchemeTitle}
@@ -347,7 +347,7 @@ const ChartSettings = memo(
         <View style={styles.settingItem}>
           <View style={styles.settingLeft}>
             <Ionicons name="analytics" size={24} color={theme.text} />
-            <Typo size={16} color={theme.text} style={styles.settingText}>
+            <Typo size={14} color={theme.text} style={styles.settingText}>
               차트 라인 색상
             </Typo>
           </View>
@@ -374,7 +374,7 @@ const AccountSettings = memo(
   ({ theme, handlePasswordChange, handleLogout, handleDeleteAccount }: any) => (
     <View style={styles.section}>
       <Typo
-        size={16}
+        size={15}
         fontWeight="600"
         color={theme.text}
         style={styles.sectionTitle}
@@ -387,7 +387,7 @@ const AccountSettings = memo(
       >
         <View style={styles.settingLeft}>
           <Ionicons name="lock-closed" size={24} color={theme.text} />
-          <Typo size={16} color={theme.text} style={styles.settingText}>
+          <Typo size={14} color={theme.text} style={styles.settingText}>
             비밀번호 변경
           </Typo>
         </View>
@@ -395,7 +395,7 @@ const AccountSettings = memo(
       <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
         <View style={styles.settingLeft}>
           <Ionicons name="log-out" size={24} color={theme.red100} />
-          <Typo size={16} color={theme.red100} style={styles.settingText}>
+          <Typo size={14} color={theme.red100} style={styles.settingText}>
             로그아웃
           </Typo>
         </View>
@@ -406,7 +406,7 @@ const AccountSettings = memo(
       >
         <View style={styles.settingLeft}>
           <Ionicons name="trash" size={24} color={theme.red100} />
-          <Typo size={16} color={theme.red100} style={styles.settingText}>
+          <Typo size={14} color={theme.red100} style={styles.settingText}>
             회원탈퇴
           </Typo>
         </View>

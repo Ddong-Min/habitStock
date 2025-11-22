@@ -2,7 +2,7 @@ import { StyleSheet, Text, TextStyle, View } from "react-native";
 import React from "react";
 import { colors } from "@/constants/theme";
 import { TypoProps } from "@/types";
-import { verticalScale } from "@/utils/styling";
+import { scale } from "@/utils/styling";
 
 const Typo = ({
   size,
@@ -14,7 +14,7 @@ const Typo = ({
   textProps = {},
 }: TypoProps) => {
   const textStyle: TextStyle = {
-    fontSize: size ? verticalScale(size) : verticalScale(16),
+    fontSize: size ? scale(size) : scale(16),
     color,
     fontWeight,
   };

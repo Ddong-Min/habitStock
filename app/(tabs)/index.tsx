@@ -94,7 +94,6 @@ const TodoScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         <UserProfile />
         {/* <Toggle /> */}
-
         <CustomCalendar />
 
         <View style={{ flex: 1 }}>

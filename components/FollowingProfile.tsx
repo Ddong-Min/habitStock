@@ -88,7 +88,7 @@ const FollowingProfile: React.FC<FollowingProfileProps> = ({
       </View>
       <View style={styles.userInfo}>
         <Typo
-          size={20}
+          size={18}
           fontWeight="600"
           color={theme.text}
           style={{ lineHeight: verticalScale(24), letterSpacing: -0.3 }}
@@ -98,7 +98,7 @@ const FollowingProfile: React.FC<FollowingProfileProps> = ({
 
         <View style={styles.stockInfo}>
           <Typo
-            size={20}
+            size={18}
             fontWeight="600"
             color={theme.text}
             style={{ marginRight: 6, letterSpacing: -0.2 }}
@@ -106,7 +106,7 @@ const FollowingProfile: React.FC<FollowingProfileProps> = ({
             ₩{displayStock?.close?.toLocaleString() ?? "0"}
           </Typo>
 
-          <Typo size={15} color={theme.neutral400} fontWeight={"500"}>
+          <Typo size={12} color={theme.neutral400} fontWeight={"500"}>
             어제보다{" "}
           </Typo>
 
@@ -116,7 +116,7 @@ const FollowingProfile: React.FC<FollowingProfileProps> = ({
               { backgroundColor: `${changeColor}15` },
             ]}
           >
-            <Typo size={15} fontWeight="500" style={{ color: changeColor }}>
+            <Typo size={12} fontWeight="500" style={{ color: changeColor }}>
               {isPositive ? "▲" : isZero ? "" : "▼"}{" "}
               {displayStock?.changePrice?.toLocaleString() ?? 0} (
               {displayStock?.changeRate ?? 0}%)

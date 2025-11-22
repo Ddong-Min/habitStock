@@ -162,18 +162,18 @@ const news = () => {
                   },
                 ]}
               >
-                <Typo size={11} fontWeight="600" color="#3b82f6">
+                <Typo size={10} fontWeight="600" color="#3b82f6">
                   {isMyNews ? "내 뉴스" : item.newsUserName}
                 </Typo>
               </View>
-              <Typo size={11} color={theme.textLight}>
+              <Typo size={10} color={theme.textLight}>
                 {formatTime(item.createdAt)}
               </Typo>
             </View>
 
             {/* 제목 */}
             <Typo
-              size={16}
+              size={12}
               fontWeight="700"
               color={theme.text}
               style={styles.cardTitle}
@@ -184,7 +184,7 @@ const news = () => {
 
             {/* 내용 미리보기 */}
             <Typo
-              size={13}
+              size={11}
               color={theme.textLight}
               style={styles.cardDescription}
               numberOfLines={2}
@@ -203,7 +203,7 @@ const news = () => {
                 >
                   <Ionicons
                     name={isLiked ? "heart" : "heart-outline"}
-                    size={16}
+                    size={14}
                     color={isLiked ? "#FF4458" : theme.textLight}
                   />
                   <Typo
@@ -218,7 +218,7 @@ const news = () => {
                 <TouchableOpacity style={styles.miniButton} activeOpacity={0.7}>
                   <Ionicons
                     name="chatbubble-outline"
-                    size={15}
+                    size={14}
                     color={theme.textLight}
                   />
                   <Typo size={12} fontWeight="600" color={theme.textLight}>
@@ -258,9 +258,9 @@ const news = () => {
       {/* 헤더 */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Typo size={28} fontWeight="800" color={theme.text}>
+          <Typo size={22} fontWeight="800" color={theme.text}>
             TodoStock{" "}
-            <Typo size={28} fontWeight="300" color={theme.text}>
+            <Typo size={22} fontWeight="300" color={theme.text}>
               news
             </Typo>
           </Typo>
@@ -295,22 +295,28 @@ const news = () => {
           >
             <View
               style={[
-                styles.userFilterAvatar,
-                {
-                  backgroundColor:
-                    filterUserId === null ? "#3b82f6" : theme.neutral200,
-                },
+                styles.userFilterAvatarContainer,
                 filterUserId === null && styles.userFilterAvatarActive,
               ]}
             >
-              <Ionicons
-                name="apps"
-                size={24}
-                color={filterUserId === null ? "#fff" : theme.neutral500}
-              />
+              <View
+                style={[
+                  styles.userFilterAvatar,
+                  {
+                    backgroundColor:
+                      filterUserId === null ? "#3b82f6" : theme.neutral200,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="apps"
+                  size={20}
+                  color={filterUserId === null ? "#fff" : theme.neutral500}
+                />
+              </View>
             </View>
             <Typo
-              size={11}
+              size={10}
               fontWeight={filterUserId === null ? "700" : "500"}
               color={filterUserId === null ? "#3b82f6" : theme.textLight}
               style={styles.filterLabel}
@@ -349,14 +355,14 @@ const news = () => {
                   >
                     <Ionicons
                       name="person"
-                      size={24}
+                      size={20}
                       color={theme.neutral500}
                     />
                   </View>
                 )}
               </View>
               <Typo
-                size={11}
+                size={10}
                 fontWeight={filterUserId === user.uid ? "700" : "500"}
                 color={filterUserId === user.uid ? "#3b82f6" : theme.textLight}
                 style={styles.filterLabel}
@@ -404,14 +410,14 @@ const news = () => {
                       >
                         <Ionicons
                           name="person"
-                          size={24}
+                          size={20}
                           color={theme.neutral500}
                         />
                       </View>
                     )}
                   </View>
                   <Typo
-                    size={11}
+                    size={10}
                     fontWeight={isSelected ? "700" : "500"}
                     color={isSelected ? "#3b82f6" : theme.textLight}
                     numberOfLines={1}

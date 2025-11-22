@@ -760,7 +760,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
             activeOpacity={0.7}
           >
             <Typo
-              size={14}
+              size={12}
               fontWeight="600"
               color={selectedPeriod === "day" ? theme.text : theme.textLight}
               style={{ letterSpacing: -0.2 }}
@@ -781,7 +781,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
             activeOpacity={0.7}
           >
             <Typo
-              size={14}
+              size={12}
               fontWeight="600"
               color={selectedPeriod === "week" ? theme.text : theme.textLight}
               style={{ letterSpacing: -0.2 }}
@@ -802,7 +802,7 @@ const CustomChart: React.FC<{ stockData: StockDataByDateType }> = ({
             activeOpacity={0.7}
           >
             <Typo
-              size={14}
+              size={12}
               fontWeight="600"
               color={selectedPeriod === "month" ? theme.text : theme.textLight}
               style={{ letterSpacing: -0.2 }}

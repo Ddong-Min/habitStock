@@ -277,7 +277,7 @@ const TaskList: React.FC<{
 
                   <View style={styles.taskContent}>
                     <Typo
-                      size={16}
+                      size={13}
                       fontWeight={"600"}
                       color={item.completed ? theme.red100 : theme.blue100}
                       style={item.completed ? styles.completedText : undefined}
@@ -287,7 +287,7 @@ const TaskList: React.FC<{
 
                     {(item.completed || isOverdue) && (
                       <Typo
-                        size={13}
+                        size={10}
                         fontWeight={"600"}
                         color={item.completed ? theme.red100 : theme.blue100}
                       >

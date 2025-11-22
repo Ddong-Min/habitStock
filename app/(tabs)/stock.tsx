@@ -46,7 +46,7 @@ const Stock = () => {
             style={[styles.section, { backgroundColor: theme.cardBackground }]}
           >
             <View style={styles.sectionHeader}>
-              <Typo size={18} fontWeight="bold" color={theme.text}>
+              <Typo size={16} fontWeight="bold" color={theme.text}>
                 시세
               </Typo>
             </View>
@@ -54,7 +54,7 @@ const Stock = () => {
             {/* 최근 7일 */}
             <View style={styles.subsection}>
               <Typo
-                size={15}
+                size={13}
                 fontWeight="semibold"
                 color={theme.text}
                 style={styles.subsectionTitle}
@@ -87,7 +87,7 @@ const Stock = () => {
                     <Typo size={13} color={theme.textLight}>
                       7일 최저가
                     </Typo>
-                    <Typo size={15} fontWeight="semibold" color={theme.text}>
+                    <Typo size={13} fontWeight="semibold" color={theme.text}>
                       {stockSummary.recent7Days.low.toLocaleString()}원
                     </Typo>
                   </View>
@@ -95,7 +95,7 @@ const Stock = () => {
                     <Typo size={13} color={theme.textLight}>
                       7일 최고가
                     </Typo>
-                    <Typo size={15} fontWeight="semibold" color={theme.text}>
+                    <Typo size={13} fontWeight="semibold" color={theme.text}>
                       {stockSummary.recent7Days.high.toLocaleString()}원
                     </Typo>
                   </View>
@@ -111,7 +111,7 @@ const Stock = () => {
             {/* 전체 기간 */}
             <View style={styles.subsection}>
               <Typo
-                size={15}
+                size={13}
                 fontWeight="semibold"
                 color={theme.text}
                 style={styles.subsectionTitle}
@@ -144,7 +144,7 @@ const Stock = () => {
                     <Typo size={13} color={theme.textLight}>
                       전체 최저가
                     </Typo>
-                    <Typo size={15} fontWeight="semibold" color={theme.text}>
+                    <Typo size={13} fontWeight="semibold" color={theme.text}>
                       {stockSummary.allTime.low.toLocaleString()}원
                     </Typo>
                   </View>
@@ -152,7 +152,7 @@ const Stock = () => {
                     <Typo size={13} color={theme.textLight}>
                       전체 최고가
                     </Typo>
-                    <Typo size={15} fontWeight="semibold" color={theme.text}>
+                    <Typo size={13} fontWeight="semibold" color={theme.text}>
                       {stockSummary.allTime.high.toLocaleString()}원
                     </Typo>
                   </View>
@@ -168,7 +168,7 @@ const Stock = () => {
             {/* 상세 정보 */}
             <View style={styles.subsection}>
               <Typo
-                size={15}
+                size={14}
                 fontWeight="bold"
                 color={theme.text}
                 style={styles.subsectionTitle}
@@ -180,7 +180,7 @@ const Stock = () => {
                   <Typo size={13} color={theme.textLight}>
                     현재가
                   </Typo>
-                  <Typo size={16} fontWeight="semibold" color={theme.text}>
+                  <Typo size={13} fontWeight="semibold" color={theme.text}>
                     {stockSummary.allTime.current.toLocaleString()}원
                   </Typo>
                 </View>
@@ -188,7 +188,7 @@ const Stock = () => {
                   <Typo size={13} color={theme.textLight}>
                     최대 거래량
                   </Typo>
-                  <Typo size={16} fontWeight="semibold" color={theme.text}>
+                  <Typo size={13} fontWeight="semibold" color={theme.text}>
                     {stockSummary.maxVolume.volume.toLocaleString()}주
                   </Typo>
                 </View>
@@ -198,7 +198,7 @@ const Stock = () => {
                   <Typo size={13} color={theme.textLight}>
                     시작가
                   </Typo>
-                  <Typo size={16} fontWeight="semibold" color={theme.text}>
+                  <Typo size={13} fontWeight="semibold" color={theme.text}>
                     {stockData[today].open.toLocaleString()}원
                   </Typo>
                 </View>
@@ -206,7 +206,7 @@ const Stock = () => {
                   <Typo size={13} color={theme.textLight}>
                     종가
                   </Typo>
-                  <Typo size={16} fontWeight="semibold" color={theme.text}>
+                  <Typo size={13} fontWeight="semibold" color={theme.text}>
                     {stockData[today].close.toLocaleString()}원
                   </Typo>
                 </View>

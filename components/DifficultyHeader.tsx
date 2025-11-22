@@ -36,7 +36,7 @@ const DifficultyHeader: React.FC<{
           ]}
         />
         <Typo
-          size={verticalScale(fontSize ? fontSize : 16)}
+          size={fontSize ? fontSize : 12}
           style={{
             lineHeight: verticalScale(fontSize ? fontSize : 16),
             letterSpacing: -0.2,

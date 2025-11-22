@@ -175,14 +175,14 @@ const FriendStockDetail = ({
               ]}
             >
               <View style={styles.sectionHeader}>
-                <Typo size={18} fontWeight="bold" color={theme.text}>
+                <Typo size={16} fontWeight="bold" color={theme.text}>
                   시세
                 </Typo>
               </View>
 
               <View style={styles.subsection}>
                 <Typo
-                  size={15}
+                  size={13}
                   fontWeight="semibold"
                   color={theme.text}
                   style={styles.subsectionTitle}
@@ -215,7 +215,7 @@ const FriendStockDetail = ({
                       <Typo size={13} color={theme.textLight}>
                         7일 최저가
                       </Typo>
-                      <Typo size={15} fontWeight="semibold" color={theme.text}>
+                      <Typo size={13} fontWeight="semibold" color={theme.text}>
                         {stockSummary.recent7Days.low.toLocaleString()}원
                       </Typo>
                     </View>
@@ -223,7 +223,7 @@ const FriendStockDetail = ({
                       <Typo size={13} color={theme.textLight}>
                         7일 최고가
                       </Typo>
-                      <Typo size={15} fontWeight="semibold" color={theme.text}>
+                      <Typo size={13} fontWeight="semibold" color={theme.text}>
                         {stockSummary.recent7Days.high.toLocaleString()}원
                       </Typo>
                     </View>
@@ -237,7 +237,7 @@ const FriendStockDetail = ({
 
               <View style={styles.subsection}>
                 <Typo
-                  size={15}
+                  size={13}
                   fontWeight="semibold"
                   color={theme.text}
                   style={styles.subsectionTitle}
@@ -270,7 +270,7 @@ const FriendStockDetail = ({
                       <Typo size={13} color={theme.textLight}>
                         전체 최저가
                       </Typo>
-                      <Typo size={15} fontWeight="semibold" color={theme.text}>
+                      <Typo size={13} fontWeight="semibold" color={theme.text}>
                         {stockSummary.allTime.low.toLocaleString()}원
                       </Typo>
                     </View>
@@ -278,7 +278,7 @@ const FriendStockDetail = ({
                       <Typo size={13} color={theme.textLight}>
                         전체 최고가
                       </Typo>
-                      <Typo size={15} fontWeight="semibold" color={theme.text}>
+                      <Typo size={13} fontWeight="semibold" color={theme.text}>
                         {stockSummary.allTime.high.toLocaleString()}원
                       </Typo>
                     </View>
@@ -292,7 +292,7 @@ const FriendStockDetail = ({
 
               <View style={styles.subsection}>
                 <Typo
-                  size={15}
+                  size={14}
                   fontWeight="bold"
                   color={theme.text}
                   style={styles.subsectionTitle}
@@ -304,7 +304,7 @@ const FriendStockDetail = ({
                     <Typo size={13} color={theme.textLight}>
                       현재가
                     </Typo>
-                    <Typo size={16} fontWeight="semibold" color={theme.text}>
+                    <Typo size={13} fontWeight="semibold" color={theme.text}>
                       {stockSummary.allTime.current.toLocaleString()}원
                     </Typo>
                   </View>
@@ -312,7 +312,7 @@ const FriendStockDetail = ({
                     <Typo size={13} color={theme.textLight}>
                       최대 거래량
                     </Typo>
-                    <Typo size={16} fontWeight="semibold" color={theme.text}>
+                    <Typo size={13} fontWeight="semibold" color={theme.text}>
                       {stockSummary.maxVolume.volume.toLocaleString()}주
                     </Typo>
                   </View>
@@ -322,7 +322,7 @@ const FriendStockDetail = ({
                     <Typo size={13} color={theme.textLight}>
                       시작가
                     </Typo>
-                    <Typo size={16} fontWeight="semibold" color={theme.text}>
+                    <Typo size={13} fontWeight="semibold" color={theme.text}>
                       {friendStockByDate[today]?.open?.toLocaleString() ?? "0"}
                       원
                     </Typo>
@@ -331,7 +331,7 @@ const FriendStockDetail = ({
                     <Typo size={13} color={theme.textLight}>
                       종가
                     </Typo>
-                    <Typo size={16} fontWeight="semibold" color={theme.text}>
+                    <Typo size={13} fontWeight="semibold" color={theme.text}>
                       {friendStockByDate[today]?.close?.toLocaleString() ?? "0"}
                       원
                     </Typo>

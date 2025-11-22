@@ -52,7 +52,7 @@ const CustomDay: React.FC<CustomDayProps> = ({
               ? theme.blue100
               : theme.text,
           }}
-          size={scale(24)}
+          size={22}
           fontWeight="bold"
         >
           {date.day}
@@ -60,7 +60,7 @@ const CustomDay: React.FC<CustomDayProps> = ({
       </View>
       {date.dateString <= today && (
         <Typo
-          size={scale(13)}
+          size={10}
           color={
             isNoChange
               ? theme.neutral500

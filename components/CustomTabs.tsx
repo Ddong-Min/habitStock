@@ -9,7 +9,7 @@ import { Theme } from "@/constants/theme";
 // 각 탭의 아이콘 매핑
 const getTabIcon = (routeName: string, isFocused: boolean, theme: Theme) => {
   const iconColor = isFocused ? theme.blue100 : theme.neutral400;
-  const size = 24;
+  const size = 18;
 
   switch (routeName) {
     case "index":
